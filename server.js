@@ -9,8 +9,8 @@ const {signUp,signIn} = require('./controllers/authController');
 const {orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
-const {getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
-const {getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
+const {getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
+const {payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
 const {attendanceSaveUpdate,getAttendanceList} = require('./controllers/hr/attendanceController'); 
 
@@ -129,6 +129,7 @@ app.post('/api/employee/exit-clearance',authenticateToken,express.json(),getEmpl
 
 app.post('/api/attendance/save-update',authenticateToken,express.json(),upload,attendanceSaveUpdate );
 app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendanceList ); 
+app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
 
 
 //end employee controller
@@ -148,6 +149,9 @@ app.post('/api/payroll/salary-components/deduction',authenticateToken,express.js
 app.post('/api/payroll/summary',authenticateToken,express.json(),getPayrollSummary );
 app.post('/api/payroll/preview',authenticateToken,express.json(),getPayrollPreview );
 app.post('/api/payroll/accrual/preview',authenticateToken,express.json(),getPayrollAccrualPreview );
+app.post('/api/payroll/history',authenticateToken,express.json(),getPayrollHistory );
+ 
+app.post('/api/payroll/save',authenticateToken,express.json(),payrollSave );
 
 // start of finance 
 

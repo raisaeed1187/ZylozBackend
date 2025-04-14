@@ -65,8 +65,9 @@ const getDynamicCreatedTablesWithModules = async (req,res)=>{
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;    
             const pool = await sql.connect(config); 
+            // console.log(req.authUser);
             // const apiResponse = await pool.request().query(`select * from DynamicCreatedTables`); 
-            const apiResponse = await pool.request().query(`exec GetDynamicCreatedScreenWithModules `); 
+            const apiResponse = await pool.request().query(`exec GetDynamicCreatedScreenWithModules ${req.authUser.Id}`); 
             // res.json(apiResponse.recordset);
             const jsonResult = apiResponse.recordset[0];
             //  console.log(jsonResult);   

@@ -217,4 +217,5 @@ const getAttendanceAcountTypes = async (req, res) => {
 // end of getAttendanceAcountTypes
 
 
+
 module.exports =  {getAttendanceAcountTypes, deleteCustomerContact,attendanceSaveUpdate,getAttendanceList,getAttendanceDetails} ;

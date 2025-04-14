@@ -370,7 +370,9 @@ async function saveEmployeeDocuments(pool,attachmentUrls,NewID,formData){
 // end of saveEmployeeDocuments
 
 const getEmployeeList = async (req, res) => {  
-     
+    
+    const {isActiveEmployee} = req.body;  
+
     try {
          
         store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -378,7 +380,14 @@ const getEmployeeList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec GetEmployeeDetails`; 
+        let query = ``; 
+
+        if(isActiveEmployee){
+            query = `exec GetActiveEmployees_List`; 
+        }else{
+            query = `exec GetEmployeeDetails`;  
+        }
+
         const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
             const date = new Date(createdAt);
@@ -893,4 +902,56 @@ const getEmployeeExitClearanceDetails = async (req, res) => {
 };
 // end of getEmployeeExitClearanceDetails
 
-module.exports =  {getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+
+const getPaySlip = async (req, res) => {  
+    const {Id2,payMonth} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = ''; 
+        query = `exec Get_PaySlip '${Id2}','${payMonth}'`;   
+        const apiResponse = await pool.request().query(query); 
+        
+        const benefitsQuery = `exec Get_PaySlip_Benefits '${Id2}','${payMonth}'` 
+        const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
+        
+        const deductionsQuery = `exec Get_PaySlip_Deductions '${Id2}','${payMonth}'` 
+        const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
+        let paySlipInfo = {};
+        if(apiResponse.recordset.length > 0){
+            const benefits = Object.entries(apiBenefitsResponse.recordset[0])
+            // .filter(([key]) => !["TotalEarnings", "TotalBenefits"].includes(key))
+            .filter(([key, value]) => !["TotalEarnings", "TotalBenefits", "GrossTotal"].includes(key) && value) 
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+            const deductions = Object.entries(apiDeductionsResponse.recordset[0])  
+            .filter(([key, value]) => !["TotalDeductions"].includes(key) && value)  
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+
+            paySlipInfo = {
+                employeeInfo:apiResponse.recordset[0],
+                employeeBenefits:benefits,
+                employeeDeductions:deductions, 
+            }
+
+        }
+
+
+        res.status(200).json({
+            message: `Payslip loaded successfully!`,
+            data:paySlipInfo // apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPaySlip
+
+module.exports =  {getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
