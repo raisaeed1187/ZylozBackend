@@ -9,7 +9,7 @@ const {signUp,signIn} = require('./controllers/authController');
 const {orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
-const {getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
+const {employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
 const {attendanceSaveUpdate,getAttendanceList} = require('./controllers/hr/attendanceController'); 
@@ -42,14 +42,19 @@ const storage = multer.diskStorage({
     }
 });
 
+// const upload = multer({
+//     storage: storage,
+//     limits: { fileSize: 10 * 1024 * 1024 } // 10MB file size limit
+// }).fields([
+//     { name: "logo", maxCount: 1 },
+//     { name: "img", maxCount: 1 }, 
+//     { name: "attachments", maxCount: 5 }
+// ]);
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB file size limit
-}).fields([
-    { name: "logo", maxCount: 1 },
-    { name: "img", maxCount: 1 }, 
-    { name: "attachments", maxCount: 5 }
-]);
+    limits: { fileSize: 10 * 1024 * 1024 }
+}).any(); 
+
 
 
 const dynamicFileUpload = multer({ dest: "uploads/" });
@@ -121,6 +126,7 @@ app.post('/api/employee/leaves',authenticateToken,express.json(),getEmployeeLeav
 app.post('/api/employee/leave',authenticateToken,express.json(),getEmployeeLeaveDetails );
 app.post('/api/employee/leave/types',authenticateToken,express.json(),getEmployeeLeaveTypes );
 app.post('/api/employee/deduction/save-update',authenticateToken,express.json(),upload,employeeDeductionSaveUpdate );
+app.post('/api/employee/delete/document',authenticateToken,express.json(),employeeDeleteDocument );
 
 app.post('/api/employee/exit-clearance/save-update',authenticateToken,express.json(),upload,employeeExitClearanceSaveUpdate);
 app.post('/api/employee/exit-clearances',authenticateToken,express.json(),getEmployeeExitClearanceList);

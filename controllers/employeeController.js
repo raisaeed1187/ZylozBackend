@@ -37,6 +37,12 @@ const employeeSaveUpdate = async (req,res)=>{
                 }else{
                     imgUrl =  formData.img;
                 } 
+
+                console.log('formData');
+                console.log(formData);
+
+                 
+
                 const result = await pool.request()
                     .input('ID2', sql.NVarChar(250), formData.ID2)  
                     .input("name", sql.NVarChar(255), formData.name)
@@ -80,19 +86,23 @@ const employeeSaveUpdate = async (req,res)=>{
                 if(formData.employeeBenefits){
                     await employeeBenefitSaveUpdate(req,encryptedId);
                 }
+                if(formData.employeeDocuments){
+                    employeeDocumentSaveUpdate(req,encryptedId);
+                }
+
                 
-                let attachments = null;
-                console.log('before attachments');
-                console.log(req.files);
-                if(Array.isArray(req.files?.attachments)){
-                    console.log('inside attachments');
-                    attachments = req.files["attachments"]
-                        ? await Promise.all(req.files["attachments"].map(file => uploadDocument(file).then((res)=>{return res})))
-                        : []; 
-                }
-                if(attachments){
-                    await saveEmployeeDocuments(pool,attachments,encryptedId,formData);
-                }
+                // let attachments = null;
+                // console.log('before attachments');
+                // console.log(req.files);
+                // if(Array.isArray(req.files?.attachments)){
+                //     console.log('inside attachments');
+                //     attachments = req.files["attachments"]
+                //         ? await Promise.all(req.files["attachments"].map(file => uploadDocument(file).then((res)=>{return res})))
+                //         : []; 
+                // }
+                // if(attachments){
+                //     await saveEmployeeDocuments(pool,attachments,encryptedId,formData);
+                // }
 
                 res.status(200).json({
                     message: 'Employee saved/updated',
@@ -291,6 +301,61 @@ const employeeDeductionSaveUpdate = async (req,res)=>{
         }
 }
 
+async function employeeDocumentSaveUpdate(req,EmployeeId){
+    const formData = req.body; 
+    const employeeData = JSON.parse(formData.employeeDocuments); 
+    console.log(employeeData);
+    try {
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try {    
+                   
+                const documents = employeeData || [];
+                const files = req.files || []; 
+ 
+                documents.forEach(async (doc, index) =>  {
+                    const matchingFile = files.find(f => f.fieldname === doc.fileKey);
+                    console.log('matchingFile');
+                    console.log(matchingFile); 
+                    let fileUrl = null;
+                    let fileName = null; 
+                    if (matchingFile) { 
+                        fileUrl = matchingFile ? (await uploadDocument(matchingFile)).fileUrl : null;
+                        fileName = matchingFile?.originalname;
+                    } else {
+                        fileUrl =  doc?.DocumentUrl;
+                        fileName = doc?.DocumentName;
+                    }
+                    console.log('fileUrl New');
+                    console.log(fileUrl);
+
+                    await pool.request()
+                    .input("ID2", sql.NVarChar, doc?.Id || 0)  
+                    .input("EmployeeId", sql.NVarChar(360), EmployeeId)  
+                    .input("DocumentType", sql.NVarChar, doc.DocumentType)  
+                    .input("DocumentNo", sql.NVarChar, doc.DocumentNumber)  
+                    .input("IssueDate", sql.NVarChar, doc.IssueDate)  
+                    .input("ExpiryDate", sql.NVarChar, doc.ExpiryDate)  
+                    .input("Remarks", sql.NVarChar, doc.Remarks)   
+                    .input("DocumentName", sql.NVarChar, fileName)  
+                    .input("DocumentUrl", sql.NVarChar, fileUrl)  
+                    .input("CreatedBy", sql.NVarChar,formData.createdBy ) 
+                    .execute("EmployeeDocument_SaveOrUpdate");
+
+                });
+
+                return true;
+                
+            } catch (err) { 
+                throw new Error(err.message);
+            }  
+        } catch (error) { 
+            throw new Error(error.message);
+        }
+}
+// end of employeeDocumentSaveUpdate
+
 // end of employeeBenefitSaveUpdate
 function encryptID(id) {
   
@@ -443,6 +508,10 @@ const getEmployeeDetails = async (req, res) => {
         const employeeBenefitsQueryResponse = await pool.request().query(employeeBenefitsQuery); 
         const employeeDeductionsQueryResponse = await pool.request().query(employeeDeductionQuery); 
        
+        const employeeDocumentQuery = `exec getEmployeeDocuments '${Id}'`; 
+        const employeeDocumentQueryResponse = await pool.request().query(employeeDocumentQuery); 
+      
+
         let employeeInfo = null; 
 
         if(employeeInfoQueryResponse.recordset){
@@ -460,6 +529,7 @@ const getEmployeeDetails = async (req, res) => {
                 salaryDetails: employeeSalaryDetailsQueryResponse.recordset,
                 employeeBenefits: employeeBenefitsQueryResponse.recordset,
                 employeeDeductions: employeeDeductionsQueryResponse.recordset,
+                employeeDocuments: employeeDocumentQueryResponse.recordset,
 
 
             }
@@ -577,6 +647,33 @@ const employeeChangeStatus = async (req, res) => {
     }
 };
 // end of employeeChangeStatus
+
+const employeeDeleteDocument = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        let query = null; 
+        query = `exec EmployeeDocument_Delete '${Id}'`; 
+           
+        const apiResponse = await pool.request().query(query);  
+          
+        res.status(200).json({
+            message: `employees document deleted successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of employeeDeleteDocument
  
 // ----------- end of employee
 
@@ -954,4 +1051,4 @@ const getPaySlip = async (req, res) => {
 };
 // end of getPaySlip
 
-module.exports =  {getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
