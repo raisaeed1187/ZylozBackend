@@ -32,21 +32,29 @@ const employeeSaveUpdate = async (req,res)=>{
             try { 
                   
                 let imgUrl = null;
-                if(Array.isArray(req.files?.img)){
-                    imgUrl = req.files["img"] ? (await uploadDocument(req.files["img"][0])).fileUrl : null;
+                if(Array.isArray(req.files)){ 
+                    const matchingFile = req.files.find(f => f.fieldname === 'img');
+                    if(matchingFile){
+                        imgUrl = matchingFile ? (await uploadDocument(matchingFile)).fileUrl : null;
+                    }else{
+                        imgUrl =  formData.img;
+                    }
                 }else{
                     imgUrl =  formData.img;
                 } 
 
                 console.log('formData');
                 console.log(formData);
+                console.log('imgUrl');
+                console.log(imgUrl);
 
-                 
 
+  
                 const result = await pool.request()
                     .input('ID2', sql.NVarChar(250), formData.ID2)  
                     .input("name", sql.NVarChar(255), formData.name)
                     .input("employeeId", sql.NVarChar(50), formData.employeeId)
+                    .input("organizationId", sql.NVarChar(65), formData.organizationId)
                     .input("joiningDate", sql.NVarChar(255), formData.joiningDate)
                     .input("jobTitle", sql.NVarChar(255), formData.jobTitle)
                     .input("employmentType", sql.NVarChar(100), formData.employmentType)
@@ -649,7 +657,7 @@ const employeeChangeStatus = async (req, res) => {
 // end of employeeChangeStatus
 
 const employeeDeleteDocument = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,deleteType} = req.body;  
       
     try {
          
@@ -659,7 +667,11 @@ const employeeDeleteDocument = async (req, res) => {
         const pool = await sql.connect(config); 
         
         let query = null; 
-        query = `exec EmployeeDocument_Delete '${Id}'`; 
+        if(deleteType == 'employeeBenefit'){
+            query = `exec EmployeeBenefit_Delete '${Id}'`;  
+        }else{
+            query = `exec EmployeeDocument_Delete '${Id}'`; 
+        }
            
         const apiResponse = await pool.request().query(query);  
           

@@ -42,15 +42,15 @@ const storage = multer.diskStorage({
     }
 });
 
-// const upload = multer({
-//     storage: storage,
-//     limits: { fileSize: 10 * 1024 * 1024 } // 10MB file size limit
-// }).fields([
-//     { name: "logo", maxCount: 1 },
-//     { name: "img", maxCount: 1 }, 
-//     { name: "attachments", maxCount: 5 }
-// ]);
 const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB file size limit
+}).fields([
+    { name: "logo", maxCount: 1 },
+    { name: "img", maxCount: 1 }, 
+    { name: "attachments", maxCount: 5 }
+]);
+const employeeUpload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 }
 }).any(); 
@@ -114,7 +114,7 @@ app.post('/api/quotation/status',authenticateToken,express.json(),getQuotationSt
 app.post('/api/quotation/change/status',authenticateToken,express.json(),quotationChangeStatus );
 //end quotation controller
 
-app.post('/api/employee-save-update',authenticateToken,express.json(),upload,employeeSaveUpdate );
+app.post('/api/employee-save-update',authenticateToken,express.json(),employeeUpload,employeeSaveUpdate );
 app.post('/api/employees',authenticateToken,express.json(),getEmployeeList );
 app.post('/api/employee',authenticateToken,express.json(),getEmployeeDetails );
 app.post('/api/employee/documents',authenticateToken,express.json(),getEmployeeDocuments );

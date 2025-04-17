@@ -63,12 +63,20 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     .input('ExpiryDate', sql.NVarChar(250), formData.expiryDate) 
                     .input('EstCardDetails', sql.NVarChar(250), formData.estCardDetails)
                     .input('EstCardExpiryDate', sql.NVarChar(250), formData.estCardExpiryDate) 
-                    .input('Status', sql.NVarChar(50), "Active") 
+                    .input('Status', sql.NVarChar(50), "1") 
                     .input('Logo', sql.NVarChar(250), typeof formData.logo === "string" && formData.logo.startsWith("http") ? formData.logo : logoUrl) 
-                    .input('Attachments', sql.NVarChar(250), JSON.stringify(formData.attachments)) 
+                    .input('Attachments', sql.NVarChar(250), "") 
                     .input('CreatedBy', sql.NVarChar(250), formData.createdBy || "Admin") 
                     .input('CreatedAt', sql.DateTime, formData.createdAt || new Date())  
                    
+                    .input('bankCode', sql.NVarChar(255), formData.bankCode || "")
+                    .input('bankName', sql.NVarChar(255), formData.bankName || "")
+                    .input('bankAccount', sql.NVarChar(255), formData.bankAccount || "")
+                    .input('bankIbanNo', sql.NVarChar(255), formData.bankIbanNo || "")
+                    .input('bankSwiftCode', sql.NVarChar(255), formData.bankSwiftCode || "")
+                    .input('employeePrefixCode', sql.NVarChar(255), formData.employeePrefixCode || "")
+                    
+
                     .output('NewID', sql.NVarChar(250))
                     .execute('OrganizationProfile_Save_Update'); 
                 // const result = await pool.request().query(query); 
