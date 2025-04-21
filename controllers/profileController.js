@@ -198,24 +198,13 @@ const getOrgProfileList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `select * from OrganizationProfile`; 
+        const query = `exec OrganizationProfile_Get`; 
         const apiResponse = await pool.request().query(query); 
-        const formatCreatedAt = (createdAt) => {
-            const date = new Date(createdAt);
-            return date.toLocaleDateString("en-US");
-        };
-        
-        let formatedData = apiResponse.recordset.map(staff => ({
-            ...staff,
-            CreatedAt: formatCreatedAt(staff.CreatedAt),
-            ChangedAt: formatCreatedAt(staff.ChangedAt), 
-        })); 
-        formatedData = formatedData.map(({ ID, ...rest }) => rest);
-
+         
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
             message: `OrganizationProfile loaded successfully!`,
-            data: formatedData
+            data: apiResponse.recordset
         });
          
     } catch (error) {

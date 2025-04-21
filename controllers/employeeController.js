@@ -686,6 +686,34 @@ const employeeDeleteDocument = async (req, res) => {
     }
 };
 // end of employeeDeleteDocument
+
+const employeePayslips = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        let query = null;  
+        query = `exec Get_EmployeePaySlips '${Id}'`; 
+        
+           
+        const apiResponse = await pool.request().query(query);  
+          
+        res.status(200).json({
+            message: `employees payslips successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of employeePayslips
  
 // ----------- end of employee
 
@@ -697,14 +725,11 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
              
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
+            const config = store.getState().constents.config;   
             const pool = await sql.connect(config);
             try {  
                 let result = null;
-                if(formData.resumeDate){
-                    console.log('inside resumption');
-                    console.log(formData.resumeDate);
+                if(formData.resumeDate){  
                      result = await pool.request()
                     .input('ID2', sql.NVarChar(250), formData.ID2)   
                     .input("isResumed", sql.Bit, 1)
@@ -712,7 +737,18 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                     .input("remarks", sql.NVarChar(500), formData.reason) 
                     .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin") 
                     .execute('EmployeeLeave_Resumption');    
-                }else{ 
+                }else if(formData.isDelete && formData.isDelete == 'true'){  
+                    result = await pool.request()
+                    .input('ID2', sql.NVarChar(250), formData.ID2)  
+                    .input("employeeId", sql.NVarChar(250), formData.employeeId)
+                    .input("startDate", sql.Date, formData.startDate)
+                    .input("endDate", sql.Date, formData.endDate) 
+                    .input("leaveType", sql.NVarChar(255), formData.leaveType)
+                    .input("IsAttendanceAbsent", sql.NVarChar(255), 0)
+ 
+                    .execute('EmployeeLeave_Delete');  
+
+                } else{ 
                      result = await pool.request()
                         .input('ID2', sql.NVarChar(250), formData.ID2)   
                         .input("employeeId", sql.NVarChar(250), formData.employeeId)
@@ -721,6 +757,7 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                         .input("endDate", sql.Date, formData.endDate) 
                         .input("noOfDays", sql.NVarChar(255), formData.noOfDays)
                         .input("reason", sql.NVarChar(500), formData.reason) 
+                        .input("IsAttendanceAbsent", sql.Bit, 0)  
                         .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
                         .output('NewID', sql.NVarChar(255))  
                         .execute('EmployeeLeave_Save_Update');    
@@ -1063,4 +1100,4 @@ const getPaySlip = async (req, res) => {
 };
 // end of getPaySlip
 
-module.exports =  {employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {employeePayslips,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

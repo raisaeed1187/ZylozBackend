@@ -33,6 +33,7 @@ const attendanceSaveUpdate = async (req,res)=>{
             // console.log('formData');
             // console.log(attendance);
             const attendanceData = JSON.parse(attendance); 
+             
             const formatTime = (time) => {
                 return time.length === 5 ? `${time}:00` : time; // Convert "08:00" to "08:00:00"
             };
@@ -53,10 +54,12 @@ const attendanceSaveUpdate = async (req,res)=>{
                       .input("weeklyOT", sql.Decimal(5, 2), record.weeklyOT)
                       .input("attendanceStatus", sql.NVarChar(20), record.attendanceStatus)
                       .input("attendanceDate", sql.Date, record.attendanceDate)
+                      .input("dayStatus", sql.NVarChar(100), record.dayStatus)
+                      .input("isLeaveDelete", sql.Bit, record.isLeaveDelete) 
                       .input("changedBy", sql.NVarChar(100), changedBy)
                       .execute("dbo.StaffAttendance_SaveOrUpdate");
-                  }
-                 
+                }
+  
                 res.status(200).json({
                     message: 'Attendance saved/updated',
                     data: '' //result
@@ -98,11 +101,14 @@ const getAttendanceList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
-        if(isMonthly){
-            query = `exec StaffAttendance_Get`;  
+
+        if(isMonthly){ 
+            query = `exec StaffAttendance_Get '${date}', ${isMonthly ? 1 : 0}`;  
+        
+
         }else{
-            query = `exec StaffAttendance_Get '${date}'`;  
-        }
+            query = `exec StaffAttendance_Get '${date}',${isMonthly ? 1 : 0}`;  
+        } 
          
         const apiResponse = await pool.request().query(query); 
         

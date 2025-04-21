@@ -450,6 +450,182 @@ const payrollSave = async (req, res) => {
 };
 // payrollSave
 
+const payrollConfigurationSave = async (req, res) => {  
+    const formData = req.body; 
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('formData');
+        console.log(formData);
+
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(250), formData.ID2)  
+            .input("PayrollStartDate", sql.NVarChar(255), formData.payrollStartDate)
+            .input("PayFrequency", sql.NVarChar(255), formData.payFrequency) 
+            .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+            .output('NewID', sql.NVarChar(255))  
+            .execute('PayrollConfiguration_SaveOrUpdate');    
+ 
+        let newId =  result.output.NewID; 
+        let encryptedId =  formData.ID2;
+        if(formData.ID2 == '0'){
+            encryptedId =  encryptID(newId);
+            // console.log(encryptedId); 
+            await pool.request()
+            .query(`
+                UPDATE PayrollConfiguration 
+                SET ID2 = '${encryptedId}' 
+                WHERE Id = ${newId}
+            `);
+        }
+        if(formData.workingDays){
+            payrollWorkingDaysSaveUpdate(encryptedId,req,pool);
+        }
+        if(formData.holidays){
+            payrollPublicHolidaySaveUpdate(encryptedId,req,pool);
+        }
+        
+
+        res.status(200).json({
+            message: `Payroll configuration saved successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// payrollConfigurationSave
+async function payrollWorkingDaysSaveUpdate (payrollId, req,pool){
+    
+    const { workingDays, createdBy } = req.body;
+     
+    try {
+             
+             
+            const workingDaysData = JSON.parse(workingDays); 
+            console.log('workingDays');
+            console.log(workingDays);
+            console.log('payrollId');
+            console.log(payrollId);
+
+
+            
+
+
+            const formatTime = (time) => {
+                return time.length === 5 ? `${time}:00` : time; // Convert "08:00" to "08:00:00"
+            }; 
+            try { 
+                for (const record of workingDaysData) { 
+
+                    await pool.request() 
+                      .input("PayrollConfigurationId", sql.NVarChar(65), payrollId)
+                      .input("DayOfWeek", sql.NVarChar(100), record.day)
+                      .input("StartTime", sql.NVarChar(50), formatTime(record.start))
+                      .input("EndTime", sql.NVarChar(100), formatTime(record.end))
+                      .input("IsWeeklyOff", sql.Bit, record.off ? 1 : 0)
+                      .input("CreatedBy", sql.NVarChar(100), createdBy)
+                      .execute("PayrollWorkingDays_SaveOrUpdate");
+                }
+  
+               return true;
+            } catch (err) { 
+                throw new Error(err.message);
+            } 
+             
+        } catch (error) { 
+            throw new Error(error.message); 
+        }
+}
+// end of payrollWorkingDaysSaveUpdate
+async function payrollPublicHolidaySaveUpdate (payrollId, req,pool){
+    
+    const { holidays, createdBy } = req.body;
+     
+    try {
+             
+             
+            const holidaysData = JSON.parse(holidays); 
+            console.log('holidaysData');
+            console.log(holidaysData);
+
+ 
+            try { 
+                for (const record of holidaysData) {
+                    // console.log(record);
+                    await pool.request() 
+                      .input("ID2", sql.NVarChar(65), record.ID2)
+                      .input("Name", sql.NVarChar(255), record.name)
+                      .input("StartDate", sql.NVarChar(255), record.startDate)
+                      .input("EndDate", sql.NVarChar(255), record.endDate) 
+                      .input("NumberOfDays", sql.Int, record.numberOfDays)
+                      .input("CreatedBy", sql.NVarChar(100), createdBy)
+                      .execute("PublicHoliday_SaveOrUpdate");
+                } 
+   
+               return true;
+            } catch (err) { 
+                throw new Error(err.message);
+            } 
+             
+        } catch (error) { 
+            throw new Error(error.message); 
+        }
+}
+// end of payrollPublicHolidaySaveUpdate
+
+const getPayrollConfiguration = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec Get_PayrollConfiguration `; 
+        console.log('query');
+        console.log(query);
+        const apiResponse = await pool.request().query(query);  
+
+        const queryPayrollWorkingDays = `exec Get_PayrollWorkingDays`; 
+        console.log('queryPayrollWorkingDays');
+        console.log(queryPayrollWorkingDays);
+        const apiPayrollWorkingDaysResponse = await pool.request().query(queryPayrollWorkingDays);  
+        
+        const queryPublicHoliday = `exec Get_PublicHoliday`; 
+        console.log('queryPublicHoliday');
+        console.log(queryPublicHoliday);
+        const apiPublicHolidayResponse = await pool.request().query(queryPublicHoliday);  
+         
+
+        let letResponseData = {};
+        if(apiResponse.recordset){ 
+            letResponseData =  {
+                configuration: apiResponse.recordset[0],
+                workingDays: apiPayrollWorkingDaysResponse.recordset,
+                holidays: apiPublicHolidayResponse.recordset,
+            };
+        }   
+        res.status(200).json({
+            message: `Payroll configuration loaded successfully!`,
+            data: letResponseData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPayrollConfiguration
+
 const getPayrollSummary = async (req, res) => {  
     const {payDate} = req.body;  
       
@@ -638,4 +814,4 @@ const getPayrollAccrualPreview = async (req, res) => {
 
  
 
-module.exports =  {payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;
+module.exports =  {getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;
