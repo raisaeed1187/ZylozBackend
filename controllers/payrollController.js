@@ -568,7 +568,7 @@ async function payrollPublicHolidaySaveUpdate (payrollId, req,pool){
                       .input("CreatedBy", sql.NVarChar(100), createdBy)
                       .execute("PublicHoliday_SaveOrUpdate");
                 } 
-   
+    
                return true;
             } catch (err) { 
                 throw new Error(err.message);
