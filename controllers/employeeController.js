@@ -217,6 +217,13 @@ async function employeeSalaryDetailsSaveUpdate(req,EmployeeId){
                         }
                     }  
                 } 
+                const now = new Date(); 
+                const formattedDate = getStartOfMonth(now); 
+                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}'`; 
+                 
+                const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                
+
                 return true;
                 
             } catch (err) { 
@@ -250,7 +257,12 @@ async function employeeBenefitSaveUpdate(req,EmployeeId){
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('EmployeeBenefit_Save_Update');
                         }
-                    }  
+                    } 
+                    const now = new Date(); 
+                    const formattedDate = getStartOfMonth(now); 
+                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}'`; 
+                    const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                    
                 } 
                 return true;
                 
@@ -296,6 +308,10 @@ const employeeDeductionSaveUpdate = async (req,res)=>{
 
                 
                 }   
+                  
+                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate}'`; 
+                const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                
                 res.status(200).json({
                     message: 'Employee deduction saved/updated',
                     data: '' //result
@@ -310,6 +326,64 @@ const employeeDeductionSaveUpdate = async (req,res)=>{
         }
 }
 // employeeDeductionSaveUpdate
+function getStartOfMonth(date){
+    // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);  
+    const year = startOfMonth.getFullYear();
+    const month = String(startOfMonth.getMonth() + 1).padStart(2, '0');
+    const day = String(startOfMonth.getDate()).padStart(2, '0'); 
+    const formattedDate = `${year}-${month}-${day}`; 
+    return formattedDate;
+};
+
+const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{ 
+    const formData = req.body;  
+    try {
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try { 
+               
+                let currentPayrollDate = new Date(formData.effectiveFrom + '-01'); 
+ 
+                 
+                let result = await pool.request()
+                    .input('ID2', sql.NVarChar, '0')
+                    .input('EmployeeId', sql.NVarChar, formData.employeeId) 
+                    .input('AllowanceType', sql.NVarChar, formData.allowanceType)
+                    .input('AllowanceTypeId', sql.NVarChar, formData.allowanceTypeId) 
+                    .input('TotalAmount', sql.Decimal(10, 2), formData.totalAmount) 
+                    .input('EffectiveFrom', sql.Date, formData.effectiveFrom)
+                    .input('PayrollDate', sql.Date, currentPayrollDate)
+                    .input('Remarks', sql.NVarChar, formData.remarks)
+                    .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                    .output('NewID', sql.NVarChar(255)) 
+                    .execute('EmployeeOneTimeAllowance_Save_Update');
+
+                const now = new Date(); 
+                const formattedDate = getStartOfMonth(now); 
+                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate}'`; 
+                
+                const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                
+                    
+                    
+                res.status(200).json({
+                    message: 'Employee one time allowance saved/updated',
+                    data: '' //result
+                });
+            } catch (err) {  
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            }  
+        } catch (error) {  
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// employeeOneTimeAllowanceSaveUpdate
 
 const employeeRevisionSaveUpdate = async (req,res)=>{ 
     const formData = req.body;  
@@ -568,14 +642,15 @@ const getEmployeeDetails = async (req, res) => {
         const pool = await sql.connect(config); 
         let employeeBenefitsQuery  = null;
         let employeeDeductionQuery  = null;
+        let employeeOneTimeAllowanceQuery  = null; 
         let newRevisionNo = null;
         
-
+        let employeeOneTimeAllowance = null;
 	     
         const revisionQuery = `SELECT ISNULL(MAX(RevisionNo), 0) as 'RevisionNo' FROM Employee WHERE ID2 = '${Id}';`;  
         const apiRevisionQueryResponse = await pool.request().query(revisionQuery); 
-        console.log('revisionNo');
-        console.log(RevisionNo);
+        // console.log('revisionNo');
+        // console.log(RevisionNo);
 
         if(RevisionNo || RevisionNo == 0){
             newRevisionNo = RevisionNo   
@@ -583,8 +658,8 @@ const getEmployeeDetails = async (req, res) => {
             newRevisionNo = apiRevisionQueryResponse.recordset[0].RevisionNo; 
         }
         const query = `exec GetEmployeeDetails '${Id}',${newRevisionNo}`;  
-        console.log('query');
-        console.log(query);
+        // console.log('query');
+        // console.log(query);
 
         const apiResponse = await pool.request().query(query);  
         
@@ -597,6 +672,10 @@ const getEmployeeDetails = async (req, res) => {
         if(date){ 
             employeeBenefitsQuery = `exec GetEmployeeBenefit '${Id}','${date}',${newRevisionNo}`; 
             employeeDeductionQuery = `exec GetEmployeeDeductions '${Id}','${date}',${newRevisionNo}`; 
+            employeeOneTimeAllowanceQuery = `exec GetEmployeeOneTimeAllowances '${Id}','${date}'`; 
+             
+            const employeeOneTimeAllowanceQueryResponse = await pool.request().query(employeeOneTimeAllowanceQuery); 
+            employeeOneTimeAllowance = employeeOneTimeAllowanceQueryResponse.recordset;
         }else{
             employeeBenefitsQuery = `exec GetEmployeeBenefit '${Id}',NULL,${newRevisionNo}`; 
             employeeDeductionQuery = `exec GetEmployeeDeductions '${Id}',NULL,${newRevisionNo}`; 
@@ -626,6 +705,7 @@ const getEmployeeDetails = async (req, res) => {
                 salaryDetails: employeeSalaryDetailsQueryResponse.recordset,
                 employeeBenefits: employeeBenefitsQueryResponse.recordset,
                 employeeDeductions: employeeDeductionsQueryResponse.recordset,
+                employeeOneTimeAllowance: employeeOneTimeAllowance,
                 employeeDocuments: employeeDocumentQueryResponse.recordset,
 
 
@@ -775,6 +855,35 @@ const employeeDeleteDocument = async (req, res) => {
     }
 };
 // end of employeeDeleteDocument
+
+const employeeDeleteDeductionOrAllowance = async (req, res) => {  
+    const {Id,component,componentName,payrollDate} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        let query = null;  
+
+        query = `exec EmployeeDeductionOrAllowance_Delete '${Id}','${component}','${componentName}','${payrollDate}'`;  
+         
+           
+        const apiResponse = await pool.request().query(query);  
+          
+        res.status(200).json({
+            message: `employee allowance deleted successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of employeeDeleteDeductionOrAllowance
 
 const employeePayslips = async (req, res) => {  
     const {Id} = req.body;  
@@ -1189,4 +1298,4 @@ const getPaySlip = async (req, res) => {
 };
 // end of getPaySlip
 
-module.exports =  {getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

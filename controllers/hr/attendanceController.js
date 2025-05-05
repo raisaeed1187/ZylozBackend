@@ -56,6 +56,10 @@ const attendanceSaveUpdate = async (req,res)=>{
                       .input("attendanceDate", sql.Date, record.attendanceDate)
                       .input("dayStatus", sql.NVarChar(100), record.dayStatus)
                       .input("isLeaveDelete", sql.Bit, record.isLeaveDelete) 
+                      .input("breakTime", sql.NVarChar(100), record.breakTime)
+                      .input("totalWorkingHours", sql.NVarChar(100), record.totalWorkingHours)
+                      .input("absentType", sql.NVarChar(100), record.absentType)
+                      
                       .input("changedBy", sql.NVarChar(100), changedBy)
                       .execute("dbo.StaffAttendance_SaveOrUpdate");
                 }

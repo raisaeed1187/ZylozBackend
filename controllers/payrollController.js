@@ -424,7 +424,7 @@ const getPayrollHistory = async (req, res) => {
 // getPayrollHistory
 
 const payrollSave = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,status} = req.body;  
       
     try {
          
@@ -434,9 +434,12 @@ const payrollSave = async (req, res) => {
         const pool = await sql.connect(config); 
         const now = new Date(); 
         const formattedDate = getStartOfMonth(now); 
-        const query = `exec Save_PayrollOutput '${formattedDate}'`; 
+        // const query = `exec Save_PayrollOutput '${formattedDate}'`;
+        
+        const query = `exec PayrollMaster_ChangeStatus '${Id}',${status}`; 
+        
         const apiResponse = await pool.request().query(query);  
-         
+        
         let letResponseData = {}; 
         res.status(200).json({
             message: `Payroll saved successfully!`,
@@ -459,14 +462,21 @@ const payrollConfigurationSave = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+
         console.log('formData');
         console.log(formData);
+
 
         const result = await pool.request()
             .input('ID2', sql.NVarChar(250), formData.ID2)  
             .input("PayrollStartDate", sql.NVarChar(255), formData.payrollStartDate)
-            .input("PayFrequency", sql.NVarChar(255), formData.payFrequency) 
+            .input("PayFrequency", sql.NVarChar(255), formData.payFrequency)  
             .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+            .input("workingHours", sql.NVarChar(255), formData.workingHours) 
+            .input("payMonthStartDate", sql.NVarChar(255), formData.payMonthStartDate) 
+            .input("payMonthEndDate", sql.NVarChar(255), formData.payMonthEndDate) 
+            .input("totalPayDays", sql.NVarChar(255), formData.totalPayDays) 
+            .input("isFullCalendar", sql.BIT, formData.isFullCalendar == 'true' ? 1 : 0) 
             .output('NewID', sql.NVarChar(255))  
             .execute('PayrollConfiguration_SaveOrUpdate');    
  
@@ -590,19 +600,13 @@ const getPayrollConfiguration = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec Get_PayrollConfiguration `; 
-        console.log('query');
-        console.log(query);
+        const query = `exec Get_PayrollConfiguration `;  
         const apiResponse = await pool.request().query(query);  
 
-        const queryPayrollWorkingDays = `exec Get_PayrollWorkingDays`; 
-        console.log('queryPayrollWorkingDays');
-        console.log(queryPayrollWorkingDays);
+        const queryPayrollWorkingDays = `exec Get_PayrollWorkingDays`;  
         const apiPayrollWorkingDaysResponse = await pool.request().query(queryPayrollWorkingDays);  
         
         const queryPublicHoliday = `exec Get_PublicHoliday`; 
-        console.log('queryPublicHoliday');
-        console.log(queryPublicHoliday);
         const apiPublicHolidayResponse = await pool.request().query(queryPublicHoliday);  
          
 
@@ -635,8 +639,9 @@ const getPayrollSummary = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
-        const query = `exec Get_PayrollOutput '${payDate}'`; 
+           
+
+        const query = `exec GetPayrollMasterSummary `; 
         const apiResponse = await pool.request().query(query);  
          
         let letResponseData = {};
@@ -656,7 +661,7 @@ const getPayrollSummary = async (req, res) => {
 // end of getPayrollSummary
 
 const getPayrollPreview = async (req, res) => {  
-    const {Id,isDraft,isAccrual,isEOS} = req.body;  
+    const {Id,isDraft,isPayroll,isAccrual,isEOS} = req.body;  
       
     try {
          
@@ -665,42 +670,54 @@ const getPayrollPreview = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
         let query = null;
-        let payrollRollStatus = 'Draft';
+        let payrollRollStatus =  'Draft';
         if(isAccrual){
             query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1`; 
             payrollRollStatus = 'Active';
-        }else if(isDraft){
+        }else if(isPayroll){
             const now = new Date(); 
             const formattedDate = getStartOfMonth(now); 
-            query = `exec Get_PayrollOutput '${formattedDate}'`;  
-            const apiHistoryResponse = await pool.request().query(`select * from PayrollMaster where PayrollDate = '${formattedDate}' `); 
+            // const formattedDate = '2025-04-01';  
+            // const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterSummary '${Id}' `); 
+            const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterDetails '${Id}' `); 
+            
+            console.log('apiHistoryResponse.recordset');
+            console.log(apiHistoryResponse.recordset);
             if(apiHistoryResponse.recordset.length > 0){
-                payrollRollStatus = 'Active';
-                const payrollId = apiHistoryResponse.recordset[0].ID2;
-                query = `exec Get_PayrollOutputHistory '${payrollId}'`; 
-            }else{
-                payrollRollStatus = 'Draft';
+                payrollRollStatus = apiHistoryResponse.recordset[0].Status; 
+                const payDate  = apiHistoryResponse.recordset[0].PayrollDate; 
+
+                // query = `exec Get_PayrollOutputHistory '${Id}'`;  
+                // query = `exec Get_PayrollOutput '${payDate}'`; 
+                 
+                query = `exec GetDraftPayrollOutput '${Id}'`;  
+                 
+
+
             }
         }else if(isEOS){
             query = `exec Get_Accrual_PayrollOutput_New '${Id}', 0`; 
             payrollRollStatus = 'Active';
-        }
-        else{
-            query = `exec Get_PayrollOutputHistory '${Id}'`; 
-            payrollRollStatus = 'Active';
-        }
+        } 
+        
         // console.log('query');
         // console.log('isDraft',isDraft);
         // console.log('isAccrual',isAccrual);
 
-        // console.log(query);
+        console.log('query');
+        console.log(query);
+
         const apiResponse = await pool.request().query(query);  
- 
+        // console.log('apiResponse.recordset');
+        // console.log(apiResponse.recordset);
+
 
          // Calculate totals
         let totalEmployees = 0;
         let totalPaidDaysTotalEarnings = 0;
         let totalBenefits = 0;
+        let totalDeductions = 0; 
+        
         let totalNetTotal = 0;
         let payCalendarMonth = '';
         let payCalendarDays = '';
@@ -708,14 +725,16 @@ const getPayrollPreview = async (req, res) => {
         
 
         let letResponseData = {};
-        let payrollSummary = {};
+        let payrollSummary = {}; 
+
         if(apiResponse.recordset){
             letResponseData = apiResponse.recordset; 
             letResponseData.forEach(employee => { 
 
-                totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings).replace(/,/g, ''));
-                totalBenefits += parseFloat(String(employee.TotalBenefits).replace(/,/g, ''));
-                totalNetTotal += parseFloat(String(employee.NetTotal).replace(/,/g, ''));
+                totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings || 0).replace(/,/g, ''));
+                totalBenefits += parseFloat(String(employee.TotalBenefits || 0).replace(/,/g, ''));
+                totalDeductions += parseFloat(String(employee.TotalDeductions || 0).replace(/,/g, ''));
+                totalNetTotal += parseFloat(String(employee.NetTotal || 0).replace(/,/g, ''));
                 
             });
             totalEmployees = letResponseData.length;
@@ -726,6 +745,7 @@ const getPayrollPreview = async (req, res) => {
                 totalEmployees:totalEmployees,
                 totalPaidDaysTotalEarnings:totalPaidDaysTotalEarnings,
                 totalBenefits:totalBenefits,
+                totalDeductions:totalDeductions,
                 totalNetTotal:totalNetTotal,
                 payCalendarMonth:payCalendarMonth,
                 payCalendarDays:payCalendarDays,
@@ -749,6 +769,76 @@ const getPayrollPreview = async (req, res) => {
     }
 };
 // end of getPayrollPreview
+
+const getPayrollEmployeeDetails = async (req, res) => {  
+    const {Id,employeeId,payMonth} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = ''; 
+        query = `exec GetDraftPayrollOutput '${Id}','${employeeId}'`;   
+        const apiResponse = await pool.request().query(query); 
+        
+        let paySlipInfo = {};
+        if(apiResponse.recordset.length > 0){
+            const earningsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Earnings'` ; 
+            const apiearningsResponse = await pool.request().query(earningsQuery); 
+            
+            const benefitsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Benefits'` ; 
+            const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
+            
+            const deductionsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Deductions'` ;  
+            const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
+       
+            const allowanceQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','OneTimeAllowance'` ;  
+            const apiAllowanceQueryResponse = await pool.request().query(allowanceQuery); 
+       
+            const earnings = Object.entries(apiearningsResponse.recordset[0])  
+            .filter(([key, value]) => !["TotalEarnings"].includes(key) && value)  
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+            
+            const benefits = Object.entries(apiBenefitsResponse.recordset[0])
+            // .filter(([key]) => !["TotalEarnings", "TotalBenefits"].includes(key))
+            .filter(([key, value]) => !["TotalEarnings", "TotalBenefits", "GrossTotal"].includes(key) && value) 
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+            const deductions = Object.entries(apiDeductionsResponse.recordset[0])  
+            .filter(([key, value]) => !["TotalDeductions"].includes(key) && value)  
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+            const allowances = Object.entries(apiAllowanceQueryResponse.recordset[0])  
+            .filter(([key, value]) => !["TotalOneTimeAllowance"].includes(key) && value)  
+            .map(([key, value]) => ({ component: key, amount: value }));
+
+
+            paySlipInfo = {
+                employeeInfo:apiResponse.recordset[0],
+                employeeEarnings:earnings,
+                employeeBenefits:benefits,  
+                employeeDeductions:deductions,
+                employeeAllowances:allowances, 
+
+            }
+
+        }
+
+
+        res.status(200).json({
+            message: `Payslip loaded successfully!`,
+            data:paySlipInfo // apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPayrollEmployeeDetails
 
 function getStartOfMonth(date){
     // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
@@ -814,4 +904,4 @@ const getPayrollAccrualPreview = async (req, res) => {
 
  
 
-module.exports =  {getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;
+module.exports =  {getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollEmployeeDetails,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;

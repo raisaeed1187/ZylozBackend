@@ -80,7 +80,8 @@ const constentsSlice = createSlice({
         },
         setCurrentUser:  (state, action) => {   
             state.user = action.payload; 
-        }
+        },
+        
          
     }
 });
@@ -132,13 +133,23 @@ function setCurrentDatabase(database) {
     };
 }; 
  
+function getStartOfMonth(date){
+    // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);  
+    const year = startOfMonth.getFullYear();
+    const month = String(startOfMonth.getMonth() + 1).padStart(2, '0');
+    const day = String(startOfMonth.getDate()).padStart(2, '0'); 
+    const formattedDate = `${year}-${month}-${day}`; 
+    return formattedDate;
+};
  
 
 const methods = { 
     getNextDay,
     getCurrentDateTime,
     setCurrentUser,
-    setCurrentDatabase
+    setCurrentDatabase,
+    getStartOfMonth
 }
 
 const constents = {
