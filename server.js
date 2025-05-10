@@ -10,9 +10,9 @@ const {orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfile
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
-const {getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
+const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
-const {attendanceSaveUpdate,getAttendanceList} = require('./controllers/hr/attendanceController'); 
+const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 
  
 const app = express();
@@ -80,7 +80,7 @@ app.post('/api/get-all-dynamics-tables',authenticateToken,express.json(),getDyna
 app.post('/api/get-main-modules',authenticateToken,express.json(),getMainModules);
 app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDynamicCreatedTablesWithModules);
 
-
+ 
 // POST method API route
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
 app.post('/api/get-table',authenticateToken,express.json(),getTableDetailsById );
@@ -142,6 +142,8 @@ app.post('/api/employee/exit-clearance',authenticateToken,express.json(),getEmpl
 
 
 app.post('/api/attendance/save-update',authenticateToken,express.json(),upload,attendanceSaveUpdate );
+app.post('/api/employee-attendance-master/save-update',authenticateToken,express.json(),upload,employeeAttendanceMasterSaveUpdate );
+app.post('/api/employee/attendance-master',authenticateToken,express.json(),getAttendanceMasterList ); 
 app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendanceList ); 
 app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
 
@@ -163,6 +165,9 @@ app.post('/api/payroll/salary-components/deduction',authenticateToken,express.js
 app.post('/api/payroll/summary',authenticateToken,express.json(),getPayrollSummary );
 app.post('/api/payroll/preview',authenticateToken,express.json(),getPayrollPreview );
 app.post('/api/payroll/employee',authenticateToken,express.json(),getPayrollEmployeeDetails );
+app.post('/api/payroll/hold-salary',authenticateToken,express.json(),upload,holdEmployeeSalary );
+app.post('/api/payroll/release-salary',authenticateToken,express.json(),upload,releaseEmployeeSalary );
+
 
 app.post('/api/payroll/accrual/preview',authenticateToken,express.json(),getPayrollAccrualPreview );
 app.post('/api/payroll/history',authenticateToken,express.json(),getPayrollHistory );

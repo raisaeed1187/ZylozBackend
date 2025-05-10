@@ -80,6 +80,56 @@ const attendanceSaveUpdate = async (req,res)=>{
 }
 // end of attendanceSaveUpdate
 
+const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
+    // const formData = req.body;
+    const { attendance, changedBy } = req.body;
+    
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            // console.log('formData');
+            // console.log(attendance);
+            const attendanceData = JSON.parse(attendance); 
+             
+            const formatTime = (time) => {
+                return time.length === 5 ? `${time}:00` : time; // Convert "08:00" to "08:00:00"
+            };
+            const pool = await sql.connect(config);
+            try { 
+                for (const record of attendanceData) {
+                    // console.log(record);
+                    await pool.request()
+                    //   .input("id", sql.Int, record.id)
+                      .input("staffId", sql.NVarChar(65), record.staffId)  
+                      .input("projectId", sql.NVarChar(100), record.projectName)
+                      .input("punchIn", sql.NVarChar(50), formatTime(record.punchIn))
+                      .input("punchOut", sql.NVarChar(50), formatTime(record.punchOut)) 
+                      .input("attendanceStatus", sql.NVarChar(20), record.attendanceStatus) 
+                      .input("weeklyOffDay", sql.NVarChar(100), record.weeklyOffDay) 
+                      .input("breakTime", sql.NVarChar(100), record.breakTime) 
+                      .input("changedBy", sql.NVarChar(100), changedBy)
+                      .execute("dbo.StaffAttendanceMaster_SaveOrUpdate");
+                }
+  
+                res.status(200).json({
+                    message: 'Attendance master saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of employeeAttendanceMasterSaveUpdate
+
  
 // end of customerContactSaveUpdate
 function encryptID(id) {
@@ -142,6 +192,35 @@ const getAttendanceList = async (req, res) => {
     }
 };
 // end of getAttendanceList
+
+const getAttendanceMasterList = async (req, res) => {  
+    const {date,isMonthly} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+
+         
+        query = `exec StaffAttendanceMaster_Get `;  
+         
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Attendances List loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceMasterList
+
 const getAttendanceDetails = async (req, res) => {  
     const {Id} = req.body;  
       
@@ -228,4 +307,4 @@ const getAttendanceAcountTypes = async (req, res) => {
 
 
 
-module.exports =  {getAttendanceAcountTypes, deleteCustomerContact,attendanceSaveUpdate,getAttendanceList,getAttendanceDetails} ;
+module.exports =  {getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;

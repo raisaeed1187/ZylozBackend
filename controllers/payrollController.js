@@ -661,7 +661,7 @@ const getPayrollSummary = async (req, res) => {
 // end of getPayrollSummary
 
 const getPayrollPreview = async (req, res) => {  
-    const {Id,isDraft,isPayroll,isAccrual,isEOS} = req.body;  
+    const {Id,isDraft,statusId,isPayroll,isAccrual,isEOS} = req.body;  
       
     try {
          
@@ -671,9 +671,12 @@ const getPayrollPreview = async (req, res) => {
         const pool = await sql.connect(config); 
         let query = null;
         let payrollRollStatus =  'Draft';
+        let payrollRollStatusId =  1;
+
         if(isAccrual){
             query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1`; 
             payrollRollStatus = 'Active';
+            payrollRollStatusId = 2;
         }else if(isPayroll){
             const now = new Date(); 
             const formattedDate = getStartOfMonth(now); 
@@ -681,16 +684,25 @@ const getPayrollPreview = async (req, res) => {
             // const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterSummary '${Id}' `); 
             const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterDetails '${Id}' `); 
             
-            console.log('apiHistoryResponse.recordset');
-            console.log(apiHistoryResponse.recordset);
             if(apiHistoryResponse.recordset.length > 0){
                 payrollRollStatus = apiHistoryResponse.recordset[0].Status; 
+                let payrollStatusId = apiHistoryResponse.recordset[0].StatusId; 
+
                 const payDate  = apiHistoryResponse.recordset[0].PayrollDate; 
 
                 // query = `exec Get_PayrollOutputHistory '${Id}'`;  
                 // query = `exec Get_PayrollOutput '${payDate}'`; 
+                if(statusId){
+                    payrollStatusId = statusId;
+                }
+                payrollRollStatusId = payrollStatusId;
+                if (payrollStatusId == 9 || payrollStatusId == 8 || payrollStatusId == 7 || payrollStatusId == 6) {
+                    query = `exec Get_PayrollOutputHistory '${Id}',${payrollStatusId}`;  
+                    
+                }else{
+                    query = `exec GetDraftPayrollOutput '${Id}'`;  
+                }
                  
-                query = `exec GetDraftPayrollOutput '${Id}'`;  
                  
 
 
@@ -698,6 +710,7 @@ const getPayrollPreview = async (req, res) => {
         }else if(isEOS){
             query = `exec Get_Accrual_PayrollOutput_New '${Id}', 0`; 
             payrollRollStatus = 'Active';
+            payrollRollStatusId = 2;
         } 
         
         // console.log('query');
@@ -729,17 +742,19 @@ const getPayrollPreview = async (req, res) => {
 
         if(apiResponse.recordset){
             letResponseData = apiResponse.recordset; 
-            letResponseData.forEach(employee => { 
-
-                totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings || 0).replace(/,/g, ''));
-                totalBenefits += parseFloat(String(employee.TotalBenefits || 0).replace(/,/g, ''));
-                totalDeductions += parseFloat(String(employee.TotalDeductions || 0).replace(/,/g, ''));
-                totalNetTotal += parseFloat(String(employee.NetTotal || 0).replace(/,/g, ''));
-                
-            });
-            totalEmployees = letResponseData.length;
-            payCalendarMonth = apiResponse.recordset[0].PayCalendarMonth;
-            payCalendarDays = apiResponse.recordset[0].PayCalendarDays; 
+            if(letResponseData.length > 0){
+                letResponseData.forEach(employee => { 
+    
+                    totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings || 0).replace(/,/g, ''));
+                    totalBenefits += parseFloat(String(employee.TotalBenefits || 0).replace(/,/g, ''));
+                    totalDeductions += parseFloat(String(employee.TotalDeductions || 0).replace(/,/g, ''));
+                    totalNetTotal += parseFloat(String(employee.NetTotal || 0).replace(/,/g, ''));
+                    
+                });
+                totalEmployees = letResponseData.length;
+                payCalendarMonth = apiResponse.recordset[0].PayCalendarMonth;
+                payCalendarDays = apiResponse.recordset[0].PayCalendarDays; 
+            }
              
             payrollSummary = {
                 totalEmployees:totalEmployees,
@@ -749,7 +764,9 @@ const getPayrollPreview = async (req, res) => {
                 totalNetTotal:totalNetTotal,
                 payCalendarMonth:payCalendarMonth,
                 payCalendarDays:payCalendarDays,
-                payrollRollStatus:payrollRollStatus
+                payrollRollStatus:payrollRollStatus,
+                payrollRollStatusId:payrollRollStatusId
+
             }
             // console.log(payrollSummary);
             // console.log(payrollSummary);
@@ -840,6 +857,113 @@ const getPayrollEmployeeDetails = async (req, res) => {
 };
 // end of getPayrollEmployeeDetails
 
+const holdEmployeeSalary = async (req, res) => {  
+    // const {employees,statusId} = req.body;  
+    const formData = req.body; 
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('formData');
+        console.log(formData);
+
+        // return formData;
+        const newEmployees = JSON.parse(formData.employees);   
+        // return [newEmployees,formData.statusId];
+        newEmployees.forEach(async (employee) => {
+            console.log('employee');
+            console.log(employee);
+            try {
+                let result = await pool.request()
+                    .input('EmployeeId', sql.NVarChar, employee.ID2)
+                    .input('PayrollMasterId', sql.NVarChar, employee.payrollMasterId)
+                    .input('StatusId', sql.INT, formData.statusId)
+                    .input('ChangedBy', sql.NVarChar, req.authUser.username) 
+                    .execute('PayrollMaster_Employee_ChangeStatus');
+            
+            } catch (error) { 
+                return res.status(400).json({ message: error.message,data:null});
+        
+            }
+        });
+         
+         
+        res.status(200).json({
+            message: `Payroll employee status changed successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of holdEmployeeSalary
+
+const releaseEmployeeSalary = async (req, res) => {  
+    // const {employees,statusId} = req.body;  
+    const formData = req.body; 
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('formData');
+        console.log(formData);
+
+        // return formData; 
+        const newEmployees = JSON.parse(formData.selectedEmployees);   
+        // return [newEmployees,formData.statusId];
+
+        let result = await pool.request()
+        .input('ID2', sql.NVarChar,  '0')  
+        .input('PayrollMasterId', sql.NVarChar, formData.payrollId) 
+        .input('BankReferanceNo', sql.NVarChar, formData.bankReferanceNo)
+        .input('BankTotalAmount', sql.NVarChar, formData.bankTotalAmount)
+        .input('PayrollTotalAmount', sql.NVarChar, formData.payrollTotalAmount)
+        .input('TotalPaidEmployees', sql.Int, formData.totalEmployees)
+        .input('CreatedBy', sql.NVarChar, req.authUser.username)
+        .output('SalaryReleaseId', sql.NVarChar(100))
+        .execute('PayrollMasterSalaryReleases_SaveOrUpdate');
+
+        const salaryReleaseId = result.output.SalaryReleaseId;
+
+        newEmployees.forEach(async (employee) => {
+            console.log('employee data');
+            console.log(employee);
+            
+            try {
+                let result = await pool.request()
+                    .input('ID2', sql.NVarChar, '0')
+                    .input('PayrollMasterId', sql.NVarChar, formData.payrollId)
+                    .input('SalaryReleaseId', sql.NVarChar, salaryReleaseId)
+                    .input('EmployeeId', sql.NVarChar, employee.ID2)  
+                    .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                    .execute('PayrollSalaryReleaseEmployees_SaveOrUpdate');
+            
+            } catch (error) { 
+                return res.status(400).json({ message: error.message,data:null});
+        
+            }
+        });
+         
+         
+        res.status(200).json({
+            message: `Payroll employee status changed successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of releaseEmployeeSalary
+ 
+
 function getStartOfMonth(date){
     // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
     const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);  
@@ -904,4 +1028,4 @@ const getPayrollAccrualPreview = async (req, res) => {
 
  
 
-module.exports =  {getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollEmployeeDetails,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;
+module.exports =  {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollEmployeeDetails,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;

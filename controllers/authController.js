@@ -17,7 +17,11 @@ const signUp = async (req,res)=>{
             if (!email || !password || !username) {
                 return res.status(400).json({ message: 'Enter required fields!' });
             }
-            const pool = await sql.connect(constents.states.config);
+            store.dispatch(setCurrentDatabase('Zyloz')); 
+            const config =  store.getState().constents.config;  
+           
+            const pool = await sql.connect(config);
+            
             const existingUser = await pool
             .request()
             .input("email", sql.NVarChar, email)
@@ -74,9 +78,11 @@ const signIn = async (req,res)=>{
                     // return res.status(401).json({ message: "Invalid email" });
                     res.status(400).json({ message: 'Invalid email',data:null});
                 }
-
+ 
                 const user = result.recordset[0]; 
-
+                console.log('user');
+                console.log(user); 
+ 
                 const isMatch = await bcrypt.compare(password, user.Password);
 
                 if (!isMatch) {
