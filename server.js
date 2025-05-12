@@ -13,6 +13,7 @@ const {getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employee
 const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
 const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
+const {projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 
  
 const app = express();
@@ -104,6 +105,20 @@ app.post('/api/customer',authenticateToken,express.json(),getCustomerDetails );
 app.post('/api/customer/documents',authenticateToken,express.json(),getCustomerDocuments );
 app.post('/api/customer/contact/delete',authenticateToken,express.json(),deleteCustomerContact );
 //end customer controller
+
+
+app.post('/api/contract/save-update',authenticateToken,express.json(),upload,contractSaveUpdate ); 
+
+app.post('/api/contract',authenticateToken,express.json(),getContractDetails );
+app.post('/api/contracts',authenticateToken,express.json(),getContractsList );
+
+app.post('/api/project/save-update',authenticateToken,express.json(),upload,projectSaveUpdate ); 
+app.post('/api/project',authenticateToken,express.json(),getProjectDetails );
+
+
+
+//end contract controller
+
 
 app.post('/api/quotation-save-update',authenticateToken,express.json(),upload,quotationSaveUpdate );
 app.post('/api/quotations',authenticateToken,express.json(),getQuotationList );
