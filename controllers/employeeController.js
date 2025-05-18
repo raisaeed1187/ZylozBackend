@@ -170,13 +170,14 @@ async function employeePersonalInfoSaveUpdate(req,EmployeeId){
                     .input('visaExpiry', sql.NVarChar, employeeData.visaExpiry)
                     .input('workPermitNo', sql.NVarChar, employeeData.workPermitNo)
                     .input('workPermitExpirationDate', sql.NVarChar, employeeData.workPermitExpirationDate)
-                    .input('medicalInsurence', sql.NVarChar, employeeData.medicalInsurence) // Added Medical Insurance
-                    .input('medicalInsurenceExpiry', sql.NVarChar, employeeData.medicalInsurenceExpiry) // Added Medical Insurance Expiry
-                    .input('molNo', sql.NVarChar, employeeData.molNo) // Added MOL No
-                    .input('bankCode', sql.NVarChar, employeeData.bankCode) // Added Bank Code
-                    .input('bankName', sql.NVarChar, employeeData.bankName) // Added Bank Name
-                    .input('bankIbanNo', sql.NVarChar, employeeData.bankIbanNo) // Added Bank IBAN No
-                    .input('bankSwiftCode', sql.NVarChar, employeeData.bankSwiftCode) // Added Bank Swift Code
+                    .input('medicalInsurence', sql.NVarChar, employeeData.medicalInsurence)  
+                    .input('medicalInsurenceExpiry', sql.NVarChar, employeeData.medicalInsurenceExpiry) 
+                    .input('molNo', sql.NVarChar, employeeData.molNo)  
+                    .input('bankCode', sql.NVarChar, employeeData.bankCode)  
+                    .input('bankName', sql.NVarChar, employeeData.bankName)  
+                    .input('bankIbanNo', sql.NVarChar, employeeData.bankIbanNo)  
+                    .input('bankSwiftCode', sql.NVarChar, employeeData.bankSwiftCode)  
+                    .input('isOTapplicable', sql.BIT, employeeData.isOTapplicable == true ? 1 : 0)   
                     .input('createdBy', sql.NVarChar(250), employeeData.createdBy || "Admin") 
                     .output('NewID', sql.NVarChar(255)) 
                     .execute('EmployeePersonalInfo_Save_Update');

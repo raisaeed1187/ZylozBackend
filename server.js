@@ -14,6 +14,9 @@ const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollC
 const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
 const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
+const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
+const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
+const {prSaveUpdate,getPRDetails,getPRsList} = require('./controllers/procurement/prController'); 
 
  
 const app = express();
@@ -114,11 +117,29 @@ app.post('/api/contracts',authenticateToken,express.json(),getContractsList );
 
 app.post('/api/project/save-update',authenticateToken,express.json(),upload,projectSaveUpdate ); 
 app.post('/api/project',authenticateToken,express.json(),getProjectDetails );
-
-
-
+ 
 //end contract controller
 
+
+app.post('/api/vendor/save-update',authenticateToken,express.json(),upload,vendorSaveUpdate ); 
+app.post('/api/vendor',authenticateToken,express.json(),getVendorDetails );
+app.post('/api/vendors',authenticateToken,express.json(),getVendorsList );
+ 
+//end vendor controller
+
+app.post('/api/item/save-update',authenticateToken,express.json(),upload,itemSaveUpdate ); 
+app.post('/api/item',authenticateToken,express.json(),getItemDetails );
+app.post('/api/items',authenticateToken,express.json(),getItemsList );
+ 
+//end item controller
+
+app.post('/api/pr/save-update',authenticateToken,express.json(),upload,prSaveUpdate ); 
+app.post('/api/pr',authenticateToken,express.json(),getPRDetails );
+app.post('/api/prs',authenticateToken,express.json(),getPRsList );
+ 
+//end pr controller
+
+ 
 
 app.post('/api/quotation-save-update',authenticateToken,express.json(),upload,quotationSaveUpdate );
 app.post('/api/quotations',authenticateToken,express.json(),getQuotationList );

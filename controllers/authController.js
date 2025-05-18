@@ -56,13 +56,16 @@ const signUp = async (req,res)=>{
 // end signUp
 
 const signIn = async (req,res)=>{
-    const { email, password } = req.body;
+    const { email, password,client } = req.body;
 
     try {
             if (!email || !password) {
                 return res.status(400).json({ message: 'Email & Password is required!' });
             }   
-            store.dispatch(setCurrentDatabase('Zyloz')); 
+            console.log('database');
+            console.log(client); 
+
+            store.dispatch(setCurrentDatabase( client )); 
             const config =  store.getState().constents.config;  
             // console.log('config login');
             // console.log(config);
@@ -76,45 +79,53 @@ const signIn = async (req,res)=>{
 
                 if (result.recordset.length === 0) {
                     // return res.status(401).json({ message: "Invalid email" });
-                    res.status(400).json({ message: 'Invalid email',data:null});
-                }
+                  return  res.status(400).json({ message: 'Invalid email',data:null});
+                } 
  
                 const user = result.recordset[0]; 
                 console.log('user');
                 console.log(user); 
- 
-                const isMatch = await bcrypt.compare(password, user.Password);
+                if(user){ 
+                    console.log('inside user');
+                    const isMatch = await bcrypt.compare(password, user.Password);
+    
+                    if (!isMatch) {
+                        // return res.status(401).json({ message: "Invalid password" });
+                      return  res.status(400).json({ message: 'Invalid password',data:null});
+    
+                    }
+    
+                    const token = jwt.sign({ Id: user.ID, username: user.UserName,email:user.Email,database:user.databaseName}, SECRET_KEY, {
+                        expiresIn: "5h",
+                    });
+                    // constents.methods.setCurrentDatabase(user.databaseName);  
+                    store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    
+                    const data = {
+                        userDetails:{
+                            email:user.Email,
+                            userName:user.UserName,
+                            isAdmin: user.IsAdmin,
+                            client:user.databaseName
+                        },
+                        token:token
+                    }  
+                    return res.status(200).json({
+                        message: "Login successful",
+                        data: data
+                    }); 
 
-                if (!isMatch) {
-                    // return res.status(401).json({ message: "Invalid password" });
-                    res.status(400).json({ message: 'Invalid password',data:null});
-
+                    pool.close();
+                }else{
+                    console.log('in else condition');
+                   return  res.status(400).json({ message: 'User not found',data:null});
                 }
-
-                const token = jwt.sign({ Id: user.ID, username: user.UserName,email:user.Email,database:user.databaseName}, SECRET_KEY, {
-                    expiresIn: "5h",
-                });
-                // constents.methods.setCurrentDatabase(user.databaseName);  
-                store.dispatch(setCurrentDatabase(user.databaseName)); 
-                
-                const data = {
-                    userDetails:{
-                        email:user.Email,
-                        userName:user.UserName,
-                        isAdmin: user.IsAdmin,
-                        client:user.databaseName
-                    },
-                    token:token
-                }  
-            res.status(200).json({
-                message: "Login successful",
-                data: data
-            }); 
-            pool.close();
-           
-             
+                pool.close();
+            
         } catch (error) {
             console.log(error);
+           return res.status(400).json({ message: error.message,data:null});
+
         }
 }
 // end of signIn
