@@ -18,9 +18,9 @@ const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STR
 const CONTAINER_NAME = "documents";
 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-
+ 
   
-const prSaveUpdate = async (req,res)=>{
+const poSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
 
@@ -34,32 +34,29 @@ const prSaveUpdate = async (req,res)=>{
               
             const pool = await sql.connect(config);
               
-            const result = await pool.request()
+            let result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2)
-            .input('PrType', sql.NVarChar(100), formData.prType)
-            .input('PrCode', sql.NVarChar(100), formData.prCode)
-            .input('PrName', sql.NVarChar(200), formData.prName)
-            .input('Classification', sql.NVarChar(100), formData.classification) 
-            .input('Department', sql.NVarChar(100), formData.department)
-            .input('Contract', sql.NVarChar(100), formData.contract)
-            .input('DeliveryDate', sql.NVarChar(100), formData.deliveryDate)
-            .input('DeliveryLocation', sql.NVarChar(200), formData.deliveryLocation)
+            .input('PoType', sql.NVarChar(65), formData.poType)
+            .input('PoCode', sql.NVarChar(50), formData.poCode)
+            .input('Vendor', sql.NVarChar(200), formData.vendor)
+            .input('ContactPerson', sql.NVarChar(100), formData.contactPerson)
+            .input('PoDate', sql.Date, formData.poDate)
+            .input('PaymentTerm', sql.NVarChar(100), formData.paymentTerm)
             .input('Description', sql.NVarChar(sql.MAX), formData.description)
-            .input('StatusId', sql.Int, formData.statusId || 1)
+            .input('StatusId', sql.Int, formData.statusId)
             .input('TotalItems', sql.NVarChar(100), formData.totalItems)
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount)
-
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .output('ID', sql.NVarChar(100))
-            .execute('PurchaseRequest_SaveOrUpdate');
+            .output('ID', sql.NVarChar(100))  
+            .execute('PurchaseOrder_SaveOrUpdate');
 
             const newID = result.output.ID;
-            if(formData.prItems){ 
-                prItemSaveUpdate(req,newID)
+            if(formData.poItems){ 
+                poItemSaveUpdate(req,newID)
             }
 
             res.status(200).json({
-                message: 'pr saved/updated',
+                message: 'po saved/updated',
                 data: '' //result
             });
            
@@ -69,11 +66,11 @@ const prSaveUpdate = async (req,res)=>{
 
         }
 }
-// end of prSaveUpdate
+// end of poSaveUpdate
  
-async function prItemSaveUpdate(req,prId){
+async function poItemSaveUpdate(req,poId){
     const formData = req.body; 
-    const prItems = JSON.parse(formData.prItems); 
+    const poItems = JSON.parse(formData.poItems); 
     try {
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
@@ -81,13 +78,14 @@ async function prItemSaveUpdate(req,prId){
 
             const pool = await sql.connect(config);
             try { 
-                if (prItems) {
-                    for (let item of prItems) {  
+                if (poItems) {
+                    for (let item of poItems) {  
                         if(item.itemType){
                             await pool.request()
                                 .input('ID2', sql.NVarChar(65), item.ID2)
                                 .input('ItemId', sql.NVarChar(65), item.itemId)
-                                .input('PrId', sql.NVarChar(65), prId)
+                                .input('PrId', sql.NVarChar(65), item.prId)
+                                .input('PoId', sql.NVarChar(65), poId) 
                                 .input('ItemCode', sql.NVarChar(100), item.itemCode)
                                 .input('ItemName', sql.NVarChar(200), item.itemName)
                                 .input('ItemType', sql.NVarChar(100), item.itemType)
@@ -98,7 +96,7 @@ async function prItemSaveUpdate(req,prId){
                                 .input('DeliveryLocation', sql.NVarChar(500), item.deliveryLocation)
                                 .input('DeliveryDate', sql.NVarChar(100), item.deliveryDate)
 
-                                .execute('PurchaseItem_SaveOrUpdate');
+                                .execute('PurchaseOrderItem_SaveOrUpdate');
                         }
                     }   
                 } 
@@ -112,7 +110,7 @@ async function prItemSaveUpdate(req,prId){
             throw new Error(error.message);
         }
 }
-// end of prItemSaveUpdate
+// end of poItemSaveUpdate
 
  
  
@@ -130,7 +128,7 @@ function encryptID(id) {
 }
 // end of encryptID
  
-const getPRDetails = async (req, res) => {  
+const getPODetails = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
     try {
@@ -141,21 +139,21 @@ const getPRDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-        query = `exec PurchaseRequest_Get '${Id}'`;   
+        query = `exec PurchaseOrder_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query); 
          
-        const itemsQuery = `exec PurchaseItem_Get '${Id}'`;   
+        const itemsQuery = `exec PurchaseOrderItem_Get '${Id}'`;   
         const itemsApiResponse = await pool.request().query(itemsQuery); 
          
 
         const data = {
-            prDetails: apiResponse.recordset[0],
-            prItems: itemsApiResponse.recordset
+            poDetails: apiResponse.recordset[0],
+            poItems: itemsApiResponse.recordset
         }
         
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `PR details loaded successfully!`,
+            message: `PO details loaded successfully!`,
             data: data
         });
          
@@ -164,9 +162,9 @@ const getPRDetails = async (req, res) => {
         
     }
 };
-// end of getPRDetails
+// end of getPODetails
 
-const getPRItems = async (req, res) => {  
+const getPOItems = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
     try {
@@ -185,7 +183,7 @@ const getPRItems = async (req, res) => {
         const itemsApiResponse = await pool.request().query(itemsQuery); 
           
         res.status(200).json({
-            message: `PR details loaded successfully!`,
+            message: `PO details loaded successfully!`,
             data: itemsApiResponse.recordset
         });
          
@@ -194,11 +192,38 @@ const getPRItems = async (req, res) => {
         
     }
 };
-// end of getPRItems
- 
+// end of getPOItems
 
-const getPRsList = async (req, res) => {  
-    const {Id,IsForPO} = req.body; // user data sent from client
+const deletePOItem = async (req, res) => {  
+    const {Id, poId, prId,itemId} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+ 
+        query = `exec PurchaseOrderItem_Delete  '${Id}','${poId}','${prId}','${itemId}'`;   
+        const apiResponse = await pool.request().query(query); 
+         
+           
+        // Return a response (do not return the whole req/res object)
+        res.status(200).json({
+            message: `PO item deleted loaded successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deletePOItem
+
+const getPOsList = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
      
     try {
          
@@ -207,16 +232,13 @@ const getPRsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
-        if (IsForPO){
-            query = `exec PurchaseRequest_Get Null, ${IsForPO}`;   
-        } else{
-            query = `exec PurchaseRequest_Get`;   
-        }
+         
+        query = `exec PurchaseOrder_Get `;   
          
         const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
-            message: `PRs List loaded successfully!`,
+            message: `POs List loaded successfully!`,
             data:  apiResponse.recordset
         });
          
@@ -225,9 +247,9 @@ const getPRsList = async (req, res) => {
         
     }
 };
-// end of getPRsList
+// end of getPOsList
 
  
 
 
-module.exports =  {prSaveUpdate,getPRsList,getPRDetails,getPRItems} ;
+module.exports =  {poSaveUpdate,getPOsList,getPODetails,getPOItems,deletePOItem} ;

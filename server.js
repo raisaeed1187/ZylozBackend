@@ -16,7 +16,8 @@ const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList
 const {projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
-const {prSaveUpdate,getPRDetails,getPRsList} = require('./controllers/procurement/prController'); 
+const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
+const {poSaveUpdate,getPODetails,getPOItems,deletePOItem,getPOsList} = require('./controllers/procurement/poController'); 
 
  
 const app = express();
@@ -135,9 +136,21 @@ app.post('/api/items',authenticateToken,express.json(),getItemsList );
 
 app.post('/api/pr/save-update',authenticateToken,express.json(),upload,prSaveUpdate ); 
 app.post('/api/pr',authenticateToken,express.json(),getPRDetails );
+app.post('/api/pr-items',authenticateToken,express.json(),getPRItems );
+
 app.post('/api/prs',authenticateToken,express.json(),getPRsList );
- 
+
 //end pr controller
+ 
+app.post('/api/po/save-update',authenticateToken,express.json(),upload,poSaveUpdate ); 
+app.post('/api/po',authenticateToken,express.json(),getPODetails );
+app.post('/api/po-items',authenticateToken,express.json(),getPOItems );
+app.post('/api/po-item/delete',authenticateToken,express.json(),deletePOItem );
+
+
+app.post('/api/pos',authenticateToken,express.json(),getPOsList );
+
+//end po controller
 
  
 
