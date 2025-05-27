@@ -18,6 +18,7 @@ const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controller
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
 const {poSaveUpdate,getPODetails,getPOItems,deletePOItem,getPOsList} = require('./controllers/procurement/poController'); 
+const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 
  
 const app = express();
@@ -79,6 +80,11 @@ app.use('/api', router);
 // auth routes
 app.post('/api/signup',express.json(),signUp );
 app.post('/api/signin',express.json(),signIn );
+
+app.post('/api/contact-info/save-update',express.json(),upload,contactSaveUpdate );
+app.post('/api/become-partner/save-update',express.json(),upload,becomePartnerSaveUpdate );
+
+
 
 app.get('/users',authenticateToken,getDynamicCreatedTables);
 app.post('/api/get-all-dynamics-tables',authenticateToken,express.json(),getDynamicCreatedTables);
