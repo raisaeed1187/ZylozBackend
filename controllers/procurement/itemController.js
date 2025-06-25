@@ -46,8 +46,8 @@ const itemSaveUpdate = async (req,res)=>{
             .input('partNumber', sql.NVarChar(100), formData.partNumber)
             .input('barcode', sql.NVarChar(255), formData.barcode) 
             .input("statusId", sql.Int, formData.statusId === 'null' ? null : formData.statusId || null) 
-            .input('sellingPrice', sql.NVarChar(100), formData.sellingPrice || 0)
-            .input('costPrice', sql.NVarChar(100), formData.costPrice || 0)
+            .input('sellingPrice', sql.NVarChar(100), formData.sellingPrice || '0')
+            .input('costPrice', sql.NVarChar(100), formData.costPrice || '0')
             .input('createdBy', sql.NVarChar(100), formData.createdBy)
             .execute('dbo.MaterialItem_SaveUpdate');
 
@@ -131,7 +131,7 @@ const getItemsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec MaterialItem_Get `;   
+        query = `exec MaterialItem_GetList `;   
          
         const apiResponse = await pool.request().query(query); 
         

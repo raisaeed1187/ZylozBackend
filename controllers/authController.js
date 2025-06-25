@@ -11,13 +11,15 @@ const SECRET_KEY = process.env.SECRET_KEY;
  
 
 const signUp = async (req,res)=>{
-    const { username,email, password } = req.body;
+    const { username,email, password,client } = req.body;
 
     try {
             if (!email || !password || !username) {
                 return res.status(400).json({ message: 'Enter required fields!' });
             }
-            store.dispatch(setCurrentDatabase('Zyloz')); 
+            console.log('database');
+            console.log(client); 
+            store.dispatch(setCurrentDatabase(client || 'Zyloz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -40,6 +42,7 @@ const signUp = async (req,res)=>{
             .input("username", sql.NVarChar, username)
             .input("email", sql.NVarChar, email)
             .input("password", sql.NVarChar, hashedPassword)
+            .input("client", sql.NVarChar, client) 
             .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
 
             res.status(200).json({
@@ -106,7 +109,9 @@ const signIn = async (req,res)=>{
                             email:user.Email,
                             userName:user.UserName,
                             isAdmin: user.IsAdmin,
-                            client:user.databaseName
+                            client:user.databaseName,
+                            permissions:user.Access,
+
                         },
                         token:token
                     }  

@@ -665,9 +665,12 @@ const getPayrollPreview = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase(req.authUser.database)); 
+
         store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
+        const config = store.getState().constents.config; 
+         
+
         const pool = await sql.connect(config); 
         let query = null;
         let payrollRollStatus =  'Draft';

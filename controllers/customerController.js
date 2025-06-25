@@ -44,7 +44,9 @@ const customerSaveUpdate = async (req,res)=>{
                     .input('Address', sql.NVarChar(250), formData.address)
                     .input('TRN', sql.NVarChar(250), formData.trn)
                     .input('PaymentTerms', sql.NVarChar(100), formData.paymentTerms)
-                    .input('CreatedBy', sql.NVarChar(255), formData.createdBy || "Admin") 
+                    .input('CreatedBy', sql.NVarChar(255), formData.createdBy || "Admin")
+                    .input('OrganizationId', sql.NVarChar(255), formData.organizationId)
+                     
                     .output('NewID', sql.NVarChar(355)) // Assuming the output is an integer
                     .execute('Customer_Save_Update'); 
 
@@ -212,17 +214,17 @@ const getCustomerList = async (req, res) => {
             return date.toLocaleDateString("en-US");
         };
         
-        let formatedData = apiResponse.recordset.map(staff => ({
-            ...staff,
-            CreatedAt: formatCreatedAt(staff.CreatedAt),
-            ChangedAt: formatCreatedAt(staff.ChangedAt), 
-        })); 
-        formatedData = formatedData.map(({ ID, ...rest }) => rest);
+        // let formatedData = apiResponse.recordset.map(staff => ({
+        //     ...staff,
+        //     CreatedAt: formatCreatedAt(staff.CreatedAt),
+        //     ChangedAt: formatCreatedAt(staff.ChangedAt), 
+        // })); 
+        // formatedData = formatedData.map(({ ID, ...rest }) => rest);
 
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
             message: `Customer List loaded successfully!`,
-            data: formatedData
+            data: apiResponse.recordset
         });
          
     } catch (error) {

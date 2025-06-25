@@ -1299,4 +1299,95 @@ const getPaySlip = async (req, res) => {
 };
 // end of getPaySlip
 
-module.exports =  {getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+const outsourcedEmployeeSaveUpdate = async (req,res)=>{
+    const formData = req.body;
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try { 
+                 
+                const employees = JSON.parse(formData.employees); 
+
+                console.log('formData');
+                console.log(formData); 
+
+                if (employees) {
+                    for (let employee of employees) {   
+                        if(employee.vendor){
+                            const result = await pool.request()
+                            .input('ID2', sql.NVarChar(65), employee.ID2)
+                            .input('vendor', sql.NVarChar(100), employee.vendor)
+                            .input('passportNo', sql.NVarChar(50), employee.passportNo)
+                            .input('eidNo', sql.NVarChar(50), employee.eidNo)
+                            .input('eidExpiry', sql.NVarChar(100), employee.eidExpiry)  
+                            .input('employeeName', sql.NVarChar(100), employee.employeeName)
+                            .input('designation', sql.NVarChar(100), employee.designation)
+                            .input('startDate', sql.NVarChar(100), employee.startDate)  
+                            .input('endDate', sql.NVarChar(100), employee.endDate)
+                            .input('ratePerHour', sql.NVarChar(100),  String(employee.ratePerHour ?? ''))
+                            .input('paymentTerms', sql.NVarChar(100), employee.paymentTerms)
+                            .input('costPerDay', sql.NVarChar(100), String(employee.costPerDay ?? '')) 
+                            .input('costPerMonth', sql.NVarChar(100), String(employee.costPerMonth ?? ''))
+                            .input('actualWorkDays', sql.Int, employee.actualWorkDays != null ? employee.actualWorkDays : 0  )
+                            .input('totalOT', sql.NVarChar(100), String(employee.totalNormalOT != null ? employee.totalNormalOT : 0 ?? ''))
+                            .input('otAmount', sql.NVarChar(100), String(employee.totalNormalOTAmount != null ?employee.totalNormalOTAmount : 0  ?? ''))
+                            .input('totalCost', sql.NVarChar(100), String(employee.totalCost ?? ''))
+                            .input('status', sql.NVarChar(20), employee.status || 'Active')
+                            .input('createdBy', sql.NVarChar(100), employee.createdBy || 'Admin')
+                            .input('permitDetails', sql.NVarChar(50), employee.permitDetails || '')
+                            .input('permitExpiry', sql.NVarChar(100), employee.permitExpiry || null) 
+                            .execute('SaveOrUpdateOutsourcedEmployee');                      
+                        }
+                    }
+                }
+
+
+                res.status(200).json({
+                    message: 'Outsourced Employee saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of outsourcedEmployeeSaveUpdate
+
+const getOutsourcedEmployees = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec Get_OutsourcedEmployees '${Id}'`; 
+        const apiResponse = await pool.request().query(query);  
+         
+          
+        res.status(200).json({
+            message: `outsourced details loaded successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getOutsourcedEmployees
+
+
+module.exports =  {getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

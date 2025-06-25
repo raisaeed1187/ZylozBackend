@@ -47,9 +47,9 @@ const prSaveUpdate = async (req,res)=>{
             .input('Description', sql.NVarChar(sql.MAX), formData.description)
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.NVarChar(100), formData.totalItems)
-            .input('TotalAmount', sql.NVarChar(100), formData.totalAmount)
-
+            .input('TotalAmount', sql.NVarChar(100), formData.totalAmount) 
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('OrganizationId', sql.NVarChar(100), formData.organizationId)
             .output('ID', sql.NVarChar(100))
             .execute('PurchaseRequest_SaveOrUpdate');
 

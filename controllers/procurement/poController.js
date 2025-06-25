@@ -47,6 +47,7 @@ const poSaveUpdate = async (req,res)=>{
             .input('TotalItems', sql.NVarChar(100), formData.totalItems)
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('OrganizationId', sql.NVarChar(100), formData.organizationId)
             .output('ID', sql.NVarChar(100))  
             .execute('PurchaseOrder_SaveOrUpdate');
 
