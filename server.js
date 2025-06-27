@@ -17,7 +17,9 @@ const {projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
-const {poSaveUpdate,getPODetails,getPOItems,deletePOItem,getPOsList} = require('./controllers/procurement/poController'); 
+const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList} = require('./controllers/procurement/poController'); 
+const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
+
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 
  
@@ -145,18 +147,25 @@ app.post('/api/pr',authenticateToken,express.json(),getPRDetails );
 app.post('/api/pr-items',authenticateToken,express.json(),getPRItems );
 
 app.post('/api/prs',authenticateToken,express.json(),getPRsList );
-
 //end pr controller
  
 app.post('/api/po/save-update',authenticateToken,express.json(),upload,poSaveUpdate ); 
 app.post('/api/po',authenticateToken,express.json(),getPODetails );
 app.post('/api/po-items',authenticateToken,express.json(),getPOItems );
 app.post('/api/po-item/delete',authenticateToken,express.json(),deletePOItem );
-
+app.post('/api/grn/po-items',authenticateToken,express.json(),getGRNPOItems );
 
 app.post('/api/pos',authenticateToken,express.json(),getPOsList );
-
 //end po controller
+
+
+app.post('/api/grn/save-update',authenticateToken,express.json(),upload,grnSaveUpdate ); 
+app.post('/api/grn',authenticateToken,express.json(),getGRNDetails );
+app.post('/api/grn-items',authenticateToken,express.json(),getGRNItems );
+
+app.post('/api/grns',authenticateToken,express.json(),getGRNsList );
+//end GRN controller
+ 
 
  
 

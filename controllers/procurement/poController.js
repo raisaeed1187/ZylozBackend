@@ -195,6 +195,36 @@ const getPOItems = async (req, res) => {
 };
 // end of getPOItems
 
+const getGRNPOItems = async (req, res) => {  
+    const {poID} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+ 
+       
+        const itemsQuery = `exec GRNPurchaseOrderItem_Get '${poID}'`;   
+        console.log('itemsQuery');
+        console.log(itemsQuery);
+
+        const itemsApiResponse = await pool.request().query(itemsQuery); 
+          
+        res.status(200).json({
+            message: `GRN PO items loaded successfully!`,
+            data: itemsApiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getGRNPOItems
+
 const deletePOItem = async (req, res) => {  
     const {Id, poId, prId,itemId} = req.body; // user data sent from client
       
@@ -253,4 +283,4 @@ const getPOsList = async (req, res) => {
  
 
 
-module.exports =  {poSaveUpdate,getPOsList,getPODetails,getPOItems,deletePOItem} ;
+module.exports =  {poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem} ;
