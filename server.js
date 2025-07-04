@@ -21,6 +21,11 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
+const {journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
+
+const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} = require('./controllers/finance/receiveablePaymentController'); 
+
 
  
 const app = express();
@@ -252,11 +257,23 @@ app.post('/api/chart-of-account',authenticateToken,express.json(),getCOADetails 
 app.post('/api/coa/account-types',authenticateToken,express.json(),getCOAAcountTypes );
 
 
+app.post('/api/finance/journal-entry/save-update',authenticateToken,express.json(),upload,journalEntrySaveUpdate );
+app.post('/api/finance/journal-entries',authenticateToken,express.json(),getJournalEntrysList );
+app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJournalEntryDetails );
+
+
+app.post('/api/finance/invoice/save-update',authenticateToken,express.json(),upload,invoiceSaveUpdate );
+app.post('/api/finance/invoices',authenticateToken,express.json(),getInvoicesList );
+app.post('/api/finance/invoice',authenticateToken,express.json(),getInvoiceDetails );
+app.post('/api/finance/customer/invoices',authenticateToken,express.json(),getCustomerInvoice );
+
+app.post('/api/finance/received-payment/save-update',authenticateToken,express.json(),upload,paymentSaveUpdate );
+app.post('/api/finance/received-payments',authenticateToken,express.json(),getPaymentsList );
+app.post('/api/finance/received-payment',authenticateToken,express.json(),getPaymentDetails ); 
 
 
 
-
-
+ 
 const port = process.env.PORT || 3000;
 
 // app.listen(port,()=>{
