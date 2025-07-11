@@ -37,13 +37,22 @@ const signUp = async (req,res)=>{
             const hashedPassword = await bcrypt.hash(password, 10);
 
             // Insert new user into the database
-            await pool
-            .request()
-            .input("username", sql.NVarChar, username)
-            .input("email", sql.NVarChar, email)
-            .input("password", sql.NVarChar, hashedPassword)
-            .input("client", sql.NVarChar, client) 
-            .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
+            // await pool
+            // .request()
+            // .input("username", sql.NVarChar, username)
+            // .input("email", sql.NVarChar, email)
+            // .input("password", sql.NVarChar, hashedPassword)
+            // .input("client", sql.NVarChar, client) 
+            // .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
+
+            const request = pool.request();
+            request.input("ID2", sql.NVarChar(100), '0');
+            request.input("username", sql.NVarChar(100), username);
+            request.input("email", sql.NVarChar(100), email);
+            request.input("password", sql.NVarChar(255), hashedPassword);
+            request.input("client", sql.NVarChar(50), client);
+            await request.execute("User_Registeration");
+
 
             res.status(200).json({
                 message: 'User registered successfully',
@@ -103,17 +112,21 @@ const signIn = async (req,res)=>{
                     });
                     // constents.methods.setCurrentDatabase(user.databaseName);  
                     store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
+                    const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
+                    const organizations = organizationsQueryResponse.recordset;
                     
                     const data = {
                         userDetails:{
+                            id: user.ID2,
                             email:user.Email,
                             userName:user.UserName,
                             isAdmin: user.IsAdmin,
                             client:user.databaseName,
-                            permissions:user.Access,
-
+                            permissions:user.Access, 
                         },
-                        token:token
+                        token:token,
+                        organizations:organizations
                     }  
                     return res.status(200).json({
                         message: "Login successful",

@@ -11,9 +11,9 @@ const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetai
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
-const {getCOAAcountTypes,coaSaveUpdate,getCOAList,getCOADetails} = require('./controllers/finance/coaController'); 
+const {getCOAAcountTypes,coaSaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
 const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
-const {projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
+const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
@@ -128,10 +128,27 @@ app.post('/api/contract/save-update',authenticateToken,express.json(),upload,con
 
 app.post('/api/contract',authenticateToken,express.json(),getContractDetails );
 app.post('/api/contracts',authenticateToken,express.json(),getContractsList );
+app.post('/api/attendance/contracts',authenticateToken,express.json(),getAttendanceContractsList );
+app.post('/api/attendance/contract/locations',authenticateToken,express.json(),getAttendanceContractLocationsList );
 
 app.post('/api/project/save-update',authenticateToken,express.json(),upload,projectSaveUpdate ); 
 app.post('/api/project',authenticateToken,express.json(),getProjectDetails );
  
+app.post('/api/property/save-update',authenticateToken,express.json(),upload,propertySaveUpdate ); 
+app.post('/api/property',authenticateToken,express.json(),getPropertyDetails );
+app.post('/api/properties',authenticateToken,express.json(),getPropertyDetails );
+ 
+
+app.post('/api/location/save-update',authenticateToken,express.json(),upload,locationSaveUpdate ); 
+app.post('/api/location',authenticateToken,express.json(),getLocationDetails );
+app.post('/api/locations',authenticateToken,express.json(),getLocationDetails );
+
+app.post('/api/contract/locations',authenticateToken,express.json(),getContractLocations );
+
+
+ 
+
+
 //end contract controller
 
 
@@ -251,8 +268,15 @@ app.post('/api/payroll/configuration',authenticateToken,express.json(),getPayrol
 // start of finance 
 
 app.post('/api/coa/save-update',authenticateToken,express.json(),upload,coaSaveUpdate );
-app.post('/api/chart-of-accounts',authenticateToken,express.json(),getCOAList );
+app.post('/api/coa/save-update/multiple',authenticateToken,express.json(),upload,coaSaveUpdateNew );
+
+
+app.post('/api/chart-of-accounts/formated',authenticateToken,express.json(),getCOAListNew );
+
+app.post('/api/chart-of-accounts',authenticateToken,express.json(),getCOAList ); 
+
 app.post('/api/chart-of-account',authenticateToken,express.json(),getCOADetails );
+app.post('/api/chart-of-account/delete',authenticateToken,express.json(),deleteCOAAccount );
 
 app.post('/api/coa/account-types',authenticateToken,express.json(),getCOAAcountTypes );
 

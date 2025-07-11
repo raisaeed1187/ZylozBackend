@@ -32,30 +32,21 @@ const coaSaveUpdate = async (req,res)=>{
             console.log(formData);
 
             const pool = await sql.connect(config);
-            try { 
-                let request = pool.request();
-                request.input("ID2", sql.NVarChar(250), formData.ID2 || null);
-                request.input("accountType", sql.NVarChar(50), formData.accountType);
-                request.input("accountName", sql.NVarChar(50), formData.accountName);
-                request.input("accountCode", sql.NVarChar(50), formData.accountCode);
-                request.input("description", sql.NVarChar(500), formData.description);
-                request.input("isSubMenu", sql.Bit, formData.isSubMenu == 'true' ? 1 : 0);
-                request.input("parentAccount", sql.NVarChar(50), formData.isSubMenu == 'true' ? formData.parentAccount : '');
-                request.input("parentAccountId", sql.NVarChar(65), formData.isSubMenu == 'true' ? formData.parentAccountId : '');
-                request.input("depth", sql.Int, formData.depth); 
-                request.input("isActive", sql.Bit, formData.isActive);
-                request.input("CreatedBy", sql.NVarChar(100), formData.createdBy || "Admin");
+            try {  
+                const request = pool.request();
+                request.input("AccountCode", sql.NVarChar(100), String(formData.accountCode));
+                request.input("ParentAccountCode", sql.NVarChar(100), String(formData.parentAccountCode));
+                request.input("Name", sql.NVarChar(100), formData.name || formData.category || "");
+                request.input("Description", sql.NVarChar(255), formData.description || "");
+                request.input("AccountType", sql.NVarChar(50), formData.accountType || "");
+                request.input("AccountGroup", sql.NVarChar(50), formData.accountGroup || "");
+                request.input("AccountSubGroup", sql.NVarChar(50), formData.accountSubGroup || "");
+                request.input("Value", sql.Decimal(18, 2), formData.value || 0);
+                request.input("ChangePercentage", sql.Decimal(5, 2), formData.change || 0);
+                request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
+                request.input("IsActive", sql.Bit, formData.active !== false); 
+                await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
  
-                request.output("NewID", sql.NVarChar(250)); 
-
-                // Execute stored procedure
-                let result = await request.execute("ChartOfAccount_Save_Update");
-
-                let newId =  result.output.NewID;
-                console.log('newId');
-                console.log(newId);
-                let encryptedId =  formData.id;
-                 
                 res.status(200).json({
                     message: 'COA saved/updated',
                     data: '' //result
@@ -71,6 +62,80 @@ const coaSaveUpdate = async (req,res)=>{
         }
 }
 // end of coaSaveUpdate
+
+const coaSaveUpdateNew = async (req,res)=>{
+    const formData = req.body;
+    // const accounts = req.body;
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            
+            const accounts = JSON.parse(formData.accounts);
+
+            console.log('accounts');
+            console.log(accounts);
+ 
+
+            const pool = await sql.connect(config);
+            try { 
+
+                const saveRecursive = async (
+                    items,
+                    parentCode = null,
+                    accountType = "",
+                    accountGroup = "",
+                    accountSubGroup = ""
+                    ) => {
+                        for (const item of items) {
+                            const accountCode = item.id || null;
+
+                            const request = pool.request();
+                            request.input("AccountCode", sql.NVarChar(100), String(accountCode));
+                            request.input("ParentAccountCode", sql.NVarChar(100), String(parentCode));
+                            request.input("Name", sql.NVarChar(100), item.name || item.category || "");
+                            request.input("Description", sql.NVarChar(255), item.description || "");
+                            request.input("AccountType", sql.NVarChar(50), accountType);
+                            request.input("AccountGroup", sql.NVarChar(50), accountGroup);
+                            request.input("AccountSubGroup", sql.NVarChar(50), accountSubGroup);
+                            request.input("Value", sql.Decimal(18, 2), item.value || 0);
+                            request.input("ChangePercentage", sql.Decimal(5, 2), item.change || 0);
+                            request.input("CreatedBy", sql.NVarChar(100), "admin"); // replace with real user
+                            request.input("IsActive", sql.Bit, item.active !== false);
+
+                            await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
+
+                            if (item.accounts && item.accounts.length > 0) {
+                            // Pass current item's accountType/group/subGroup down or fallback to previous value
+                            const nextAccountType = item.accountType || accountType;
+                            const nextGroup = item.accountGroup || accountGroup;
+                            const nextSubGroup = item.accountSubGroup || accountSubGroup;
+
+                            await saveRecursive(item.accounts, accountCode, nextAccountType, nextGroup, nextSubGroup);
+                            }
+                        }
+                    };
+
+
+                await saveRecursive(accounts);
+                 
+                res.status(200).json({
+                    message: 'COA saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of coaSaveUpdateNew
 
  
 // end of customerContactSaveUpdate
@@ -101,7 +166,7 @@ const getCOAList = async (req, res) => {
         if(isDetailsView){
             query = `exec GetChartOfAccountsDetailsView`; 
         }else{
-            query = `exec [GetChartOfAccounts]`; 
+            query = `exec ChartOfAccount_GetAll`; 
         }
         const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
@@ -128,6 +193,76 @@ const getCOAList = async (req, res) => {
     }
 };
 // end of getCOAList
+ 
+
+const getCOAListNew = async (req, res) => {
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+    const pool = await sql.connect(config);
+
+    const result = await pool.request().execute("ChartOfAccount_GetAll");
+    const rows = result.recordset;
+
+    // Step 1: Clean and normalize
+    const accountsFlat = rows.map(row => ({
+      ...row,
+      AccountCode: row.AccountCode?.toString() || null,
+      ParentAccountCode:
+        row.ParentAccountCode === null || row.ParentAccountCode === 'null'
+          ? null
+          : row.ParentAccountCode.toString(),
+    }));
+
+    // Step 2: Build map for quick lookup
+    const map = {};
+    accountsFlat.forEach(row => {
+      map[row.AccountCode] = {
+        id: row.AccountCode,
+        name: row.Name,
+        description: row.Description,
+        value: row.Value,
+        changePercentage: row.ChangePercentage,
+        isActive: row.IsActive,
+        accountType: row.AccountType,
+        accountGroup: row.AccountGroup,
+        accountSubGroup: row.AccountSubGroup,
+        accounts: []
+      };
+    });
+
+    // Step 3: Link children to parents
+    const roots = [];
+    accountsFlat.forEach(row => {
+      const item = map[row.AccountCode];
+      if (row.ParentAccountCode && map[row.ParentAccountCode]) {
+        map[row.ParentAccountCode].accounts.push(item);
+      } else {
+        roots.push(item); // top-level nodes
+      }
+    });
+
+    return res.status(200).json({
+      message: "Chart of Account loaded successfully",
+      data: roots
+    });
+
+  } catch (error) {
+    console.error("COA Load Error", error);
+    return res.status(400).json({
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+
+
+
+// end of getCOAListNew
+
+
 const getCOADetails = async (req, res) => {  
     const {Id} = req.body;  
       
@@ -138,7 +273,7 @@ const getCOADetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec GetChartOfAccountsDetailsView '${Id}'`; 
+        const query = `exec ChartOfAccount_GetDetails '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
        
          
@@ -158,6 +293,34 @@ const getCOADetails = async (req, res) => {
     }
 };
 // end of getCOADetails
+
+
+const deleteCOAAccount = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec ChartOfAccount_Delete '${Id}'`; 
+        const apiResponse = await pool.request().query(query); 
+       
+         
+        res.status(200).json({
+            message: `COA Account Deleted successfully!`,
+            data: null
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deleteCOAAccount
+
 const deleteCustomerContact = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
@@ -213,4 +376,4 @@ const getCOAAcountTypes = async (req, res) => {
 // end of getCOAAcountTypes
 
 
-module.exports =  {getCOAAcountTypes, deleteCustomerContact,coaSaveUpdate,getCOAList,getCOADetails} ;
+module.exports =  {deleteCOAAccount,getCOAAcountTypes, deleteCustomerContact,coaSaveUpdateNew,coaSaveUpdate,getCOAListNew,getCOAList,getCOADetails} ;

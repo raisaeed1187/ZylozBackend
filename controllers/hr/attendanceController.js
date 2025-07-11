@@ -30,13 +30,15 @@ const attendanceSaveUpdate = async (req,res)=>{
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
-            // console.log('formData');
-            // console.log(attendance);
             const attendanceData = JSON.parse(attendance); 
+            // console.log('formData');
+            console.log(attendanceData);
              
             const formatTime = (time) => {
-                return time.length === 5 ? `${time}:00` : time; // Convert "08:00" to "08:00:00"
+                if (!time) return '';   
+                return time.length === 5 ? `${time}:00` : time;  
             };
+
             const pool = await sql.connect(config);
             try { 
                 for (const record of attendanceData) {
@@ -58,9 +60,11 @@ const attendanceSaveUpdate = async (req,res)=>{
                       .input("isLeaveDelete", sql.Bit, record.isLeaveDelete) 
                       .input("breakTime", sql.NVarChar(100), record.breakTime)
                       .input("totalWorkingHours", sql.NVarChar(100), record.totalWorkingHours)
-                      .input("absentType", sql.NVarChar(100), record.absentType)
-                      
+                      .input("absentType", sql.NVarChar(100), record.absentType) 
                       .input("changedBy", sql.NVarChar(100), changedBy)
+                      .input("projectId", sql.NVarChar(65), record.projectID)
+                      .input("locationId", sql.NVarChar(65), record.locationId)
+
                       .execute("dbo.StaffAttendance_SaveOrUpdate");
                 }
   
@@ -69,6 +73,7 @@ const attendanceSaveUpdate = async (req,res)=>{
                     data: '' //result
                 });
             } catch (err) { 
+                console.error("Error executing query:", err);
                 return res.status(400).json({ message: err.message,data:null}); 
 
             } 
@@ -104,13 +109,14 @@ const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
                     await pool.request()
                     //   .input("id", sql.Int, record.id)
                       .input("staffId", sql.NVarChar(65), record.staffId)  
-                      .input("projectId", sql.NVarChar(100), record.projectName)
+                      .input("projectId", sql.NVarChar(100), record.projectId)
                       .input("punchIn", sql.NVarChar(50), formatTime(record.punchIn))
                       .input("punchOut", sql.NVarChar(50), formatTime(record.punchOut)) 
                       .input("attendanceStatus", sql.NVarChar(20), record.attendanceStatus) 
                       .input("weeklyOffDay", sql.NVarChar(100), record.weeklyOffDay) 
                       .input("breakTime", sql.NVarChar(100), record.breakTime) 
                       .input("changedBy", sql.NVarChar(100), changedBy)
+                      .input("locationId", sql.NVarChar(65), record.locationId) 
                       .execute("dbo.StaffAttendanceMaster_SaveOrUpdate");
                 }
   
@@ -158,8 +164,7 @@ const getAttendanceList = async (req, res) => {
 
         if(isMonthly){ 
             query = `exec StaffAttendance_Get '${date}', ${isMonthly ? 1 : 0}`;  
-        
-
+         
         }else{
             query = `exec StaffAttendance_Get '${date}',${isMonthly ? 1 : 0}`;  
         } 
