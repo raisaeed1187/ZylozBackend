@@ -152,7 +152,7 @@ function encryptID(id) {
 // end of encryptID
  
 const getAttendanceList = async (req, res) => {  
-    const {date,isMonthly} = req.body; // user data sent from client
+    const {organizationId,date,isMonthly} = req.body; // user data sent from client
      
     try {
          
@@ -163,10 +163,10 @@ const getAttendanceList = async (req, res) => {
         let query = '';
 
         if(isMonthly){ 
-            query = `exec StaffAttendance_Get '${date}', ${isMonthly ? 1 : 0}`;  
+            query = `exec StaffAttendance_Get '${date}', ${isMonthly ? 1 : 0},'${organizationId}'`;  
          
         }else{
-            query = `exec StaffAttendance_Get '${date}',${isMonthly ? 1 : 0}`;  
+            query = `exec StaffAttendance_Get '${date}',${isMonthly ? 1 : 0},'${organizationId}'`;  
         } 
          
         const apiResponse = await pool.request().query(query); 
@@ -199,7 +199,7 @@ const getAttendanceList = async (req, res) => {
 // end of getAttendanceList
 
 const getAttendanceMasterList = async (req, res) => {  
-    const {date,isMonthly} = req.body; // user data sent from client
+    const {organizationId,date,isMonthly} = req.body; // user data sent from client
      
     try {
          
@@ -210,7 +210,7 @@ const getAttendanceMasterList = async (req, res) => {
         let query = '';
 
          
-        query = `exec StaffAttendanceMaster_Get `;  
+        query = `exec StaffAttendanceMaster_Get Null,'${organizationId}'`;  
          
         const apiResponse = await pool.request().query(query); 
         

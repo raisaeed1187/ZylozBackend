@@ -50,6 +50,7 @@ const prSaveUpdate = async (req,res)=>{
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount) 
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId)
+            .input('BranchId', sql.NVarChar(100), formData.branchId) 
             .output('ID', sql.NVarChar(100))
             .execute('PurchaseRequest_SaveOrUpdate');
 
@@ -198,7 +199,7 @@ const getPRItems = async (req, res) => {
  
 
 const getPRsList = async (req, res) => {  
-    const {Id,IsForPO} = req.body; // user data sent from client
+    const {Id,IsForPO,organizationId} = req.body; // user data sent from client
      
     try {
          
@@ -208,9 +209,9 @@ const getPRsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         if (IsForPO){
-            query = `exec PurchaseRequest_Get Null, ${IsForPO}`;   
+            query = `exec PurchaseRequest_Get Null, ${IsForPO},'${organizationId}'`;   
         } else{
-            query = `exec PurchaseRequest_Get`;   
+            query = `exec PurchaseRequest_Get Null,Null,'${organizationId}' `;   
         }
          
         const apiResponse = await pool.request().query(query); 

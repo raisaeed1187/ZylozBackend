@@ -48,6 +48,7 @@ const poSaveUpdate = async (req,res)=>{
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId)
+            .input('BranchId', sql.NVarChar(100), formData.branchId) 
             .output('ID', sql.NVarChar(100))  
             .execute('PurchaseOrder_SaveOrUpdate');
 
@@ -254,7 +255,7 @@ const deletePOItem = async (req, res) => {
 // end of deletePOItem
 
 const getPOsList = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
+    const {Id,organizationId} = req.body; // user data sent from client
      
     try {
          
@@ -264,7 +265,7 @@ const getPOsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec PurchaseOrder_Get `;   
+        query = `exec PurchaseOrder_Get Null,'${organizationId}'`;   
          
         const apiResponse = await pool.request().query(query); 
         

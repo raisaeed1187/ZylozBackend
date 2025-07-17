@@ -48,6 +48,10 @@ const quotationSaveUpdate = async (req,res)=>{
                     .input('termsConditions', sql.NVarChar(sql.MAX), formData.termsConditions) 
                     .input('createdBy', sql.NVarChar(100), formData.createdBy || "Admin") 
                     .input('createdAt', sql.DateTime, formData.createdAt)
+                    .input('OrganizationId', sql.NVarChar(500), formData.organizationId || '' ) 
+                    .input('BranchID', sql.NVarChar(500), formData.branchId || '' ) 
+                    .input('currency', sql.NVarChar(500), formData.currency || '' ) 
+                    
                     .output('NewID', sql.NVarChar(255))  
                     .execute('CustomerQuotation_Save_Update');    
 
@@ -202,6 +206,7 @@ async function saveQuotationDocuments(pool,attachmentUrls,NewID,formData){
 // end of saveQuotationDocuments
 
 const getQuotationList = async (req, res) => {  
+    const {organizationId} = req.body; // user data sent from client
      
     try {
          
@@ -210,7 +215,7 @@ const getQuotationList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec getQuotationList`; 
+        const query = `exec getQuotationList '${organizationId}'`; 
         const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
             const date = new Date(createdAt);

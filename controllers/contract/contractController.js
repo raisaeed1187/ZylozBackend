@@ -51,6 +51,9 @@ const contractSaveUpdate = async (req,res)=>{
             .input("StatusId", sql.VarChar(25), formData.StatusId == 'null' ? null : formData.StatusId  || null) 
             .input("QuotationId", sql.VarChar(100), formData.QuotationId) 
             .input("createdBy", sql.VarChar(100), formData.createdBy)
+            .input("OrganizationId", sql.VarChar(65), formData.organizationId || null) 
+            .input("BranchId", sql.VarChar(65), formData.branchId || null) 
+
             .output('ID', sql.NVarChar(100)) 
             .execute("dbo.ClientContract_SaveUpdate");
     
@@ -168,6 +171,8 @@ const projectSaveUpdate = async (req,res)=>{
                 .input("StatusId", sql.VarChar(25), formData.StatusId == 'null' ? null : formData.StatusId  || null)
                 .input("QuotationId", sql.VarChar(100), formData.QuotationId) 
                 .input("CreatedBy", sql.VarChar(100), formData.createdBy || null)
+                .input("OrganizationId", sql.VarChar(65), formData.organizationId || null) 
+                .input("BranchId", sql.VarChar(65), formData.branchId || null) 
                 .output('ID', sql.NVarChar(100))  
                 .execute("dbo.ClientProject_SaveUpdate");
     
@@ -277,7 +282,7 @@ const getProjectDetails = async (req, res) => {
 // end of getProjectDetails
 
 const getContractsList = async (req, res) => {  
-    const {date,isMonthly} = req.body; // user data sent from client
+    const {organizationId,date,isMonthly} = req.body; // user data sent from client
      
     try {
          
@@ -287,7 +292,7 @@ const getContractsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec ClientContract_GetList `;   
+        query = `exec ClientContract_GetList '${organizationId}'`;   
          
         const apiResponse = await pool.request().query(query); 
         
@@ -304,7 +309,7 @@ const getContractsList = async (req, res) => {
 // end of getContractsList
 
 const getAttendanceContractsList = async (req, res) => {  
-    const {date,isMonthly} = req.body; // user data sent from client
+    const {organizationId,date,isMonthly} = req.body; // user data sent from client
      
     try {
          
@@ -314,7 +319,7 @@ const getAttendanceContractsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec Attendance_ClientContract_GetList `;   
+        query = `exec Attendance_ClientContract_GetList '${organizationId}'`;   
          
         const apiResponse = await pool.request().query(query); 
         

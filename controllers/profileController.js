@@ -75,6 +75,7 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     .input('bankIbanNo', sql.NVarChar(255), formData.bankIbanNo || "")
                     .input('bankSwiftCode', sql.NVarChar(255), formData.bankSwiftCode || "")
                     .input('employeePrefixCode', sql.NVarChar(255), formData.employeePrefixCode || "")
+                    .input('currency', sql.NVarChar(65), formData.currency || "")
                     
 
                     .output('NewID', sql.NVarChar(250))
@@ -268,5 +269,94 @@ const getOrgProfileDocuments = async (req, res) => {
 };
 // end of getOrgProfileDocuments
 
+const branchSaveUpdate = async (req,res)=>{
+    const formData = req.body;
 
-module.exports =  {orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} ;
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try {
+                  
+                const result = await pool.request()
+                .input('ID2', sql.NVarChar(65), formData.ID2)
+                .input('BranchName', sql.NVarChar(150), formData.branchName)
+                .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
+                .input('Phone', sql.NVarChar(50), formData.phone)
+                .input('Address', sql.NVarChar(255), formData.address)
+                .input('TRN', sql.NVarChar(50), formData.trn)
+                .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+                .execute('Branch_SaveOrUpdate');
+                 
+                res.status(200).json({
+                    message: 'Branch saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of branchSaveUpdate
+
+const getBranchDetails = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec Branch_Get '${Id}'`;  
+        const apiResponse = await pool.request().query(query); 
+        let letResponseData = {};
+        if(apiResponse.recordset){
+            letResponseData = apiResponse.recordset[0];
+        }  
+        res.status(200).json({
+            message: `Branch loaded successfully!`,
+            data: letResponseData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getBranchDetails
+const getBranchesList = async (req, res) => {  
+    const {organizationId,Id} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec Branch_Get Null,'${organizationId}'`;  
+        const apiResponse = await pool.request().query(query); 
+          
+        res.status(200).json({
+            message: `Branch loaded successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getBranchesList
+
+module.exports =  {getBranchesList,getBranchDetails,branchSaveUpdate,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} ;

@@ -631,7 +631,7 @@ const getPayrollConfiguration = async (req, res) => {
 // end of getPayrollConfiguration
 
 const getPayrollSummary = async (req, res) => {  
-    const {payDate} = req.body;  
+    const {payDate,organizationId} = req.body;  
       
     try {
          
@@ -641,7 +641,7 @@ const getPayrollSummary = async (req, res) => {
         const pool = await sql.connect(config); 
            
 
-        const query = `exec GetPayrollMasterSummary `; 
+        const query = `exec GetPayrollMasterSummary Null,'${organizationId}'`; 
         const apiResponse = await pool.request().query(query);  
          
         let letResponseData = {};
@@ -661,7 +661,7 @@ const getPayrollSummary = async (req, res) => {
 // end of getPayrollSummary
 
 const getPayrollPreview = async (req, res) => {  
-    const {Id,isDraft,statusId,isPayroll,isAccrual,isEOS} = req.body;  
+    const {Id,isDraft,organizationId,statusId,isPayroll,isAccrual,isEOS} = req.body;  
       
     try {
          
@@ -700,10 +700,10 @@ const getPayrollPreview = async (req, res) => {
                 }
                 payrollRollStatusId = payrollStatusId;
                 if (payrollStatusId == 9 || payrollStatusId == 8 || payrollStatusId == 7 || payrollStatusId == 6) {
-                    query = `exec Get_PayrollOutputHistory '${Id}',${payrollStatusId}`;  
+                    query = `exec Get_PayrollOutputHistory '${Id}',${payrollStatusId},'${organizationId}'`;  
                     
                 }else{
-                    query = `exec GetDraftPayrollOutput '${Id}'`;  
+                    query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}'`;  
                 }
                  
                  

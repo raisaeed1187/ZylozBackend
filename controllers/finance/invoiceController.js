@@ -51,6 +51,11 @@ const invoiceSaveUpdate = async (req,res)=>{
             .input('TotalItems', sql.Int, formData.totalItems || 0)
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount || "0.00")
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
+            .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
+            .input('Currency', sql.NVarChar(65), formData.currency || '') 
+
+            
             .output('ID', sql.NVarChar(100)) // output param
             .execute('FinInvoice_SaveOrUpdate');
 
@@ -166,7 +171,7 @@ const getInvoiceDetails = async (req, res) => {
 // end of getInvoiceDetails
 
 const getCustomerInvoice = async (req, res) => {  
-    const {customerId} = req.body; // user data sent from client
+    const {customerId,organizationId} = req.body; // user data sent from client
       
     try {
          
@@ -177,7 +182,7 @@ const getCustomerInvoice = async (req, res) => {
         let query = '';
  
        
-        const itemsQuery = `exec FinCustomerInvoices_Get '${customerId}'`;   
+        const itemsQuery = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
         console.log('itemsQuery');
         console.log(itemsQuery);
 
@@ -197,7 +202,7 @@ const getCustomerInvoice = async (req, res) => {
  
 
 const getInvoicesList = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,organizationId} = req.body;  
      
     try {
          
@@ -207,7 +212,7 @@ const getInvoicesList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinInvoice_Get`;   
+        query = `exec FinInvoice_Get Null,'${organizationId}'`;   
           
         const apiResponse = await pool.request().query(query); 
         

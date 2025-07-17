@@ -68,7 +68,8 @@ const employeeSaveUpdate = async (req,res)=>{
                     .input("originCountry", sql.NVarChar(100), formData.originCountry) 
                     .input("contractType", sql.NVarChar(100), formData.contractType)  
                     .input("IsSubmit", sql.Int, formData.isSubmit == '1' ? 1 : 0)   
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin") 
+                    .input('branchId', sql.NVarChar(65), formData.BranchId || null)  
                     .output('NewID', sql.NVarChar(255))  
                     .execute('Employee_Save_Update');    
 
@@ -590,7 +591,7 @@ async function saveEmployeeDocuments(pool,attachmentUrls,NewID,formData){
 
 const getEmployeeList = async (req, res) => {  
     
-    const {isActiveEmployee} = req.body;  
+    const {isActiveEmployee,organizationId} = req.body;  
 
     try {
          
@@ -600,14 +601,17 @@ const getEmployeeList = async (req, res) => {
         const pool = await sql.connect(config); 
           
         let query = ``; 
-
-        if(isActiveEmployee){
-            query = `exec GetActiveEmployees_List`; 
+        var apiResponse = null;
+        if(isActiveEmployee){ 
+            apiResponse = await pool.request() 
+                        .execute('GetActiveEmployees_List'); 
         }else{
-            query = `exec GetEmployeeDetails`;  
+            apiResponse = await pool.request()
+                        .input('OrganizationId', sql.NVarChar(65), organizationId)
+                        .execute('GetEmployeeDetails'); 
         }
 
-        const apiResponse = await pool.request().query(query); 
+        // const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
             const date = new Date(createdAt);
             return date.toLocaleDateString("en-US");
@@ -1341,6 +1345,9 @@ const outsourcedEmployeeSaveUpdate = async (req,res)=>{
                             .input('createdBy', sql.NVarChar(100), employee.createdBy || 'Admin')
                             .input('permitDetails', sql.NVarChar(50), employee.permitDetails || '')
                             .input('permitExpiry', sql.NVarChar(100), employee.permitExpiry || null) 
+                            .input('organizationId', sql.NVarChar(65), employee.organizationId || null) 
+                            .input('branchId', sql.NVarChar(65), employee.branchId || null) 
+
                             .execute('SaveOrUpdateOutsourcedEmployee');                      
                         }
                     }
@@ -1364,7 +1371,7 @@ const outsourcedEmployeeSaveUpdate = async (req,res)=>{
 // end of outsourcedEmployeeSaveUpdate
 
 const getOutsourcedEmployees = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,organizationId} = req.body;  
       
     try {
          
@@ -1373,9 +1380,10 @@ const getOutsourcedEmployees = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec Get_OutsourcedEmployees '${Id}'`; 
-        const apiResponse = await pool.request().query(query);  
-         
+         var apiResponse = null;
+        apiResponse = await pool.request()
+        .input('OrganizationId', sql.NVarChar(65), organizationId)
+        .execute('Get_OutsourcedEmployees'); 
           
         res.status(200).json({
             message: `outsourced details loaded successfully!`,

@@ -46,6 +46,8 @@ const paymentSaveUpdate = async (req,res)=>{
                 .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks || null)
                 .input('StatusId', sql.Int, formData.statusId || 1)
                 .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+                .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
+                .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
                 .output('ID', sql.NVarChar(100))
                 .execute('FinReceivedPayment_SaveOrUpdate');
 

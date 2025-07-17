@@ -6,7 +6,7 @@ const multer = require("multer");
  
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
 const {signUp,signIn} = require('./controllers/authController'); 
-const {orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
+const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
@@ -21,8 +21,9 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
+const {creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
 const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} = require('./controllers/finance/receiveablePaymentController'); 
 
@@ -114,6 +115,11 @@ app.post('/api/org-profile',authenticateToken,express.json(),upload,orgProfileSa
 app.post('/api/org-profile-list',authenticateToken,express.json(),getOrgProfileList );
 app.post('/api/org-profile-details',authenticateToken,express.json(),getOrgProfileDetails );
 app.post('/api/org-profile-documents',authenticateToken,express.json(),getOrgProfileDocuments );
+
+// branch
+app.post('/api/branch/save-update',authenticateToken,express.json(),upload,branchSaveUpdate );
+app.post('/api/branch',authenticateToken,express.json(),getBranchDetails );
+app.post('/api/branches',authenticateToken,express.json(),getBranchesList );
 
 // customer controller
 app.post('/api/customer-save-update',authenticateToken,express.json(),upload,customerSaveUpdate );
@@ -284,6 +290,12 @@ app.post('/api/coa/account-types',authenticateToken,express.json(),getCOAAcountT
 app.post('/api/finance/journal-entry/save-update',authenticateToken,express.json(),upload,journalEntrySaveUpdate );
 app.post('/api/finance/journal-entries',authenticateToken,express.json(),getJournalEntrysList );
 app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJournalEntryDetails );
+app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
+
+
+app.post('/api/finance/credit-note/save-update',authenticateToken,express.json(),upload,creditNoteSaveUpdate );
+app.post('/api/finance/credit-notes',authenticateToken,express.json(),getCreditNotesList );
+app.post('/api/finance/credit-note',authenticateToken,express.json(),getCreditNoteDetails );
 
 
 app.post('/api/finance/invoice/save-update',authenticateToken,express.json(),upload,invoiceSaveUpdate );

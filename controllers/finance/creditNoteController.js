@@ -20,7 +20,7 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_C
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
   
-const journalEntrySaveUpdate = async (req,res)=>{
+const creditNoteSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
 
@@ -34,29 +34,32 @@ const journalEntrySaveUpdate = async (req,res)=>{
               
             const pool = await sql.connect(config);
               
+             
             const result = await pool.request()
-            .input('ID2', sql.NVarChar(65), formData.ID2)
-            .input('JournalEntryCode', sql.NVarChar(100), formData.journalEntryCode)  
-            .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo)
-            .input('Notes', sql.NVarChar(sql.MAX), formData.notes)
-            .input('JournalEntryDate', sql.NVarChar(100), formData.journalEntryDate)
-            .input('JournalEntryType', sql.NVarChar(50), formData.journalEntryType)
-            .input('StatusId', sql.Int, formData.statusId)
-            .input('TotalItems', sql.Int, formData.totalItems)
-            .input('TotalAmount', sql.NVarChar(100) , formData.totalAmount)
+            .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
+            .input('CreditNoteCode', sql.NVarChar(100), formData.creditNoteCode || null)
+            .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo || null)
+            .input('CustomerId', sql.NVarChar(65), formData.customerId || null)
+            .input('BranchId', sql.NVarChar(65), formData.branchId || null)
+            .input('ProjectId', sql.NVarChar(65), formData.projectId || null)
+            .input('Currency', sql.NVarChar(10), formData.currency || 'AED')
+            .input('Notes', sql.NVarChar(sql.MAX), formData.notes || null)
+            .input('CreditNoteDate', sql.NVarChar(100), formData.creditNoteDate || new Date())
+            .input('StatusId', sql.Int, formData.statusId || 1)
+            .input('TotalItems', sql.Int, formData.totalItems || 0)
+            .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
+            .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
-            .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
-            .output('ID', sql.NVarChar(100)) 
-            .execute('FinJournalEntry_SaveOrUpdate');
+            .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
+            .execute('FinCreditNote_SaveOrUpdate');
 
             const newID = result.output.ID;
-            if(formData.journalEntryItems){ 
-                journalEntryItemSaveUpdate(req,newID)
+            if(formData.creditNoteItems){ 
+                creditNoteItemSaveUpdate(req,newID)
             }
 
             res.status(200).json({
-                message: 'journalEntry saved/updated',
+                message: 'creditNote saved/updated',
                 data: '' //result
             });
 
@@ -65,11 +68,11 @@ const journalEntrySaveUpdate = async (req,res)=>{
 
         }
 }
-// end of journalEntrySaveUpdate
+// end of creditNoteSaveUpdate
  
-async function journalEntryItemSaveUpdate(req,journalEntryId){
+async function creditNoteItemSaveUpdate(req,creditNoteId){
     const formData = req.body; 
-    const journalEntryItems = JSON.parse(formData.journalEntryItems); 
+    const creditNoteItems = JSON.parse(formData.creditNoteItems); 
     try {
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
@@ -77,30 +80,25 @@ async function journalEntryItemSaveUpdate(req,journalEntryId){
 
             const pool = await sql.connect(config);
             try { 
-                if (journalEntryItems) {
-                    for (let item of journalEntryItems) {  
+                if (creditNoteItems) {
+                    for (let item of creditNoteItems) {  
                         if(item.account){ 
-                            await pool.request()
-                            .input('ID2', sql.NVarChar(65), item.ID2 || '0')  // Use '0' for insert
-                            .input('JournalEntryId', sql.NVarChar(65), journalEntryId)
+                           await pool.request()
+                            .input('ID2', sql.NVarChar(65), item.ID2 || '0') // Use '0' for insert
+                            .input('CreditNoteId', sql.NVarChar(65), creditNoteId)
                             .input('Account', sql.NVarChar(100), item.account || null)
                             .input('Description', sql.NVarChar(255), item.description || null)
-                            .input('Contact', sql.NVarChar(65), item.contact || null)
-                            .input('Debits', sql.NVarChar(100), String(item.debits) || '0.00')
-                            .input('Credits', sql.NVarChar(100), String(item.credits) || '0.00')
+                            .input('Currency', sql.NVarChar(10), item.currency || null)
+                            .input('Qty', sql.Decimal(18, 2), parseFloat(item.qty) || 1)
+                            .input('Price', sql.Decimal(18, 2), parseFloat(item.price) || 0)
+                            .input('TaxRate', sql.Decimal(5, 2), parseFloat(item.taxRate) || 0)
+                            .input('TaxRateName', sql.NVarChar(100), item.taxRateName || null)
+                            .input('CostCenter', sql.NVarChar(65), item.costCenter || null)
+                            .input('CorporateTax', sql.NVarChar(50), item.corporateTax || null)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
-                            .input('currency', sql.NVarChar(65), item.currency || null)
-                            .input('fxRate', sql.NVarChar(65), String(item.fxRate) || null)
-                            .input('baseCurrencyDebits', sql.NVarChar(100), String(item.baseCurrencyDebits) || '0.00')
-                            .input('baseCurrencyCredits', sql.NVarChar(100), String(item.baseCurrencyCredits) || '0.00')
-                            .input('taxRate', sql.NVarChar(100), String(item.taxRate) || '0.00')
-                            .input('taxRateName', sql.NVarChar(100), item.taxRateName || null)
-                            .input('project', sql.NVarChar(65), item.project || null)
-                            .input('branchId', sql.NVarChar(65), item.branch || null)
-                            .input('costCenter', sql.NVarChar(65), item.costCenter || null)
-                            .input('corporateTax', sql.NVarChar(65), item.corporateTax || null)
+                            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')  
+                            .execute('FinCreditNoteItem_SaveOrUpdate');
 
-                            .execute('FinJournalEntryLine_SaveOrUpdate');
                         }
                     } 
                 }
@@ -113,7 +111,7 @@ async function journalEntryItemSaveUpdate(req,journalEntryId){
             throw new Error(error.message);
         }
 }
-// end of journalEntryItemSaveUpdate
+// end of creditNoteItemSaveUpdate
 
  
  
@@ -131,7 +129,7 @@ function encryptID(id) {
 }
 // end of encryptID
  
-const getJournalEntryDetails = async (req, res) => {  
+const getCreditNoteDetails = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
     try {
@@ -142,20 +140,20 @@ const getJournalEntryDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-        query = `exec FinJournalEntry_Get '${Id}'`;   
+        query = `exec FinCreditNote_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
 
-        const itemsQuery = `exec FinJournalEntryLine_Get '${Id}'`;
+        const itemsQuery = `exec FinCreditNoteItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
         const data = {
-            journalEntryDetails: apiResponse.recordset[0],
-            journalEntryItems: itemsApiResponse.recordset
+            creditNoteDetails: apiResponse.recordset[0],
+            creditNoteItems: itemsApiResponse.recordset
         }
         
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `JournalEntry details loaded successfully!`,
+            message: `CreditNote details loaded successfully!`,
             data: data
         });
          
@@ -164,9 +162,9 @@ const getJournalEntryDetails = async (req, res) => {
         
     }
 };
-// end of getJournalEntryDetails
+// end of getCreditNoteDetails
 
-const getJournalEntryItems = async (req, res) => {  
+const getCreditNoteItems = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
     try {
@@ -185,7 +183,7 @@ const getJournalEntryItems = async (req, res) => {
         const itemsApiResponse = await pool.request().query(itemsQuery); 
           
         res.status(200).json({
-            message: `JournalEntry details loaded successfully!`,
+            message: `CreditNote details loaded successfully!`,
             data: itemsApiResponse.recordset
         });
          
@@ -194,10 +192,10 @@ const getJournalEntryItems = async (req, res) => {
         
     }
 };
-// end of getJournalEntryItems
+// end of getCreditNoteItems
  
 
-const getJournalEntrysList = async (req, res) => {  
+const getCreditNotesList = async (req, res) => {  
     const {organizationId,Id,IsForPO} = req.body; // user data sent from client
      
     try {
@@ -208,13 +206,13 @@ const getJournalEntrysList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinJournalEntry_Get Null,'${organizationId}'`;   
+        query = `exec FinCreditNote_Get Null,'${organizationId}'`;   
          
          
         const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
-            message: `JournalEntrys List loaded successfully!`,
+            message: `CreditNotes List loaded successfully!`,
             data:  apiResponse.recordset
         });
          
@@ -223,7 +221,7 @@ const getJournalEntrysList = async (req, res) => {
         
     }
 };
-// end of getJournalEntrysList
+// end of getCreditNotesList
 
 const getJournalLedgers = async (req, res) => {  
     const {organizationId,Id} = req.body; // user data sent from client
@@ -256,4 +254,4 @@ const getJournalLedgers = async (req, res) => {
  
 
 
-module.exports =  {getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getJournalLedgers,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails,getCreditNoteItems} ;

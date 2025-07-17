@@ -528,9 +528,18 @@ const getTableDetailsById = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-        const getTableNameQuery = `select * from DynamicCreatedTables where TableId = '${tableId}'`; 
+        var getTableNameQuery
+        if (tableId == '1621580815') {
+            getTableNameQuery = `select * from DynamicCreatedTables where TableName = '${tableName}'`;  
+        }else{
+            getTableNameQuery = `select * from DynamicCreatedTables where TableId = '${tableId}'`;  
+        }
         const getTableNameResponse = await pool.request().query(getTableNameQuery); 
-         
+        console.log('getTableNameQuery'); 
+        console.log(getTableNameQuery); 
+        console.log(getTableNameResponse); 
+
+
         if(getTableNameResponse.recordset.length > 0){
             const newtableName = getTableNameResponse.recordset[0].TableName;
             const query = `select * from ${newtableName}`; 
@@ -555,7 +564,7 @@ const getTableDetailsById = async (req, res) => {
         }else{
             res.status(400).json({
                 message: `${tableName} data not found!`,
-                data: formatedData
+                data: null
             });
         }   
     } catch (error) {
