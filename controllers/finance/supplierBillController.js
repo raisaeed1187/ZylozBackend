@@ -20,7 +20,7 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_C
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
   
-const invoiceSaveUpdate = async (req,res)=>{
+const supplierBillSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
 
@@ -34,38 +34,33 @@ const invoiceSaveUpdate = async (req,res)=>{
               
             const pool = await sql.connect(config);
               
+             
             const result = await pool.request()
-            .input('ID2', sql.NVarChar(65), formData.ID2)
-            .input('InvoiceCode', sql.NVarChar(100), formData.invoiceCode)
-            .input('CustomerId', sql.NVarChar(65), formData.customerId)
-            .input('OrderNo', sql.NVarChar(100), formData.orderNo)
-            .input('InvoiceDate', sql.Date, formData.invoiceDate)
-            .input('PaymentTerms', sql.NVarChar(100), formData.paymentTerms)
-            .input('DueDate', sql.NVarChar(100), formData.dueDate)
-            .input('JournalId', sql.NVarChar(65), formData.journalId)
-            .input('Subject', sql.NVarChar(255), formData.subject)
-            .input('TermsAndConditions', sql.NVarChar(sql.MAX), formData.termsAndConditions)
-            .input('CustomerNotes', sql.NVarChar(sql.MAX), formData.customerNotes)
-            .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks)
+            .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
+            .input('SupplierBillCode', sql.NVarChar(50), formData.supplierBillCode || null)
+            .input('OrderNo', sql.NVarChar(50), formData.orderNo || null)
+            .input('VendorId', sql.NVarChar(65), formData.vendorId || null)
+            .input('BranchId', sql.NVarChar(65), formData.branchId || null)
+            .input('Currency', sql.NVarChar(10), formData.currency || 'AED')
+            .input('Notes', sql.NVarChar(sql.MAX), formData.notes || null)
+            .input('SupplierBillDate', sql.NVarChar(100), formData.supplierBillDate || null)
+            .input('DueDate', sql.NVarChar(100), formData.dueDate || null)
+            .input('PaymentTerm', sql.NVarChar(50), formData.paymentTerm || null)
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
-            .input('TotalAmount', sql.NVarChar(100), formData.totalAmount || "0.00")
+            .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
+            .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
-            .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
-            .input('Currency', sql.NVarChar(65), formData.currency || '') 
-
-            
-            .output('ID', sql.NVarChar(100)) // output param
-            .execute('FinInvoice_SaveOrUpdate');
+            .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
+            .execute('SupplierBill_SaveOrUpdate');
 
             const newID = result.output.ID;
-            if(formData.invoiceItems){ 
-                invoiceItemSaveUpdate(req,newID)
+            if(formData.supplierBillItems){ 
+                supplierBillItemSaveUpdate(req,newID)
             }
 
             res.status(200).json({
-                message: 'invoice saved/updated',
+                message: 'supplierBill saved/updated',
                 data: '' //result
             });
 
@@ -74,11 +69,11 @@ const invoiceSaveUpdate = async (req,res)=>{
 
         }
 }
-// end of invoiceSaveUpdate
+// end of supplierBillSaveUpdate
  
-async function invoiceItemSaveUpdate(req,invoiceId){
+async function supplierBillItemSaveUpdate(req,supplierBillId){
     const formData = req.body; 
-    const invoiceItems = JSON.parse(formData.invoiceItems); 
+    const supplierBillItems = JSON.parse(formData.supplierBillItems); 
     try {
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
@@ -86,26 +81,24 @@ async function invoiceItemSaveUpdate(req,invoiceId){
 
             const pool = await sql.connect(config);
             try { 
-                if (invoiceItems) {
-                    for (let item of invoiceItems) {  
-                        console.log(item);
-                        if(item.account){  
-
-                            const result = await pool.request()
-                            .input('ID2', sql.NVarChar(65), item.ID2)
-                            .input('InvoiceId', sql.NVarChar(65), invoiceId)
-                            .input('ItemDescription', sql.NVarChar(255), item.itemDescription)
-                            .input('Account', sql.NVarChar(100), item.account)
-                            .input('Qty', sql.Int, item.qty || 1)
-                            .input('Price', sql.NVarChar(100), (item.price || '0').toString().replace(/,/g, ''))
-                            .input('DiscountAmount', sql.NVarChar(100), (item.discountAmount || '0').toString().replace(/,/g, ''))
-                            .input('Vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
-                            .input('VatName', sql.NVarChar(100), (item.vatName || '0').toString()) 
-                            .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
-                            .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
-                            .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
-                            .execute('FinInvoiceItem_SaveOrUpdate');
-
+                if (supplierBillItems) {
+                    for (let item of supplierBillItems) {  
+                        if(item.account){ 
+                           await pool.request()
+                            .input('ID2', sql.NVarChar(65), item.ID2 || null)           // ID2 nullable
+                            .input('supplierBillId', sql.NVarChar(65), supplierBillId || null) // supplierBillId param
+                            .input('account', sql.NVarChar(100), item.account || null)
+                            .input('description', sql.NVarChar(255), item.description || null)
+                            .input('currency', sql.NVarChar(10), item.currency || null)
+                            .input('qty', sql.Int, item.qty != null ? item.qty : 1)
+                            .input('price', sql.Decimal(18,4), item.price != null ? item.price : 0)
+                            .input('taxRate', sql.Decimal(5,2), item.taxRate != null ? item.taxRate : 0)
+                            .input('taxRateName', sql.NVarChar(100), item.taxRateName || null)
+                            .input('customerId', sql.NVarChar(65), item.customerId || null)
+                            .input('corporateTax', sql.NVarChar(50), item.corporateTax || null)
+                            .input('remarks', sql.NVarChar(255), item.remarks || null)
+                            .input('createdBy', sql.NVarChar(100), createdBy || 'system')
+                            .execute('FinSupplierBillItem_SaveOrUpdate');
                         }
                     } 
                 }
@@ -118,7 +111,7 @@ async function invoiceItemSaveUpdate(req,invoiceId){
             throw new Error(error.message);
         }
 }
-// end of invoiceItemSaveUpdate
+// end of supplierBillItemSaveUpdate
 
  
  
@@ -136,7 +129,7 @@ function encryptID(id) {
 }
 // end of encryptID
  
-const getInvoiceDetails = async (req, res) => {  
+const getSupplierBillDetails = async (req, res) => {  
     const {Id} = req.body; // user data sent from client
       
     try {
@@ -147,20 +140,20 @@ const getInvoiceDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-        query = `exec FinInvoice_Get '${Id}'`;   
+        query = `exec finSupplierBillGet '${Id}'`;   
         const apiResponse = await pool.request().query(query);
 
-        const itemsQuery = `exec FinInvoiceItem_Get '${Id}'`;
+        const itemsQuery = `exec finSupplierBillItemGet Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
         const data = {
-            invoiceDetails: apiResponse.recordset[0],
-            invoiceItems: itemsApiResponse.recordset
+            supplierBillDetails: apiResponse.recordset[0],
+            supplierBillItems: itemsApiResponse.recordset
         }
         
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `Invoice details loaded successfully!`,
+            message: `SupplierBill details loaded successfully!`,
             data: data
         });
          
@@ -169,10 +162,10 @@ const getInvoiceDetails = async (req, res) => {
         
     }
 };
-// end of getInvoiceDetails
+// end of getSupplierBillDetails
 
-const getCustomerInvoice = async (req, res) => {  
-    const {customerId,organizationId} = req.body; // user data sent from client
+const getSupplierBillItems = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
       
     try {
          
@@ -183,14 +176,14 @@ const getCustomerInvoice = async (req, res) => {
         let query = '';
  
        
-        const itemsQuery = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
-        // console.log('itemsQuery');
-        // console.log(itemsQuery);
+        const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
+        console.log('itemsQuery');
+        console.log(itemsQuery);
 
         const itemsApiResponse = await pool.request().query(itemsQuery); 
           
         res.status(200).json({
-            message: `Invoice details loaded successfully!`,
+            message: `SupplierBill details loaded successfully!`,
             data: itemsApiResponse.recordset
         });
          
@@ -199,11 +192,11 @@ const getCustomerInvoice = async (req, res) => {
         
     }
 };
-// end of getCustomerInvoice
+// end of getSupplierBillItems
  
 
-const getInvoicesList = async (req, res) => {  
-    const {Id,organizationId} = req.body;  
+const getSupplierBillsList = async (req, res) => {  
+    const {organizationId,Id,IsForPO} = req.body; // user data sent from client
      
     try {
          
@@ -213,12 +206,13 @@ const getInvoicesList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinInvoice_Get Null,'${organizationId}'`;   
+        query = `exec finSupplierBillGet Null,'${organizationId}'`;   
           
+         
         const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
-            message: `Invoices List loaded successfully!`,
+            message: `SupplierBills List loaded successfully!`,
             data:  apiResponse.recordset
         });
          
@@ -227,9 +221,10 @@ const getInvoicesList = async (req, res) => {
         
     }
 };
-// end of getInvoicesList
+// end of getSupplierBillsList
 
+ 
  
 
 
-module.exports =  {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+module.exports =  {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails,getSupplierBillItems} ;

@@ -386,7 +386,7 @@ const getSalaryComponentDeductionDetails = async (req, res) => {
 
 // ----------------- end of Deduction  section
 const getPayrollHistory = async (req, res) => {  
-    const {Id,IsEOS} = req.body;  
+    const {Id,IsEOS,organizationId} = req.body;  
       
     try {
          
@@ -400,10 +400,10 @@ const getPayrollHistory = async (req, res) => {
         if(IsEOS){
             query = `exec GetEOSMaster `; 
         }else {
-            query = `exec GetPayrollMaster `; 
+            query = `exec GetPayrollMaster NULL,'${organizationId}'`; 
         }
 
-        // console.log('query',query);
+        console.log('query',query);
         
         const apiResponse = await pool.request().query(query);  
          
@@ -733,6 +733,8 @@ const getPayrollPreview = async (req, res) => {
         let totalPaidDaysTotalEarnings = 0;
         let totalBenefits = 0;
         let totalDeductions = 0; 
+        let totalOTAmount = 0; 
+
         
         let totalNetTotal = 0;
         let payCalendarMonth = '';
@@ -751,6 +753,8 @@ const getPayrollPreview = async (req, res) => {
                     totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings || 0).replace(/,/g, ''));
                     totalBenefits += parseFloat(String(employee.TotalBenefits || 0).replace(/,/g, ''));
                     totalDeductions += parseFloat(String(employee.TotalDeductions || 0).replace(/,/g, ''));
+                    totalOTAmount += ( parseFloat(String(employee['Normal OT Salary'] || 0).replace(/,/g, '')) + parseFloat(String(employee['Holiday OT Salary'] || 0).replace(/,/g, '')) );
+                    
                     totalNetTotal += parseFloat(String(employee.NetTotal || 0).replace(/,/g, ''));
                     
                 });
@@ -764,6 +768,7 @@ const getPayrollPreview = async (req, res) => {
                 totalPaidDaysTotalEarnings:totalPaidDaysTotalEarnings,
                 totalBenefits:totalBenefits,
                 totalDeductions:totalDeductions,
+                totalOTAmount: totalOTAmount,
                 totalNetTotal:totalNetTotal,
                 payCalendarMonth:payCalendarMonth,
                 payCalendarDays:payCalendarDays,
@@ -993,7 +998,7 @@ const getPayrollAccrualPreview = async (req, res) => {
         let totalPaidDaysTotalEarnings = 0;
         let totalBenefits = 0;
         let totalNetTotal = 0;
-
+        let totalOTAmount = 0;
         
 
         let letResponseData = {};
@@ -1003,6 +1008,8 @@ const getPayrollAccrualPreview = async (req, res) => {
             letResponseData.forEach(employee => {
                 totalPaidDaysTotalEarnings += parseFloat(String(employee.PaidDaysTotalEarnings).replace(/,/g, ''));
                 totalBenefits += parseFloat(String(employee.TotalBenefits).replace(/,/g, ''));
+                totalOTAmount += ( parseFloat(String(employee['Normal OT Salary'] || 0).replace(/,/g, '')) + parseFloat(String(employee['Holiday OT Salary'] || 0).replace(/,/g, '')) );
+                
                 totalNetTotal += parseFloat(String(employee.NetTotal).replace(/,/g, ''));
             });
             totalEmployees = letResponseData.length;
@@ -1010,6 +1017,7 @@ const getPayrollAccrualPreview = async (req, res) => {
                 totalEmployees:totalEmployees,
                 totalPaidDaysTotalEarnings:totalPaidDaysTotalEarnings,
                 totalBenefits:totalBenefits,
+                totalOTAmount: totalOTAmount,
                 totalNetTotal:totalNetTotal
             }
         }  

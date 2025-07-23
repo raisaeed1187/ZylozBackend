@@ -113,6 +113,48 @@ async function creditNoteItemSaveUpdate(req,creditNoteId){
 }
 // end of creditNoteItemSaveUpdate
 
+const applycreditNoteOnInvoice = async (req,res)=>{
+    const formData = req.body; 
+     
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            console.log('formData');
+            console.log(formData); 
+              
+            const pool = await sql.connect(config);
+            const allocations = JSON.parse(formData.allocations); 
+              
+             
+             if (allocations) {
+                    for (let item of allocations) {  
+                        if(item.creditNoteId){ 
+                           await pool.request()
+                            .input('ID2', sql.NVarChar(65), item.ID2 || '0') // Use '0' for insert
+                            .input('creditNoteId', sql.NVarChar(65), item.creditNoteId)
+                            .input('invoiceId', sql.NVarChar(100), item.invoiceId || null)
+                            .input('invoiceNo', sql.NVarChar(100), item.invoiceNo || null) 
+                            .input('appliedAmount', sql.Decimal(18, 2), parseFloat(item.appliedAmount) || 0)
+                            .input('appliedBy', sql.NVarChar(100), formData.createdBy || 'system')  
+                            .execute('FinCreditNoteAppliedInvoice_SaveOrUpdate');
+                        }
+                    } 
+                }
+
+            res.status(200).json({
+                message: 'Apply creditNote saved/updated',
+                data: '' //result
+            });
+
+        } catch (error) {
+            return res.status(400).json({ message: error.message,data:null});
+
+        }
+}
+// end of applycreditNoteOnInvoice
+ 
  
  
 // end of customerContactSaveUpdate
@@ -207,7 +249,7 @@ const getCreditNotesList = async (req, res) => {
         let query = '';
          
         query = `exec FinCreditNote_Get Null,'${organizationId}'`;   
-         
+          
          
         const apiResponse = await pool.request().query(query); 
         
@@ -251,7 +293,35 @@ const getJournalLedgers = async (req, res) => {
 };
 // end of getJournalLedgers
 
+const getAppliedCreditInvoicesList = async (req, res) => {  
+    const {creditNoteId,customerId} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+        query = `exec FinCreditNoteAppliedInvoice_Get Null,'${creditNoteId}'`;   
+          
+         
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Credit Note Applied Invoice List loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAppliedCreditInvoicesList
+
  
 
 
-module.exports =  {getJournalLedgers,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails,getCreditNoteItems} ;
+module.exports =  {getAppliedCreditInvoicesList,applycreditNoteOnInvoice,getJournalLedgers,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails,getCreditNoteItems} ;

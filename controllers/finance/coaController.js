@@ -375,5 +375,141 @@ const getCOAAcountTypes = async (req, res) => {
 };
 // end of getCOAAcountTypes
 
+const coaAllocationSaveUpdate = async (req,res)=>{
+    const formData = req.body;
 
-module.exports =  {deleteCOAAccount,getCOAAcountTypes, deleteCustomerContact,coaSaveUpdateNew,coaSaveUpdate,getCOAListNew,getCOAList,getCOADetails} ;
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            console.log('formData');
+            console.log(formData);
+           
+            try {  
+
+                 const pool = await sql.connect(config);
+
+                if (formData?.allocations) {
+                    const allocations = JSON.parse(formData.allocations); 
+                    if (allocations) {
+                        for (let item of allocations) {  
+                            if(item.transactionType){ 
+                                await pool.request()
+                                .input('ID2', sql.NVarChar(65), item.ID2 || '0') // Use '0' for insert
+                                .input('transactionType', sql.NVarChar(100), item.transactionType)
+                                .input('debitAccount', sql.NVarChar(100), item.debitAccount || null)
+                                .input('creditAccount', sql.NVarChar(100), item.creditAccount || null) 
+                                .input('description', sql.NVarChar(250), item.description || null) 
+                                .input("isAuto", sql.Bit, item.isAuto !== false)   
+                                .input("isActive", sql.Bit, item.isActive !== false)
+                                .input("vatAccount", sql.NVarChar(100), item.vatAccount || "")
+                                .input("vatType", sql.NVarChar(100), item.vatType || "")
+                                .input("createdBy", sql.NVarChar(100), formData.createdBy || "Admin")
+                                .execute('ChartOFAccountAllocation_SaveOrUpdate');
+                            }
+                        } 
+                    }
+                }else{
+                    const request = pool.request();
+    
+                    request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+                    request.input("transactionType", sql.NVarChar(100), formData.transactionType || "");
+                    request.input("debitAccount", sql.NVarChar(100), formData.debitAccount || "");
+                    request.input("creditAccount", sql.NVarChar(100), formData.creditAccount || "");
+                    request.input("description", sql.NVarChar(255), formData.description || "");
+                    request.input("isAuto", sql.Bit, formData.isAuto !== false);   
+                    request.input("isActive", sql.Bit, formData.isActive !== false);
+                    request.input("vatAccount", sql.NVarChar(100), formData.vatAccount || "");
+                    request.input("vatType", sql.NVarChar(100), formData.vatType || "");
+                    request.input("createdBy", sql.NVarChar(100), formData.createdBy || "Admin"); 
+    
+                    const result = await request.execute("ChartOFAccountAllocation_SaveOrUpdate");
+                }
+
+                
+
+ 
+                res.status(200).json({
+                    message: 'COA saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of coaAllocationSaveUpdate
+
+const getCOAAllocations = async (req, res) => {  
+    const {organizationId} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        
+         
+        query = `exec ChartOFAccountAllocation_Get`; 
+        
+        const apiResponse = await pool.request().query(query); 
+       
+      
+        // Return a response (do not return the whole req/res object)
+        res.status(200).json({
+            message: `COAs Allocation List loaded successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getCOAAllocations
+ 
+const getCOAAllocationDetails = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        
+         
+        query = `exec ChartOFAccountAllocation_Get '${Id}'`; 
+        
+        const apiResponse = await pool.request().query(query); 
+        
+        let letResponseData = {};
+        if(apiResponse.recordset){
+            letResponseData = apiResponse.recordset[0];
+             
+        }  
+
+        res.status(200).json({
+            message: `COA allocation details loaded successfully!`,
+            data: letResponseData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getCOAAllocationDetails
+ 
+
+
+module.exports =  {getCOAAllocationDetails,getCOAAllocations,coaAllocationSaveUpdate,deleteCOAAccount,getCOAAcountTypes, deleteCustomerContact,coaSaveUpdateNew,coaSaveUpdate,getCOAListNew,getCOAList,getCOADetails} ;
