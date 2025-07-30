@@ -604,7 +604,8 @@ const getEmployeeList = async (req, res) => {
         var apiResponse = null;
         if(isActiveEmployee){ 
             apiResponse = await pool.request() 
-                        .execute('GetActiveEmployees_List'); 
+                        .input('OrganizationId', sql.NVarChar(65), organizationId) 
+                        .execute('GetActiveEmployees_List '); 
         }else{
             apiResponse = await pool.request()
                         .input('OrganizationId', sql.NVarChar(65), organizationId)
@@ -1251,6 +1252,185 @@ const getEmployeeExitClearanceDetails = async (req, res) => {
 };
 // end of getEmployeeExitClearanceDetails
 
+// -------- end of exit clearance
+
+const employeeReportAbscondingSaveUpdate = async (req,res)=>{
+    const formData = req.body;
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try {   
+                    // console.log('formData');
+                    // console.log(formData);
+
+                    const result = await pool.request()
+                    .input('ID2', sql.NVarChar, formData.ID2)
+                    .input('employeeId', sql.NVarChar, formData.employeeId)
+                    .input('lastWorkingDay', sql.NVarChar(100), formData.lastWorkingDay)
+                    .input('abscondingStart', sql.NVarChar(100), formData.abscondingStart)
+                    .input('reportedToMOHRE', sql.NVarChar, formData.reportedToMOHRE)
+                    .input('mohreReportedDate', sql.NVarChar(100), formData.mohreReportedDate)
+                    .input('caseReferenceNumber', sql.NVarChar, formData.caseReferenceNumber)
+                    .input('reason', sql.NVarChar, formData.reason)
+                    .input('statusId', sql.Int, formData.statusId || 1)
+                    .input('createdBy', sql.NVarChar, formData.createdBy) 
+                    .output('ID', sql.NVarChar(250))
+
+                    .execute('AbscondingEmployee_SaveOrUpdate');
+ 
+                
+   
+                let encryptedId =  result.output.ID; 
+                 
+                let attachments = null; 
+                if(Array.isArray(req.files?.attachments)){
+                    console.log('inside attachments');
+                    attachments = req.files["attachments"]
+                        ? await Promise.all(req.files["attachments"].map(file => uploadDocument(file).then((res)=>{return res})))
+                        : []; 
+                }
+                if(attachments){
+                    console.log('attachments inside');
+                    console.log(attachments);
+
+                    await saveEmployeeReportAbscondingDocuments(pool,attachments,encryptedId,formData);
+                }
+                res.status(200).json({
+                    message: 'Report absconding clearance saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of employeeReportAbscondingSaveUpdate
+
+async function saveEmployeeReportAbscondingDocuments(pool,attachmentUrls,NewID,formData){ 
+
+    try {  
+
+        if (attachmentUrls.length > 0) {
+            console.log('attachmentUrls inside');
+            console.log(attachmentUrls);
+            for (let url of attachmentUrls) { 
+                  console.log('url');
+                  console.log(url);
+
+                await pool.request()
+                    .input("ID2", sql.NVarChar, "0")  
+                    .input("EmployeeId", sql.NVarChar(360), formData.employeeId) 
+                    .input("AbscondingEmployeeId", sql.NVarChar(360), NewID)   
+                    .input("DocumentName", sql.NVarChar, url.fileName)  
+                    .input("DocumentUrl", sql.NVarChar, url.fileUrl)  
+                    .input("CreatedBy", sql.NVarChar,formData.createdBy ) 
+                    .execute("AbscondingEmployeeDocument_SaveOrUpdate");
+            }
+        } 
+
+    } catch (error) {
+        console.error(error);
+        throw new Error(error.message);
+    }
+}
+// end of saveEmployeeReportAbscondingDocuments
+
+
+const getEmployeeReportAbscondingList = async (req, res) => {  
+    const {EmployeeId} = req.body;  
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec AbscondingEmployee_Get `; 
+        const apiResponse = await pool.request().query(query); 
+         
+        res.status(200).json({
+            message: `Employee abscondings List loaded successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getEmployeeReportAbscondingList
+
+const getEmployeeReportAbscondingDetails = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec AbscondingEmployee_Get '${Id}'`; 
+        const apiResponse = await pool.request().query(query);  
+        
+        let employeeInfo = null; 
+
+        if(apiResponse.recordset){
+           employeeInfo = apiResponse.recordset[0]; 
+        }
+        
+          
+        res.status(200).json({
+            message: `employee abosconding details loaded successfully!`,
+            data: employeeInfo
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getEmployeeReportAbscondingDetails
+const getEmployeeReportAbscondingDocuments = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const query = `exec GetAbscondingEmployeeDocumentDocuments '${Id}'`; 
+        const apiResponse = await pool.request().query(query); 
+        let letResponseData = {};
+        if(apiResponse.recordset){
+            letResponseData = apiResponse.recordset;
+        }  
+        res.status(200).json({
+            message: `AbscondingEmployee documents loaded successfully!`,
+            data: letResponseData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getEmployeeReportAbscondingDocuments
+
+
 
 const getPaySlip = async (req, res) => {  
     const {Id2,payMonth} = req.body; // user data sent from client
@@ -1398,4 +1578,4 @@ const getOutsourcedEmployees = async (req, res) => {
 // end of getOutsourcedEmployees
 
 
-module.exports =  {getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

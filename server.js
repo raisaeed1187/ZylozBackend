@@ -9,10 +9,10 @@ const {signUp,signIn} = require('./controllers/authController');
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
-const {getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
+const {getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
-const {employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
+const {getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
@@ -24,6 +24,10 @@ const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeC
 const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
+
+const {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails} = require('./controllers/finance/supplierBillController'); 
+const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = require('./controllers/finance/makePaymentController'); 
+
 
 const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} = require('./controllers/finance/receiveablePaymentController'); 
 
@@ -236,11 +240,21 @@ app.post('/api/employee/exit-clearances',authenticateToken,express.json(),getEmp
 app.post('/api/employee/exit-clearance',authenticateToken,express.json(),getEmployeeExitClearanceDetails );
 
 
+app.post('/api/employee/report-absconding/save-update',authenticateToken,express.json(),upload,employeeReportAbscondingSaveUpdate);
+app.post('/api/employee/report-abscondings',authenticateToken,express.json(),getEmployeeReportAbscondingList);
+app.post('/api/employee/report-absconding',authenticateToken,express.json(),getEmployeeReportAbscondingDetails );
+app.post('/api/employee/report-absconding/documents',authenticateToken,express.json(),getEmployeeReportAbscondingDocuments );
+
+
+
 app.post('/api/attendance/save-update',authenticateToken,express.json(),upload,attendanceSaveUpdate );
 app.post('/api/employee-attendance-master/save-update',authenticateToken,express.json(),upload,employeeAttendanceMasterSaveUpdate );
 app.post('/api/employee/attendance-master',authenticateToken,express.json(),getAttendanceMasterList ); 
 app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendanceList ); 
 app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
+app.post('/api/employee/attendance/report',authenticateToken,express.json(),getAttendanceReport ); 
+
+
 
 
 //end employee controller
@@ -305,6 +319,20 @@ app.post('/api/finance/credit-notes',authenticateToken,express.json(),getCreditN
 app.post('/api/finance/credit-note',authenticateToken,express.json(),getCreditNoteDetails );
 
 app.post('/api/finance/credit-note/applied/invoices',authenticateToken,express.json(),getAppliedCreditInvoicesList );
+// end of credit note
+
+
+app.post('/api/finance/supplier-bill/save-update',authenticateToken,express.json(),upload,supplierBillSaveUpdate );
+app.post('/api/finance/supplier-bills',authenticateToken,express.json(),getSupplierBillsList );
+app.post('/api/finance/supplier-bill',authenticateToken,express.json(),getSupplierBillDetails );
+// end of supplier bill
+
+
+app.post('/api/finance/make-payment/save-update',authenticateToken,express.json(),upload,makePaymentSaveUpdate );
+app.post('/api/finance/make-payments',authenticateToken,express.json(),getMakePaymentsList );
+app.post('/api/finance/make-payment',authenticateToken,express.json(),getMakePaymentDetails );
+// end of make payment
+
 
 
 

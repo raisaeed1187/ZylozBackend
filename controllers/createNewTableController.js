@@ -535,9 +535,9 @@ const getTableDetailsById = async (req, res) => {
             getTableNameQuery = `select * from DynamicCreatedTables where TableId = '${tableId}'`;  
         }
         const getTableNameResponse = await pool.request().query(getTableNameQuery); 
-        console.log('getTableNameQuery'); 
-        console.log(getTableNameQuery); 
-        console.log(getTableNameResponse); 
+        // console.log('getTableNameQuery'); 
+        // console.log(getTableNameQuery); 
+        // console.log(getTableNameResponse); 
 
 
         if(getTableNameResponse.recordset.length > 0){

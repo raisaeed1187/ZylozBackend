@@ -20,7 +20,7 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_C
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
   
-const invoiceSaveUpdate = async (req,res)=>{
+const makePaymentSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
 
@@ -34,38 +34,35 @@ const invoiceSaveUpdate = async (req,res)=>{
               
             const pool = await sql.connect(config);
               
+             
             const result = await pool.request()
-            .input('ID2', sql.NVarChar(65), formData.ID2)
-            .input('InvoiceCode', sql.NVarChar(100), formData.invoiceCode)
-            .input('CustomerId', sql.NVarChar(65), formData.customerId)
-            .input('OrderNo', sql.NVarChar(100), formData.orderNo)
-            .input('InvoiceDate', sql.Date, formData.invoiceDate)
-            .input('PaymentTerms', sql.NVarChar(100), formData.paymentTerms)
-            .input('DueDate', sql.NVarChar(100), formData.dueDate)
-            .input('JournalId', sql.NVarChar(65), formData.journalId)
-            .input('Subject', sql.NVarChar(255), formData.subject)
-            .input('TermsAndConditions', sql.NVarChar(sql.MAX), formData.termsAndConditions)
-            .input('CustomerNotes', sql.NVarChar(sql.MAX), formData.customerNotes)
-            .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks)
+            .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
+            .input('MakePaymentCode', sql.NVarChar(100), formData.makePaymentCode || null)
+            .input('VendorId', sql.NVarChar(65), formData.vendorId || null)
+            .input('BranchId', sql.NVarChar(65), formData.branchId || null)
+            .input('Currency', sql.NVarChar(10), formData.currency || 'AED')
+            .input('MakePaymentDate', sql.Date, formData.makePaymentDate || null)
+            .input('PaymentAmount', sql.Decimal(18, 4), formData.paymentAmount || 0.00)
+            .input('PaymentMode', sql.NVarChar(100), formData.paymentMode || null)
+            .input('PaymentThrough', sql.NVarChar(100), formData.paymentThrough || null)
+            .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo || null)
+            .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks || null)
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
-            .input('TotalAmount', sql.NVarChar(100), formData.totalAmount || "0.00")
+            .input('TotalAmount', sql.Decimal(18, 4), formData.totalAmount || 0.00)
+            .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
-            .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
-            .input('Currency', sql.NVarChar(65), formData.currency || '') 
+            .output('ID', sql.NVarChar(100))
+            .execute('FinMakePayment_SaveOrUpdate');
 
-            
-            .output('ID', sql.NVarChar(100)) // output param
-            .execute('FinInvoice_SaveOrUpdate');
 
             const newID = result.output.ID;
-            if(formData.invoiceItems){ 
-                invoiceItemSaveUpdate(req,newID)
+            if(formData.makePaymentItems){ 
+                makePaymentItemSaveUpdate(req,newID)
             }
 
             res.status(200).json({
-                message: 'invoice saved/updated',
+                message: 'makePayment saved/updated',
                 data: '' //result
             });
 
@@ -74,11 +71,11 @@ const invoiceSaveUpdate = async (req,res)=>{
 
         }
 }
-// end of invoiceSaveUpdate
+// end of makePaymentSaveUpdate
  
-async function invoiceItemSaveUpdate(req,invoiceId){
+async function makePaymentItemSaveUpdate(req,makePaymentId){
     const formData = req.body; 
-    const invoiceItems = JSON.parse(formData.invoiceItems); 
+    const makePaymentItems = JSON.parse(formData.makePaymentItems); 
     try {
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
@@ -86,25 +83,26 @@ async function invoiceItemSaveUpdate(req,invoiceId){
 
             const pool = await sql.connect(config);
             try { 
-                if (invoiceItems) {
-                    for (let item of invoiceItems) {  
-                        console.log(item);
-                        if(item.itemDescription){  
+                if (makePaymentItems) {
+                    for (let item of makePaymentItems) {  
+                        if(item.billId){ 
+                            console.log('item :',item);
+                            // console.log('makePaymentId :',makePaymentId);
 
-                            const result = await pool.request()
-                            .input('ID2', sql.NVarChar(65), item.ID2)
-                            .input('InvoiceId', sql.NVarChar(65), invoiceId)
-                            .input('ItemDescription', sql.NVarChar(255), item.itemDescription)
-                            .input('Account', sql.NVarChar(100), item.account)
-                            .input('Qty', sql.Int, item.qty || 1)
-                            .input('Price', sql.NVarChar(100), (item.price || '0').toString().replace(/,/g, ''))
-                            .input('DiscountAmount', sql.NVarChar(100), (item.discountAmount || '0').toString().replace(/,/g, ''))
-                            .input('Vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
-                            .input('VatName', sql.NVarChar(100), (item.vatName || '0').toString()) 
-                            .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
-                            .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
-                            .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
-                            .execute('FinInvoiceItem_SaveOrUpdate');
+                           await pool.request()
+                            .input('ID2', sql.NVarChar(65), item.ID2 || null)
+                            .input('MakePaymentId', sql.NVarChar(65), makePaymentId || null)
+                            .input('BillId', sql.NVarChar(65), item.billId || null)
+                            .input('BillDate', sql.Date, item.billDate || null)
+                            .input('BillNo', sql.NVarChar(100), item.billNo || null)
+                            .input('PoNo', sql.NVarChar(100), item.poNo || null)
+                            .input('BillAmount', sql.Decimal(18, 4), item.billAmount != null ? item.billAmount : 0)
+                            .input('AmountDue', sql.Decimal(18, 4), item.amountDue != null ? item.amountDue : 0)
+                            .input('PaymentMadeOn', sql.Date, item.paymentMadeOn || null)
+                            .input('PaymentAmount', sql.Decimal(18, 4), item.paymentAmount != null ? item.paymentAmount : 0)
+                            .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
+                            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')
+                            .execute('FinMakePaymentItem_SaveOrUpdate');
 
                         }
                     } 
@@ -118,7 +116,7 @@ async function invoiceItemSaveUpdate(req,invoiceId){
             throw new Error(error.message);
         }
 }
-// end of invoiceItemSaveUpdate
+// end of makePaymentItemSaveUpdate
 
  
  
@@ -136,7 +134,7 @@ function encryptID(id) {
 }
 // end of encryptID
  
-const getInvoiceDetails = async (req, res) => {  
+const getMakePaymentDetails = async (req, res) => {  
     const {Id,organizationId} = req.body; // user data sent from client
       
     try {
@@ -147,20 +145,20 @@ const getInvoiceDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-        query = `exec FinInvoice_Get '${Id}'`;   
+        query = `exec FinMakePayment_Get '${Id}','${organizationId}'`;   
         const apiResponse = await pool.request().query(query);
 
-        const itemsQuery = `exec FinInvoiceItem_Get '${Id}'`;
+        const itemsQuery = `exec FinMakePaymentItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
         const data = {
-            invoiceDetails: apiResponse.recordset[0],
-            invoiceItems: itemsApiResponse.recordset
+            makePaymentDetails: apiResponse.recordset[0],
+            makePaymentItems: itemsApiResponse.recordset
         }
         
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `Invoice details loaded successfully!`,
+            message: `MakePayment details loaded successfully!`,
             data: data
         });
          
@@ -169,10 +167,10 @@ const getInvoiceDetails = async (req, res) => {
         
     }
 };
-// end of getInvoiceDetails
+// end of getMakePaymentDetails
 
-const getCustomerInvoice = async (req, res) => {  
-    const {customerId,organizationId} = req.body; // user data sent from client
+const getMakePaymentItems = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
       
     try {
          
@@ -183,14 +181,14 @@ const getCustomerInvoice = async (req, res) => {
         let query = '';
  
        
-        const itemsQuery = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
-        // console.log('itemsQuery');
-        // console.log(itemsQuery);
+        const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
+        console.log('itemsQuery');
+        console.log(itemsQuery);
 
         const itemsApiResponse = await pool.request().query(itemsQuery); 
           
         res.status(200).json({
-            message: `Invoice details loaded successfully!`,
+            message: `MakePayment details loaded successfully!`,
             data: itemsApiResponse.recordset
         });
          
@@ -199,11 +197,11 @@ const getCustomerInvoice = async (req, res) => {
         
     }
 };
-// end of getCustomerInvoice
+// end of getMakePaymentItems
  
 
-const getInvoicesList = async (req, res) => {  
-    const {Id,organizationId} = req.body;  
+const getMakePaymentsList = async (req, res) => {  
+    const {organizationId,Id,vendorId} = req.body; // user data sent from client
      
     try {
          
@@ -212,13 +210,18 @@ const getInvoicesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        
+        if (vendorId) {
+            query = `exec finMakePaymentGet Null,'${organizationId}','${vendorId}'`;   
+        }else{
+            query = `exec FinMakePayment_Get Null,'${organizationId}'`;   
+
+        }  
          
-        query = `exec FinInvoice_Get Null,'${organizationId}'`;   
-          
         const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
-            message: `Invoices List loaded successfully!`,
+            message: `MakePayments List loaded successfully!`,
             data:  apiResponse.recordset
         });
          
@@ -227,9 +230,10 @@ const getInvoicesList = async (req, res) => {
         
     }
 };
-// end of getInvoicesList
+// end of getMakePaymentsList
 
+ 
  
 
 
-module.exports =  {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+module.exports =  {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails,getMakePaymentItems} ;

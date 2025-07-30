@@ -662,7 +662,7 @@ const getPayrollSummary = async (req, res) => {
 
 const getPayrollPreview = async (req, res) => {  
     const {Id,isDraft,organizationId,statusId,isPayroll,isAccrual,isEOS} = req.body;  
-      
+     
     try {
          
         store.dispatch(setCurrentDatabase(req.authUser.database)); 
@@ -674,10 +674,10 @@ const getPayrollPreview = async (req, res) => {
         const pool = await sql.connect(config); 
         let query = null;
         let payrollRollStatus =  'Draft';
-        let payrollRollStatusId =  1;
+        let payrollRollStatusId =  1; 
 
-        if(isAccrual){
-            query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1`; 
+        if(isAccrual){ 
+            query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1,'${organizationId}'`; 
             payrollRollStatus = 'Active';
             payrollRollStatusId = 2;
         }else if(isPayroll){
@@ -706,7 +706,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}'`;  
                 }
                  
-                 
+                // console.log('query : ',query); 
 
 
             }
@@ -721,7 +721,7 @@ const getPayrollPreview = async (req, res) => {
         // console.log('isAccrual',isAccrual);
 
         console.log('query');
-        console.log(query);
+        console.log(query); 
 
         const apiResponse = await pool.request().query(query);  
         // console.log('apiResponse.recordset');

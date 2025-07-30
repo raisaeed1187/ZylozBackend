@@ -162,7 +162,7 @@ const getGRNDetails = async (req, res) => {
 // end of getGRNDetails
 
 const getGRNItems = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
+    const {Id,poId} = req.body; // user data sent from client
       
     try {
          
@@ -172,12 +172,15 @@ const getGRNItems = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-       
-        const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
-        console.log('itemsQuery');
-        console.log(itemsQuery);
+        if (poId) {
+            query = `exec GRNItem_Get null,null,'${poId}'`; 
+        }else{
+            query = `exec GRNItem_Get '${Id}',1`; 
+        }  
+        console.log('query');
+        console.log(query);
 
-        const itemsApiResponse = await pool.request().query(itemsQuery); 
+        const itemsApiResponse = await pool.request().query(query); 
           
         res.status(200).json({
             message: `GRN details loaded successfully!`,

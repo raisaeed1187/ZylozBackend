@@ -255,7 +255,7 @@ const deletePOItem = async (req, res) => {
 // end of deletePOItem
 
 const getPOsList = async (req, res) => {  
-    const {Id,organizationId} = req.body; // user data sent from client
+    const {Id,organizationId,vendorId} = req.body; // user data sent from client
      
     try {
          
@@ -264,8 +264,13 @@ const getPOsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
-         
-        query = `exec PurchaseOrder_Get Null,'${organizationId}'`;   
+        if (vendorId) {
+            query = `exec PurchaseOrder_Get Null,'${organizationId}','${vendorId}' `;   
+        } else{
+            query = `exec PurchaseOrder_Get Null,'${organizationId}' `;   
+        }
+            
+
          
         const apiResponse = await pool.request().query(query); 
         

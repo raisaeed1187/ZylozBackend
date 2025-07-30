@@ -198,6 +198,57 @@ const getAttendanceList = async (req, res) => {
 };
 // end of getAttendanceList
 
+const getAttendanceReport = async (req, res) => {  
+    const {attendanceStartDate,attendanceEndDate,organizationId,project,location} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+
+         
+        // query = `exec StaffAttendance_Get_Report '${fromDate}','${toDate}','${organizationId}'`;  
+         query = `
+            exec StaffAttendance_Get_Monthly_Report 
+                '${attendanceStartDate}',
+                '${attendanceStartDate}',
+                '${attendanceEndDate}',
+                '${organizationId}',
+                ${project ? `'${project}'` : 'NULL'},
+                ${location ? `'${location}'` : 'NULL'}
+            `;
+         
+        const apiResponse = await pool.request().query(query); 
+        
+        const formatCreatedAt = (newDate) => {
+            const date = newDate.toISOString().split("T")[0];
+            // return date.toLocaleDateString("en-US");
+            return date;
+
+        };
+
+        let formatedData = apiResponse.recordset.map(data => ({
+            ...data 
+        })); 
+        // formatedData = formatedData.map(({ ID, ...rest }) => rest);
+
+        
+        // Return a response (do not return the whole req/res object)
+        res.status(200).json({
+            message: `Attendances List loaded successfully!`,
+            data:formatedData // apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceReport
+
 const getAttendanceMasterList = async (req, res) => {  
     const {organizationId,date,isMonthly} = req.body; // user data sent from client
      
@@ -312,4 +363,4 @@ const getAttendanceAcountTypes = async (req, res) => {
 
 
 
-module.exports =  {getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;
+module.exports =  {getAttendanceReport,getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;
