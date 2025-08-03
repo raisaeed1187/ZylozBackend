@@ -101,6 +101,7 @@ async function invoiceItemSaveUpdate(req,invoiceId){
                             .input('DiscountAmount', sql.NVarChar(100), (item.discountAmount || '0').toString().replace(/,/g, ''))
                             .input('Vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
                             .input('VatName', sql.NVarChar(100), (item.vatName || '0').toString()) 
+                            .input('VatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
                             .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
                             .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
@@ -229,7 +230,39 @@ const getInvoicesList = async (req, res) => {
 };
 // end of getInvoicesList
 
+const getTaxRate = async (req, res) => {  
+    const {Id,transaction} = req.body;  
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+        if (transaction) {
+            query = `exec TaxRate_Get '${transaction}'`;    
+        }else{
+            query = `exec TaxRate_Get `;   
+
+        }
+          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Tax rates loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getTaxRate
+
  
 
 
-module.exports =  {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+module.exports =  {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;

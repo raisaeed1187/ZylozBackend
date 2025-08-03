@@ -22,8 +22,11 @@ const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./control
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
-const {invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
+const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
+
+const {getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
+
 
 const {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails} = require('./controllers/finance/supplierBillController'); 
 const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = require('./controllers/finance/makePaymentController'); 
@@ -62,7 +65,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB file size limit
+    limits: { 
+        fileSize: 10 * 1024 * 1024,  
+        fieldSize: 10 * 1024 * 1024 
+    } 
 }).fields([
     { name: "logo", maxCount: 1 },
     { name: "img", maxCount: 1 }, 
@@ -70,7 +76,10 @@ const upload = multer({
 ]);
 const employeeUpload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }
+    limits: { 
+        fileSize: 10 * 1024 * 1024,
+        fieldSize: 10 * 1024 * 1024  
+    }
 }).any(); 
 
 
@@ -322,6 +331,16 @@ app.post('/api/finance/credit-note/applied/invoices',authenticateToken,express.j
 // end of credit note
 
 
+app.post('/api/finance/vendor-credit-note/save-update',authenticateToken,express.json(),upload,vendorCreditNoteSaveUpdate );
+app.post('/api/finance/vendor-credit-note/apply/bill',authenticateToken,express.json(),upload,applyVendorCreditNoteOnInvoice );
+
+app.post('/api/finance/vendor-credit-notes',authenticateToken,express.json(),getVendorCreditNotesList );
+app.post('/api/finance/vendor-credit-note',authenticateToken,express.json(),getVendorCreditNoteDetails );
+
+app.post('/api/finance/vendor-credit-note/applied/bills',authenticateToken,express.json(),getAppliedVendorCreditInvoicesList );
+// end of vendor credit note
+
+
 app.post('/api/finance/supplier-bill/save-update',authenticateToken,express.json(),upload,supplierBillSaveUpdate );
 app.post('/api/finance/supplier-bills',authenticateToken,express.json(),getSupplierBillsList );
 app.post('/api/finance/supplier-bill',authenticateToken,express.json(),getSupplierBillDetails );
@@ -340,6 +359,8 @@ app.post('/api/finance/invoice/save-update',authenticateToken,express.json(),upl
 app.post('/api/finance/invoices',authenticateToken,express.json(),getInvoicesList );
 app.post('/api/finance/invoice',authenticateToken,express.json(),getInvoiceDetails );
 app.post('/api/finance/customer/invoices',authenticateToken,express.json(),getCustomerInvoice );
+
+app.post('/api/finance/tax-rate',authenticateToken,express.json(),getTaxRate );
 
 app.post('/api/finance/received-payment/save-update',authenticateToken,express.json(),upload,paymentSaveUpdate );
 app.post('/api/finance/received-payments',authenticateToken,express.json(),getPaymentsList );

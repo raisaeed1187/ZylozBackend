@@ -46,6 +46,7 @@ const attendanceSaveUpdate = async (req,res)=>{
                     await pool.request()
                       .input("id", sql.Int, record.id)
                       .input("staffId", sql.NVarChar(65), record.staffId)
+                      .input("IsConfirmed", sql.Int, record?.IsConfirmed) 
                       .input("staffName", sql.NVarChar(100), record.staffName)
                       .input("designation", sql.NVarChar(50), record.designation)
                       .input("projectName", sql.NVarChar(100), record.projectName)

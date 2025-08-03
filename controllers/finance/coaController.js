@@ -153,7 +153,7 @@ function encryptID(id) {
 // end of encryptID
  
 const getCOAList = async (req, res) => {  
-    const {isDetailsView} = req.body; // user data sent from client
+    const {isDetailsView,transaction} = req.body; // user data sent from client
      
     try {
          
@@ -165,7 +165,11 @@ const getCOAList = async (req, res) => {
         
         if(isDetailsView){
             query = `exec GetChartOfAccountsDetailsView`; 
-        }else{
+        }
+        else if (transaction){
+            query = `exec ChartOfAccount_GetAll '${transaction}'`; 
+        }
+        else{
             query = `exec ChartOfAccount_GetAll`; 
         }
         const apiResponse = await pool.request().query(query); 
