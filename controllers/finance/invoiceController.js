@@ -54,14 +54,17 @@ const invoiceSaveUpdate = async (req,res)=>{
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
             .input('Currency', sql.NVarChar(65), formData.currency || '') 
-
-            
+            .input('BaseCurrencyRate', sql.NVarChar(65), formData.baseCurrencyRate || '1') 
+ 
             .output('ID', sql.NVarChar(100)) // output param
             .execute('FinInvoice_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.invoiceItems){ 
                 invoiceItemSaveUpdate(req,newID)
+            }
+            if(formData.additionalFields){ 
+                additionalFieldSaveUpdate(req,newID)
             }
 
             res.status(200).json({
@@ -121,6 +124,45 @@ async function invoiceItemSaveUpdate(req,invoiceId){
 }
 // end of invoiceItemSaveUpdate
 
+async function additionalFieldSaveUpdate(req,invoiceId){
+    const formData = req.body; 
+    const additionalFields = JSON.parse(formData.additionalFields); 
+    try {
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try { 
+                if (additionalFields) {
+                    for (let item of additionalFields) {  
+                        console.log(item);
+                        if(item.field){   
+
+                            const result = await pool.request()
+                            .input('ID2', sql.NVarChar(65), item.ID2 || '0')
+                            .input('transection', sql.NVarChar(250), 'Invoice')
+                            .input('transectionId', sql.NVarChar(65), invoiceId) 
+                            .input('fieldName', sql.NVarChar(255), item.field)
+                            .input('fieldValue', sql.NVarChar(255), item.value) 
+                            .input('organizationId', sql.NVarChar(65), formData.organizationId || '')
+                            .input('createdBy', sql.NVarChar(100), formData.createdBy)
+                            .execute('FinTransactionAddtionalFieldValue_SaveOrUpdate');
+
+                        }
+                    } 
+                }
+
+
+            } catch (err) {
+                throw new Error(err.message);
+            }  
+        } catch (error) { 
+            throw new Error(error.message);
+        }
+}
+// end of additionalFieldSaveUpdate
+
  
  
 // end of customerContactSaveUpdate
@@ -154,9 +196,19 @@ const getInvoiceDetails = async (req, res) => {
         const itemsQuery = `exec FinInvoiceItem_Get '${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const addOnFieldsQuery = `exec FinTransactionAddtionalFieldValue_Get null,'${Id}'`;
+        const addOnFieldsApiResponse = await pool.request().query(addOnFieldsQuery);
+
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Sales Invoice'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
+
         const data = {
             invoiceDetails: apiResponse.recordset[0],
-            invoiceItems: itemsApiResponse.recordset
+            invoiceItems: itemsApiResponse.recordset,
+            additionalFields: addOnFieldsApiResponse.recordset, 
+            jouralLedgers: jouralLedgerApiResponse.recordset, 
         }
         
         // Return a response (do not return the whole req/res object)

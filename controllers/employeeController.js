@@ -1517,10 +1517,12 @@ const outsourcedEmployeeSaveUpdate = async (req,res)=>{
                             .input('paymentTerms', sql.NVarChar(100), employee.paymentTerms)
                             .input('costPerDay', sql.NVarChar(100), String(employee.costPerDay ?? '')) 
                             .input('costPerMonth', sql.NVarChar(100), String(employee.costPerMonth ?? ''))
+                            
                             .input('actualWorkDays', sql.Int, employee.actualWorkDays != null ? employee.actualWorkDays : 0  )
                             .input('totalOT', sql.NVarChar(100), String(employee.totalNormalOT != null ? employee.totalNormalOT : 0 ?? ''))
                             .input('otAmount', sql.NVarChar(100), String(employee.totalNormalOTAmount != null ?employee.totalNormalOTAmount : 0  ?? ''))
                             .input('totalCost', sql.NVarChar(100), String(employee.totalCost ?? ''))
+
                             .input('status', sql.NVarChar(20), employee.status || 'Active')
                             .input('createdBy', sql.NVarChar(100), employee.createdBy || 'Admin')
                             .input('permitDetails', sql.NVarChar(50), employee.permitDetails || '')

@@ -26,7 +26,9 @@ const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustome
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
 const {getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
+const {getExpensesList,expenseSaveUpdate,getExpenseDetails} = require('./controllers/finance/expenseController'); 
 
+const {getFinAdditionalFieldsList,finAdditionalFieldSaveUpdate,getFinAdditionalFieldDetails} = require('./controllers/finance/finAdditionalFieldController'); 
 
 const {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails} = require('./controllers/finance/supplierBillController'); 
 const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = require('./controllers/finance/makePaymentController'); 
@@ -340,6 +342,10 @@ app.post('/api/finance/vendor-credit-note',authenticateToken,express.json(),getV
 app.post('/api/finance/vendor-credit-note/applied/bills',authenticateToken,express.json(),getAppliedVendorCreditInvoicesList );
 // end of vendor credit note
 
+app.post('/api/finance/expense/save-update',authenticateToken,express.json(),upload,expenseSaveUpdate );
+app.post('/api/finance/expenses',authenticateToken,express.json(),getExpensesList );
+app.post('/api/finance/expense',authenticateToken,express.json(),getExpenseDetails );
+
 
 app.post('/api/finance/supplier-bill/save-update',authenticateToken,express.json(),upload,supplierBillSaveUpdate );
 app.post('/api/finance/supplier-bills',authenticateToken,express.json(),getSupplierBillsList );
@@ -365,6 +371,14 @@ app.post('/api/finance/tax-rate',authenticateToken,express.json(),getTaxRate );
 app.post('/api/finance/received-payment/save-update',authenticateToken,express.json(),upload,paymentSaveUpdate );
 app.post('/api/finance/received-payments',authenticateToken,express.json(),getPaymentsList );
 app.post('/api/finance/received-payment',authenticateToken,express.json(),getPaymentDetails ); 
+
+// end of received payment
+
+app.post('/api/finance/additionalfield/save-update',authenticateToken,express.json(),upload,finAdditionalFieldSaveUpdate );
+app.post('/api/finance/additionalfields',authenticateToken,express.json(),getFinAdditionalFieldsList );
+app.post('/api/finance/additionalfield',authenticateToken,express.json(),getFinAdditionalFieldDetails );
+
+// end of fin additional field
 
 
 
