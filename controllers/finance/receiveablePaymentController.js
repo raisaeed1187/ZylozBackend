@@ -48,6 +48,8 @@ const paymentSaveUpdate = async (req,res)=>{
                 .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
                 .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
                 .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
+                .input('Currency', sql.NVarChar(100), formData.currency || '')
+                .input('BaseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || '') 
                 .output('ID', sql.NVarChar(100))
                 .execute('FinReceivedPayment_SaveOrUpdate');
 
@@ -93,6 +95,10 @@ async function paymentItemSaveUpdate(req,paymentId){
                             .input('DueAmount', sql.Decimal(18, 2), parseFloat(item.dueAmount) || 0.00)
                             .input('Payment', sql.Decimal(18, 2), parseFloat(item.payment) || 0.00)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
+                            .input('Currency', sql.NVarChar(100), item.currency || null) 
+                            .input('BankCurrencyPayment', sql.Decimal(18, 2), parseFloat(item.bankCurrencyPayment) || 0.00)
+                            .input('BaseCurrencyRate', sql.Decimal(18, 2), parseFloat(item.baseCurrencyRate) || 0.00)
+
                             .execute('FinReceivedPaymentItem_SaveOrUpdate');
                         }
                     } 

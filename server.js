@@ -8,11 +8,15 @@ const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNe
 const {signUp,signIn} = require('./controllers/authController'); 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
+const {approvalWorkFlowSaveUpdate,getApprovalWorkFlowDetails,getApprovalWorkFlowsList} = require('./controllers/approvalWorkFlowController'); 
+
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
 const {getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
+const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
+
 const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
@@ -144,6 +148,11 @@ app.post('/api/customer/documents',authenticateToken,express.json(),getCustomerD
 app.post('/api/customer/contact/delete',authenticateToken,express.json(),deleteCustomerContact );
 //end customer controller
 
+// approvel work flow
+app.post('/api/approvalmanagement/save-update',authenticateToken,express.json(),upload,approvalWorkFlowSaveUpdate );
+app.post('/api/approvalmanagements',authenticateToken,express.json(),getApprovalWorkFlowsList );
+app.post('/api/approvalmanagement',authenticateToken,express.json(),getApprovalWorkFlowDetails );
+
 
 app.post('/api/contract/save-update',authenticateToken,express.json(),upload,contractSaveUpdate ); 
 
@@ -265,6 +274,9 @@ app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendan
 app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
 app.post('/api/employee/attendance/report',authenticateToken,express.json(),getAttendanceReport ); 
 
+app.post('/api/attendance/shift/save-update',authenticateToken,express.json(),upload,shiftSaveUpdate );
+app.post('/api/attendance/shift',authenticateToken,express.json(),getShiftDetails ); 
+app.post('/api/attendance/shifts',authenticateToken,express.json(),getShiftsList ); 
 
 
 

@@ -200,7 +200,7 @@ const getAttendanceList = async (req, res) => {
 // end of getAttendanceList
 
 const getAttendanceReport = async (req, res) => {  
-    const {attendanceStartDate,attendanceEndDate,organizationId,project,location} = req.body; // user data sent from client
+    const {attendanceStartDate,attendanceEndDate,organizationId,project,location,shift} = req.body; // user data sent from client
      
     try {
          
@@ -219,7 +219,9 @@ const getAttendanceReport = async (req, res) => {
                 '${attendanceEndDate}',
                 '${organizationId}',
                 ${project ? `'${project}'` : 'NULL'},
-                ${location ? `'${location}'` : 'NULL'}
+                ${location ? `'${location}'` : 'NULL'},
+                ${shift ? `'${shift}'` : 'NULL'}
+
             `;
          
         const apiResponse = await pool.request().query(query); 

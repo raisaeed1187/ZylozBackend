@@ -61,7 +61,7 @@ const signUp = async (req,res)=>{
              
         } catch (error) {
             // console.log(error);
-            throw new Error(err.message);
+            throw new Error(error.message);
 
         }
 }

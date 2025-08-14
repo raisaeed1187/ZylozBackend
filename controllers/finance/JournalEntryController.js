@@ -236,7 +236,7 @@ const getJournalLedgers = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinJournalLedger_Get Null,Null,'${organizationId}'`;   
+        query = `exec FinJournalLedger_Get Null,Null,Null,'${organizationId}'`;   
          
          
         const apiResponse = await pool.request().query(query); 

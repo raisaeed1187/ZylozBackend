@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 require("dotenv").config(); 
+ 
+const bcrypt = require("bcrypt");
 
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   // Get the token from the Authorization header
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -9,6 +11,12 @@ const authenticateToken = (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: 'Access Denied. Token not provided.' });
   }
+
+  //  const hashedPassword = await bcrypt.hash('NFSAdmin$', 10);
+  
+  //  console.log('hashedPassword');
+  //  console.log(hashedPassword);
+
 
   try {
     // Verify the token
