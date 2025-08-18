@@ -50,12 +50,17 @@ const creditNoteSaveUpdate = async (req,res)=>{
             .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00)
             .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
             .execute('FinCreditNote_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.creditNoteItems){ 
-                creditNoteItemSaveUpdate(req,newID)
+                await creditNoteItemSaveUpdate(req,newID);
+                const result = await pool.request() 
+                    .input('CreditNoteId', sql.NVarChar(65), newID) 
+                    .execute('CreditNote_Create_JournalEntries');
+
             }
 
             res.status(200).json({
@@ -91,10 +96,13 @@ async function creditNoteItemSaveUpdate(req,creditNoteId){
                             .input('Currency', sql.NVarChar(10), item.currency || null)
                             .input('Qty', sql.Decimal(18, 2), parseFloat(item.qty) || 1)
                             .input('Price', sql.Decimal(18, 2), parseFloat(item.price) || 0)
-                            .input('TaxRate', sql.Decimal(5, 2), parseFloat(item.taxRate) || 0)
-                            .input('TaxRateName', sql.NVarChar(100), item.taxRateName || null)
+                            .input('Vat', sql.Decimal(5, 2), parseFloat(item.vat) || 0)
+                            .input('VatName', sql.NVarChar(100), item.vatName || null)
+                            .input('VatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
+                            .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
+                            .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('CostCenter', sql.NVarChar(65), item.costCenter || null)
-                            .input('CorporateTax', sql.NVarChar(50), item.corporateTax || null)
+                            .input('CorporateTax', sql.NVarChar(100), item.corporateTax || null)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
                             .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')  
                             .execute('FinCreditNoteItem_SaveOrUpdate');
@@ -138,6 +146,7 @@ const applycreditNoteOnInvoice = async (req,res)=>{
                             .input('invoiceNo', sql.NVarChar(100), item.invoiceNo || null) 
                             .input('appliedAmount', sql.Decimal(18, 2), parseFloat(item.appliedAmount) || 0)
                             .input('appliedBy', sql.NVarChar(100), formData.createdBy || 'system')  
+                            .input('account', sql.NVarChar(100), item.account || '')   
                             .execute('FinCreditNoteAppliedInvoice_SaveOrUpdate');
                         }
                     } 

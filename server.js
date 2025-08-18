@@ -25,7 +25,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -33,6 +33,7 @@ const {getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendor
 const {getExpensesList,expenseSaveUpdate,getExpenseDetails} = require('./controllers/finance/expenseController'); 
 
 const {getFinAdditionalFieldsList,finAdditionalFieldSaveUpdate,getFinAdditionalFieldDetails} = require('./controllers/finance/finAdditionalFieldController'); 
+const {getBanksList,bankSaveUpdate,getBankDetails} = require('./controllers/finance/bankController'); 
 
 const {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails} = require('./controllers/finance/supplierBillController'); 
 const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = require('./controllers/finance/makePaymentController'); 
@@ -333,6 +334,8 @@ app.post('/api/finance/journal-entry/save-update',authenticateToken,express.json
 app.post('/api/finance/journal-entries',authenticateToken,express.json(),getJournalEntrysList );
 app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJournalEntryDetails );
 app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
+app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailBalance );
+
 
 
 app.post('/api/finance/credit-note/save-update',authenticateToken,express.json(),upload,creditNoteSaveUpdate );
@@ -389,8 +392,13 @@ app.post('/api/finance/received-payment',authenticateToken,express.json(),getPay
 app.post('/api/finance/additionalfield/save-update',authenticateToken,express.json(),upload,finAdditionalFieldSaveUpdate );
 app.post('/api/finance/additionalfields',authenticateToken,express.json(),getFinAdditionalFieldsList );
 app.post('/api/finance/additionalfield',authenticateToken,express.json(),getFinAdditionalFieldDetails );
-
 // end of fin additional field
+
+
+app.post('/api/finance/bank/save-update',authenticateToken,express.json(),upload,bankSaveUpdate );
+app.post('/api/finance/banks',authenticateToken,express.json(),getBanksList );
+app.post('/api/finance/bank',authenticateToken,express.json(),getBankDetails );
+// end of bank
 
 
 

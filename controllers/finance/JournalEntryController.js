@@ -226,7 +226,7 @@ const getJournalEntrysList = async (req, res) => {
 // end of getJournalEntrysList
 
 const getJournalLedgers = async (req, res) => {  
-    const {organizationId,Id} = req.body; // user data sent from client
+    const {organizationId,account,Id} = req.body; // user data sent from client
      
     try {
          
@@ -236,9 +236,36 @@ const getJournalLedgers = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinJournalLedger_Get Null,Null,Null,'${organizationId}'`;   
+        query = `exec FinJournalLedger_Get Null,Null,Null,'${organizationId}',${account ? `'${account}'` : 'NULL'}`;   
          
          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Journal Ledger loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getJournalLedgers
+
+const getTrailBalance = async (req, res) => {  
+    const {organizationId,fromDate,toDate,Id} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+        query = `exec GetTrialBalance '${fromDate}','${toDate}','${organizationId}'`;   
+          
         const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
@@ -256,4 +283,4 @@ const getJournalLedgers = async (req, res) => {
  
 
 
-module.exports =  {getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getTrailBalance,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

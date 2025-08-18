@@ -54,12 +54,17 @@ const supplierBillSaveUpdate = async (req,res)=>{
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('IsForPO', sql.Bit, formData.isForPO == 'true' ? 1 : 0)
+            .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00) 
             .output('ID', sql.NVarChar(100))  
             .execute('SupplierBill_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.supplierBillItems){ 
-                supplierBillItemSaveUpdate(req,newID)
+                await supplierBillItemSaveUpdate(req,newID)
+                const result = await pool.request() 
+                    .input('SupplierBillId', sql.NVarChar(65), newID) 
+                    .execute('SupplierBill_Create_JournalEntries');
+                
             }
 
             res.status(200).json({
@@ -98,8 +103,11 @@ async function supplierBillItemSaveUpdate(req,supplierBillId){
                             .input('currency', sql.NVarChar(10), item.currency || null)
                             .input('qty', sql.Int, item.qty != null ? item.qty : 1)
                             .input('price', sql.Decimal(18,4), item.price != null ? item.price : 0)
-                            .input('taxRate', sql.Decimal(5,2), item.taxRate != null ? item.taxRate : 0)
-                            .input('taxRateName', sql.NVarChar(100), item.taxRateName || null)
+                            .input('vat', sql.Decimal(5, 2), parseFloat(item.vat) || 0)
+                            .input('vatName', sql.NVarChar(100), item.vatName || null)
+                            .input('vatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
+                            .input('vatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
+                            .input('netAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('customerId', sql.NVarChar(65), item.customerId || null)
                             .input('corporateTax', sql.NVarChar(50), item.corporateTax || null)
                             .input('remarks', sql.NVarChar(255), item.remarks || null)
@@ -202,7 +210,7 @@ const getSupplierBillItems = async (req, res) => {
  
 
 const getSupplierBillsList = async (req, res) => {  
-    const {organizationId,Id,vendorId} = req.body; // user data sent from client
+    const {organizationId,Id,vendorId,currency} = req.body; // user data sent from client
      
     try {
          
@@ -213,7 +221,7 @@ const getSupplierBillsList = async (req, res) => {
         let query = '';
         
         if (vendorId) {
-            query = `exec finSupplierBillGet Null,'${organizationId}','${vendorId}'`;   
+            query = `exec finSupplierBillGet Null,'${organizationId}','${vendorId}', ${currency ? `'${currency}'` : 'NULL'}`;   
         }else{
             query = `exec finSupplierBillGet Null,'${organizationId}'`;   
 

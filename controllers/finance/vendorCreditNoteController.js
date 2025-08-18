@@ -50,12 +50,17 @@ const vendorCreditNoteSaveUpdate = async (req,res)=>{
             .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
+            .input('BaseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate)
+            .output('ID', sql.NVarChar(100))  
             .execute('FinVendorCreditNote_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.creditNoteItems){ 
-                creditNoteItemSaveUpdate(req,newID)
+                await creditNoteItemSaveUpdate(req,newID)
+                const result = await pool.request() 
+                    .input('CreditNoteId', sql.NVarChar(65), newID) 
+                    .execute('VendorCreditNote_Create_JournalEntries');
+                
             }
 
             res.status(200).json({
@@ -91,8 +96,11 @@ async function creditNoteItemSaveUpdate(req,creditNoteId){
                             .input('Currency', sql.NVarChar(10), item.currency || null)
                             .input('Qty', sql.Decimal(18, 2), parseFloat(item.qty) || 1)
                             .input('Price', sql.Decimal(18, 2), parseFloat(item.price) || 0)
-                            .input('TaxRate', sql.Decimal(5, 2), parseFloat(item.taxRate) || 0)
-                            .input('TaxRateName', sql.NVarChar(100), item.taxRateName || null)
+                            .input('Vat', sql.Decimal(5, 2), parseFloat(item.vat) || 0)
+                            .input('VatName', sql.NVarChar(100), item.vatName || null)
+                            .input('VatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
+                            .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
+                            .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('CostCenter', sql.NVarChar(65), item.costCenter || null)
                             .input('CorporateTax', sql.NVarChar(65), item.corporateTax || null)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)

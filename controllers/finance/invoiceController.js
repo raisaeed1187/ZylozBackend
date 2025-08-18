@@ -61,7 +61,11 @@ const invoiceSaveUpdate = async (req,res)=>{
 
             const newID = result.output.ID;
             if(formData.invoiceItems){ 
-                invoiceItemSaveUpdate(req,newID)
+                await invoiceItemSaveUpdate(req,newID)
+                const result = await pool.request() 
+                        .input('InvoiceId', sql.NVarChar(65), newID) 
+                        .execute('Invoice_Create_JournalEntries');
+
             }
             if(formData.additionalFields){ 
                 additionalFieldSaveUpdate(req,newID)
@@ -225,7 +229,7 @@ const getInvoiceDetails = async (req, res) => {
 // end of getInvoiceDetails
 
 const getCustomerInvoice = async (req, res) => {  
-    const {customerId,organizationId} = req.body; // user data sent from client
+    const {customerId,organizationId,currency} = req.body; // user data sent from client
       
     try {
          
@@ -235,12 +239,15 @@ const getCustomerInvoice = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-       
-        const itemsQuery = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
+        if (currency) {
+            query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}','${currency}'`;    
+        }else{
+            query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
+        }
         // console.log('itemsQuery');
         // console.log(itemsQuery);
 
-        const itemsApiResponse = await pool.request().query(itemsQuery); 
+        const itemsApiResponse = await pool.request().query(query); 
           
         res.status(200).json({
             message: `Invoice details loaded successfully!`,
