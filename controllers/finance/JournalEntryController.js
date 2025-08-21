@@ -280,7 +280,35 @@ const getTrailBalance = async (req, res) => {
 };
 // end of getJournalLedgers
 
+
+const getVatReturns = async (req, res) => {  
+    const {organizationId,fromDate,toDate,Id} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+        query = `exec VATReturn_Generate '${fromDate}','${toDate}','${organizationId}'`;   
+          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Vat Return loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getVatReturns
+
  
 
 
-module.exports =  {getTrailBalance,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getVatReturns,getTrailBalance,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

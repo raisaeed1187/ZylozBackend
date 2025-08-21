@@ -86,7 +86,7 @@ async function makePaymentItemSaveUpdate(req,makePaymentId){
             try { 
                 if (makePaymentItems) {
                     for (let item of makePaymentItems) {  
-                        if(item.billId){ 
+                        if(item.billId && parseFloat(item.paymentAmount) > 0){ 
                             console.log('item :',item);
                             // console.log('makePaymentId :',makePaymentId);
 

@@ -55,7 +55,7 @@ const invoiceSaveUpdate = async (req,res)=>{
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
             .input('Currency', sql.NVarChar(65), formData.currency || '') 
             .input('BaseCurrencyRate', sql.NVarChar(65), formData.baseCurrencyRate || '1') 
- 
+            .input('Emirate', sql.NVarChar(65), formData.emirate || null)  
             .output('ID', sql.NVarChar(100)) // output param
             .execute('FinInvoice_SaveOrUpdate');
 

@@ -51,6 +51,7 @@ const creditNoteSaveUpdate = async (req,res)=>{
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00)
+            .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
             .execute('FinCreditNote_SaveOrUpdate');
 
@@ -197,9 +198,15 @@ const getCreditNoteDetails = async (req, res) => {
         const itemsQuery = `exec FinCreditNoteItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Credit Note'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
         const data = {
             creditNoteDetails: apiResponse.recordset[0],
-            creditNoteItems: itemsApiResponse.recordset
+            creditNoteItems: itemsApiResponse.recordset,
+            jouralLedgers: jouralLedgerApiResponse.recordset, 
+
         }
         
         // Return a response (do not return the whole req/res object)

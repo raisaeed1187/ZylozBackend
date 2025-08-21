@@ -84,9 +84,8 @@ async function paymentItemSaveUpdate(req,paymentId){
                     for (let item of paymentItems) {  
                         console.log(item);
                         if(item.invoiceId && parseFloat(item.payment) > 0 ){  
-
                             const result = await pool.request()
-                            .input('ID2', sql.NVarChar(65), item.ID2 || 0)
+                            .input('ID2', sql.NVarChar(65), item.ID2 || '0')
                             .input('PaymentId', sql.NVarChar(65), paymentId)
                             .input('InvoiceId', sql.NVarChar(65), item.invoiceId) 
                             .input('InvoiceDate', sql.Date, item.invoiceDate || null)

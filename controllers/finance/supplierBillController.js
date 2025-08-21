@@ -55,6 +55,7 @@ const supplierBillSaveUpdate = async (req,res)=>{
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('IsForPO', sql.Bit, formData.isForPO == 'true' ? 1 : 0)
             .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00) 
+            .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .output('ID', sql.NVarChar(100))  
             .execute('SupplierBill_SaveOrUpdate');
 

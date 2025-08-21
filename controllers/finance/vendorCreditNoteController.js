@@ -51,6 +51,7 @@ const vendorCreditNoteSaveUpdate = async (req,res)=>{
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('BaseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate)
+            .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .output('ID', sql.NVarChar(100))  
             .execute('FinVendorCreditNote_SaveOrUpdate');
 

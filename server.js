@@ -25,7 +25,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getVatReturns,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -335,6 +335,9 @@ app.post('/api/finance/journal-entries',authenticateToken,express.json(),getJour
 app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJournalEntryDetails );
 app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
 app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailBalance );
+app.post('/api/finance/vat-returns',authenticateToken,express.json(),getVatReturns );
+
+
 
 
 

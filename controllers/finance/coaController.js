@@ -44,7 +44,9 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("Value", sql.Decimal(18, 2), formData.value || 0);
                 request.input("ChangePercentage", sql.Decimal(5, 2), formData.change || 0);
                 request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
-                request.input("IsActive", sql.Bit, formData.active !== false); 
+                request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
+                request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false); 
+
                 await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
  
                 res.status(200).json({
@@ -137,6 +139,14 @@ const coaSaveUpdateNew = async (req,res)=>{
 }
 // end of coaSaveUpdateNew
 
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return Boolean(value); // handles 0, 1, null, undefined
+}
+ 
  
 // end of customerContactSaveUpdate
 function encryptID(id) {
