@@ -308,7 +308,110 @@ const getVatReturns = async (req, res) => {
 };
 // end of getVatReturns
 
+const getBankTransections = async (req, res) => {  
+    const {organizationId,fromDate,toDate,Id} = req.body;  
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         if (Id) {
+             query = `exec BankTransactions_GetById '${Id}','${organizationId}'`;   
+            
+         }else{
+             query = `exec BankTransactions_GetById NULL,'${organizationId}'`;   
+
+         }
+          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Vat Return loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getBankTransections
+
+
+const vatSettingsSaveUpdate = async (req,res)=>{
+    const formData = req.body; 
+    
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            console.log('formData');
+            console.log(formData); 
+              
+            const pool = await sql.connect(config);
+              
+            const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), formData.ID2 || null)
+            .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
+            .input('TRN', sql.NVarChar(30), formData.trn)
+            .input('VatRegisteredOn', sql.Date, formData.vatRegisteredOn)
+            .input('FirstTaxReturnFrom', sql.Date, formData.firstTaxReturnFrom)
+            .input('InternationalTrade', sql.Bit, formData.internationalTrade ? 1 : 0)
+            .input('ReportingPeriod', sql.NVarChar(20), formData.reportingPeriod)
+            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .execute('VATReturnSettings_SaveOrUpdate');
+ 
+
+            res.status(200).json({
+                message: 'Vat Settings saved/updated',
+                data: '' //result
+            });
+
+        } catch (error) {
+            return res.status(400).json({ message: error.message,data:null});
+
+        }
+}
+// end of vatSettingsSaveUpdate
+ 
+const getVatSettingsDetails = async (req, res) => {  
+    const {Id,organizationId} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+ 
+        // query = `exec VATReturnSettings_Get '${Id}','${organizationId}'`;   
+        query = `exec VATReturnSettings_Get NULL,'${organizationId}'`;   
+
+        const apiResponse = await pool.request().query(query);
+ 
+        const data = {
+            vatSettingDetails: apiResponse.recordset.length > 0 ? apiResponse.recordset[0] : null,
+        }
+        
+        // Return a response (do not return the whole req/res object)
+        res.status(200).json({
+            message: `Vat Settings details loaded successfully!`,
+            data: data
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getVatSettingsDetails
  
 
 
-module.exports =  {getVatReturns,getTrailBalance,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getTrailBalance,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

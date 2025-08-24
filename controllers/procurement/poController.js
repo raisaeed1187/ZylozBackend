@@ -286,7 +286,39 @@ const getPOsList = async (req, res) => {
 };
 // end of getPOsList
 
+const getPurchaseReport = async (req, res) => {  
+    const {Id,organizationId,vendorId} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        if (vendorId) {
+            query = `exec PurchaseReport_Get '${organizationId}','${vendorId}' `;   
+        } else{
+            query = `exec PurchaseReport_Get '${organizationId}' `;   
+        }
+            
+
+         
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Purchase Report loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseReport
+
  
 
 
-module.exports =  {poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem} ;
+module.exports =  {getPurchaseReport,poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem} ;

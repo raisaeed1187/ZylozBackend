@@ -424,7 +424,7 @@ const getPayrollHistory = async (req, res) => {
 // getPayrollHistory
 
 const payrollSave = async (req, res) => {  
-    const {Id,status} = req.body;  
+    const {Id,status,createdBy,organizationId} = req.body;  
       
     try {
          
@@ -436,8 +436,10 @@ const payrollSave = async (req, res) => {
         const formattedDate = getStartOfMonth(now); 
         // const query = `exec Save_PayrollOutput '${formattedDate}'`;
         
-        const query = `exec PayrollMaster_ChangeStatus '${Id}',${status}`; 
-        
+        const query = `exec PayrollMaster_ChangeStatus '${Id}',${status},'${organizationId}','${createdBy}'`; 
+        // console.log('query');
+        // console.log(query);
+
         const apiResponse = await pool.request().query(query);  
         
         let letResponseData = {}; 
@@ -669,12 +671,16 @@ const getPayrollPreview = async (req, res) => {
 
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config; 
-         
+
+        console.log('req.authUser');
+        console.log(req.authUser);
+
 
         const pool = await sql.connect(config); 
         let query = null;
         let payrollRollStatus =  'Draft';
         let payrollRollStatusId =  1; 
+        let isApprover = false;
 
         if(isAccrual){ 
             query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1,'${organizationId}'`; 
@@ -685,6 +691,14 @@ const getPayrollPreview = async (req, res) => {
             const formattedDate = getStartOfMonth(now); 
             // const formattedDate = '2025-04-01';  
             // const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterSummary '${Id}' `); 
+            
+            const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.staffId}','${Id}','Payroll' `); 
+            
+            console.log(checkIsApproverResponse.recordset);
+            if (checkIsApproverResponse.recordset.length > 0) {
+                isApprover = checkIsApproverResponse.recordset[0].IsApprover;
+            }
+
             const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterDetails '${Id}' `); 
             
             if(apiHistoryResponse.recordset.length > 0){
@@ -706,7 +720,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}'`;  
                 }
                  
-                // console.log('query : ',query); 
+                console.log('query : ',query); 
 
 
             }
@@ -773,7 +787,8 @@ const getPayrollPreview = async (req, res) => {
                 payCalendarMonth:payCalendarMonth,
                 payCalendarDays:payCalendarDays,
                 payrollRollStatus:payrollRollStatus,
-                payrollRollStatusId:payrollRollStatusId
+                payrollRollStatusId:payrollRollStatusId,
+                isApprover: isApprover
 
             }
             // console.log(payrollSummary);

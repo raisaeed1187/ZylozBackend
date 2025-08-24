@@ -107,7 +107,7 @@ const signIn = async (req,res)=>{
     
                     }
     
-                    const token = jwt.sign({ Id: user.ID, username: user.UserName,email:user.Email,database:user.databaseName}, SECRET_KEY, {
+                    const token = jwt.sign({ Id: user.ID, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName}, SECRET_KEY, {
                         expiresIn: "5h",
                     });
                     // constents.methods.setCurrentDatabase(user.databaseName);  

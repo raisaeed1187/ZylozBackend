@@ -469,14 +469,15 @@ const generateUpdateQuery = (metadata, primaryKey = "ID",primaryKey2 = "ID2") =>
     .filter((item) => item.columnName !== primaryKey && item.columnName !== primaryKey2 && item.columnName !== 'CreatedBy' && item.columnName !== 'CreatedAt' && item.columnValue !== null) 
     .map((item) => {
       const value =
-        item.columnDataType === "nvarchar" || item.columnDataType === "datetime"
+        item.columnDataType === "nvarchar" || item.columnDataType === "datetime" || item.columnDataType === "date"
           ? `'${item.columnValue}'` 
           : item.columnValue;  
       return `${item.columnName} = ${value}`;
     });
- 
+    
   const updateQuery = `UPDATE ${tableName} SET ${setClauses.join(", ")} WHERE ${primaryKey2} = '${primaryKey2Value}';`;
-
+//   console.log('updateQuery');
+//   console.log(updateQuery);
   return updateQuery;
 };
 

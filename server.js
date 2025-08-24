@@ -21,11 +21,11 @@ const {getAttendanceContractLocationsList,getAttendanceContractsList,getContract
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
-const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList} = require('./controllers/procurement/poController'); 
+const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getVatReturns,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -209,6 +209,7 @@ app.post('/api/po-item/delete',authenticateToken,express.json(),deletePOItem );
 app.post('/api/grn/po-items',authenticateToken,express.json(),getGRNPOItems );
 
 app.post('/api/pos',authenticateToken,express.json(),getPOsList );
+app.post('/api/procurement/purchase-report',authenticateToken,express.json(),getPurchaseReport );
 //end po controller
 
 
@@ -336,6 +337,9 @@ app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJourna
 app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
 app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailBalance );
 app.post('/api/finance/vat-returns',authenticateToken,express.json(),getVatReturns );
+app.post('/api/finance/bank-transections',authenticateToken,express.json(),getBankTransections );
+app.post('/api/finance/vat-settings/save-update',authenticateToken,express.json(),upload,vatSettingsSaveUpdate );
+app.post('/api/finance/vat-settings',authenticateToken,express.json(),upload,getVatSettingsDetails );
 
 
 
