@@ -275,6 +275,7 @@ async function employeeBenefitSaveUpdate(req,EmployeeId){
             throw new Error(error.message);
         }
 }
+
 const employeeDeductionSaveUpdate = async (req,res)=>{ 
     const formData = req.body;  
     try {
@@ -305,13 +306,13 @@ const employeeDeductionSaveUpdate = async (req,res)=>{
                         .input('PayrollDate', sql.Date, updatedPayrollDate)
                         .input('Remarks', sql.NVarChar, formData.remarks)
                         .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                        .input('IsEOS', sql.Bit, parseBoolean(formData.isEOS) || false)
                         .output('NewID', sql.NVarChar(255)) 
                         .execute('EmployeeDeduction_Save_Update');
-
                 
                 }   
                   
-                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate}'`; 
+                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate ? formData.payrollDate : currentPayrollDate}'`; 
                 const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
                 
                 res.status(200).json({
@@ -338,6 +339,16 @@ function getStartOfMonth(date){
     return formattedDate;
 };
 
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return Boolean(value); // handles 0, 1, null, undefined
+}
+ 
+
 const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{ 
     const formData = req.body;  
     try {
@@ -361,12 +372,13 @@ const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{
                     .input('PayrollDate', sql.Date, currentPayrollDate)
                     .input('Remarks', sql.NVarChar, formData.remarks)
                     .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                    .input('IsEOS', sql.Bit, parseBoolean(formData.isEOS) || false)
                     .output('NewID', sql.NVarChar(255)) 
                     .execute('EmployeeOneTimeAllowance_Save_Update');
 
                 const now = new Date(); 
                 const formattedDate = getStartOfMonth(now); 
-                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate}'`; 
+                const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate ? formData.payrollDate : currentPayrollDate}'`; 
                 
                 const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
                 
@@ -386,6 +398,193 @@ const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{
         }
 }
 // employeeOneTimeAllowanceSaveUpdate
+
+const employeeSalaryAdjustmentSaveUpdate = async (req,res)=>{ 
+    const formData = req.body;  
+    try {
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try { 
+                 
+                const employees = JSON.parse(formData.employeesData);  
+                console.log('formData');
+                console.log(formData);
+
+                for (let employee of employees) {  
+                        console.log(employee);
+                    const frequencyCount = parseInt(formData.installments) || 1;
+                    let currentPayrollDate = new Date(formData.effectiveFrom + '-01'); // Convert 'YYYY-MM' to a full date string (e.g., '2025-03-01')
+                    let newCurrentPayrollDate = currentPayrollDate.toISOString().split('T')[0];
+                    
+                    for (let i = 0; i < frequencyCount; i++) {  
+                        if(i > 0)
+                            currentPayrollDate.setMonth(currentPayrollDate.getMonth() + 1); 
+                            const updatedPayrollDate = currentPayrollDate.toISOString().split('T')[0]; // Format to 'YYYY-MM-DD'
+                            console.log('updatedPayrollDate');      
+                            console.log(updatedPayrollDate);
+                            
+                            if (formData.category == 'Addition') {
+                                let result = await pool.request()
+                                .input('ID2', sql.NVarChar, '0')
+                                .input('EmployeeId', sql.NVarChar, employee) 
+                                .input('AllowanceType', sql.NVarChar, formData.category)
+                                .input('AllowanceTypeId', sql.NVarChar, formData.categoryId) 
+                                .input('TotalAmount', sql.Decimal(10, 2), formData.totalAmount) 
+                                .input('EffectiveFrom', sql.Date, newCurrentPayrollDate)
+                                .input('PayrollDate', sql.Date, updatedPayrollDate)
+                                .input('Remarks', sql.NVarChar, formData.description)
+                                .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                                .input('IsEOS', sql.Bit,  false)
+                                .output('NewID', sql.NVarChar(255)) 
+                                .execute('EmployeeOneTimeAllowance_Save_Update');
+                            }else{
+                                let result = await pool.request()
+                                    .input('EmployeeId', sql.NVarChar, employee)
+                                    .input('DeductionType', sql.NVarChar, formData.category)
+                                    .input('DeductionTypeId', sql.NVarChar, formData.categoryId)
+                                    .input('DeductionFrequency', sql.NVarChar, formData.installments)
+                                    .input('TotalAmount', sql.Decimal(10, 2), formData.totalAmount)
+                                    .input('AmountPerMonth', sql.Decimal(10, 2), formData.amountPerMonth)
+                                    .input('EffectiveFrom', sql.Date, newCurrentPayrollDate)
+                                    .input('PayrollDate', sql.Date, updatedPayrollDate)
+                                    .input('Remarks', sql.NVarChar, formData.description)
+                                    .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                                    .input('IsEOS', sql.Bit, false)
+                                    .output('NewID', sql.NVarChar(255)) 
+                                    .execute('EmployeeDeduction_Save_Update'); 
+
+                            }
+                    }    
+                    const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate ? formData.payrollDate : newCurrentPayrollDate}'`; 
+                    const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                }
+                res.status(200).json({
+                    message: 'Employee deduction saved/updated',
+                    data: '' //result
+                });
+            } catch (err) {  
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            }  
+        } catch (error) {  
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of employeeSalaryAdjustmentSaveUpdate
+
+
+const getSalaryAdjustments = async (req,res)=>{ 
+    const {Id,organizationId} = req.body;  
+    try {
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+
+            const pool = await sql.connect(config);
+            try { 
+            //   console.log('formData');   
+            //   console.log(formData);   
+ 
+            const  query = `exec EmployeesSalaryAdjustments Null,'${organizationId}'`;  
+
+            const apiResponse = await pool.request().query(query); 
+               
+        
+                res.status(200).json({
+                    message: 'Employee salary adjustments list',
+                    data: apiResponse.recordset //result
+                });
+            } catch (err) {  
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            }  
+        } catch (error) {  
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// getSalaryAdjustments
+
+const getSalaryAdjustmentSchedule = async (req, res) => {
+  const { employeeId, deductionTypeId, organizationId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+
+    try {
+      // Execute stored procedure with parameters
+      const result = await pool.request()
+        .input("employeeId", sql.NVarChar(65), employeeId || null)
+        .input("deductionTypeId", sql.NVarChar(65), deductionTypeId || null)
+        .input("organizationId", sql.NVarChar(65), organizationId || null)
+        .execute("EmployeeSalaryAdjustment_GetSchedule");
+
+        const data = {
+            schedule: result.recordsets[0], // Detailed schedule
+            summary: result.recordsets[1]   // Summary section
+        }
+
+      res.status(200).json({
+        message: "Employee salary adjustments list",
+        data: data,  
+      });
+
+    } catch (err) {
+      return res.status(400).json({ message: err.message, data: null });
+    }
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message, data: null });
+  }
+};
+// end of getSalaryAdjustmentSchedule
+
+
+const salaryAdjustmentChangeStatus = async (req, res) => {
+  const { employeeId,actionType,deferMonth, deductionId, organizationId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+
+    try {
+      // Execute stored procedure with parameters
+      const result = await pool.request()
+        .input("DeductionId", sql.NVarChar(65), deductionId || null)
+        .input("EmployeeId", sql.NVarChar(65), employeeId || null)
+        .input("ActionType", sql.NVarChar(65), actionType || null) 
+        .input("DeferMonth", sql.NVarChar(65), deferMonth || null)  
+        .input("UpdatedBy", sql.NVarChar(65), req.authUser.username || null)
+        .execute("EmployeeDeduction_UpdateStatus");
+
+        
+
+      res.status(200).json({
+        message: "Employee salary adjustment status changed",
+        data: null,  
+      });
+
+    } catch (err) {
+      return res.status(400).json({ message: err.message, data: null });
+    }
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message, data: null });
+  }
+};
+// end of salaryAdjustmentChangeStatus
+
 
 const employeeRevisionSaveUpdate = async (req,res)=>{ 
     const formData = req.body;  
@@ -919,6 +1118,63 @@ const employeePayslips = async (req, res) => {
 };
 // end of employeePayslips
  
+const employeeDeductions = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        let query = null;   
+        query = `exec GetEmployeeDeductions '${Id}'`; 
+        
+           
+        const apiResponse = await pool.request().query(query);  
+          
+        res.status(200).json({
+            message: `employees deductions successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of employeeDeductions
+ 
+const employeeOneTimeAllowances = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        let query = null;   
+        query = `exec GetEmployeeOneTimeAllowances '${Id}'`; 
+        
+           
+        const apiResponse = await pool.request().query(query);  
+          
+        res.status(200).json({
+            message: `employee one time allowances successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of employeeOneTimeAllowances
+ 
+
 // ----------- end of employee
 
 
@@ -1207,8 +1463,7 @@ const getEmployeeExitClearanceList = async (req, res) => {
           
         const query = `exec EmployeeExitClearance_Get `; 
         const apiResponse = await pool.request().query(query); 
-        
-        // Return a response (do not return the whole req/res object)
+         
         res.status(200).json({
             message: `Employee Exit Clearance List loaded successfully!`,
             data: apiResponse.recordset
@@ -1580,4 +1835,4 @@ const getOutsourcedEmployees = async (req, res) => {
 // end of getOutsourcedEmployees
 
 
-module.exports =  {getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

@@ -683,7 +683,7 @@ const getPayrollPreview = async (req, res) => {
         let isApprover = false;
 
         if(isAccrual){ 
-            query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1,'${organizationId}'`; 
+            query = `exec Get_Accrual_PayrollOutput '${Id}', 1,'${organizationId}'`; 
             payrollRollStatus = 'Active';
             payrollRollStatusId = 2;
         }else if(isPayroll){
@@ -725,7 +725,12 @@ const getPayrollPreview = async (req, res) => {
 
             }
         }else if(isEOS){
-            query = `exec Get_Accrual_PayrollOutput_New '${Id}', 0`; 
+            if (statusId == 1) {
+                query = `exec Get_Accrual_PayrollOutput '${Id}', 0,'${organizationId}'`; 
+                
+            }else{
+                query = `exec Get_EOS_Details '${Id}','${organizationId}',${statusId}`; 
+            }
             payrollRollStatus = 'Active';
             payrollRollStatusId = 2;
         } 
@@ -811,7 +816,7 @@ const getPayrollPreview = async (req, res) => {
 // end of getPayrollPreview
 
 const getPayrollEmployeeDetails = async (req, res) => {  
-    const {Id,employeeId,payMonth} = req.body; // user data sent from client
+    const {Id,employeeId,payMonth,isEOS} = req.body; // user data sent from client
      
     try {
          
@@ -820,49 +825,95 @@ const getPayrollEmployeeDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = ''; 
-        query = `exec GetDraftPayrollOutput '${Id}','${employeeId}'`;   
+        // const currentDate =  new Date();
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const yyyy = firstDay.getFullYear();
+        const mm = String(firstDay.getMonth() + 1).padStart(2, '0');
+        const dd = String(firstDay.getDate()).padStart(2, '0');
+
+        const formatted = `${yyyy}-${mm}-${dd}`;
+
+        if(isEOS){
+            query = `exec Get_Accrual_PayrollOutput '${formatted}',0,NULL,'${employeeId}'`;       
+        }else{
+            query = `exec GetDraftPayrollOutput '${Id}','${employeeId}'`;   
+        }
+        console.log('query',query);
         const apiResponse = await pool.request().query(query); 
-        
+        console.log('apiResponse.recordset',apiResponse.recordset);    
         let paySlipInfo = {};
+
         if(apiResponse.recordset.length > 0){
-            const earningsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Earnings'` ; 
-            const apiearningsResponse = await pool.request().query(earningsQuery); 
-            
-            const benefitsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Benefits'` ; 
-            const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
-            
-            const deductionsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Deductions'` ;  
-            const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
-       
-            const allowanceQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','OneTimeAllowance'` ;  
-            const apiAllowanceQueryResponse = await pool.request().query(allowanceQuery); 
-       
-            const earnings = Object.entries(apiearningsResponse.recordset[0])  
-            .filter(([key, value]) => !["TotalEarnings"].includes(key) && value)  
-            .map(([key, value]) => ({ component: key, amount: value }));
+            let earnings, benefits, deductions ,allowances; 
+            if (!isEOS) {
+                const earningsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Earnings'` ; 
+                const apiearningsResponse = await pool.request().query(earningsQuery); 
+                
+                const benefitsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Benefits'` ; 
+                const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
+                
+                const deductionsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Deductions'` ;  
+                const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
+                
+                const allowanceQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','OneTimeAllowance'` ;  
+                const apiAllowanceQueryResponse = await pool.request().query(allowanceQuery); 
+                
+                earnings = Object.entries(apiearningsResponse.recordset[0])  
+                .filter(([key, value]) => !["TotalEarnings"].includes(key) && value)  
+                .map(([key, value]) => ({ component: key, amount: value }));
+    
+                
+                benefits = Object.entries(apiBenefitsResponse.recordset[0])
+                // .filter(([key]) => !["TotalEarnings", "TotalBenefits"].includes(key))
+                .filter(([key, value]) => !["TotalEarnings", "TotalBenefits", "GrossTotal"].includes(key) && value) 
+                .map(([key, value]) => ({ component: key, amount: value }));
+    
+                deductions = Object.entries(apiDeductionsResponse.recordset[0])  
+                .filter(([key, value]) => !["TotalDeductions"].includes(key) && value)  
+                .map(([key, value]) => ({ component: key, amount: value }));
+    
+                allowances = Object.entries(apiAllowanceQueryResponse.recordset[0])  
+                .filter(([key, value]) => !["TotalOneTimeAllowance"].includes(key) && value)  
+                .map(([key, value]) => ({ component: key, amount: value }));
+                
+            }else{  
 
-            
-            const benefits = Object.entries(apiBenefitsResponse.recordset[0])
-            // .filter(([key]) => !["TotalEarnings", "TotalBenefits"].includes(key))
-            .filter(([key, value]) => !["TotalEarnings", "TotalBenefits", "GrossTotal"].includes(key) && value) 
-            .map(([key, value]) => ({ component: key, amount: value }));
+                const earningsQuery = `exec Get_EOS_Employee_Components  '${formatted}',0,NULL,'${employeeId}','Earnings'` ; 
+                const apiearningsResponse = await pool.request().query(earningsQuery); 
+                if (apiearningsResponse.recordset && apiearningsResponse.recordset.length > 0) {
+                    earnings = Object.entries(apiearningsResponse.recordset[0])  
+                    .filter(([key, value]) => !["TotalEarnings"].includes(key) && !["ID2"].includes(key) && value)  
+                    .map(([key, value]) => ({ component: key, amount: value })); 
+                }
+                 
+                const deductionsQuery = `exec Get_EOS_Employee_Components  '${formatted}',0,NULL,'${employeeId}','Deductions'` ;   
+                const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
+                if (apiDeductionsResponse.recordset && apiDeductionsResponse.recordset.length > 0) {
+                    deductions = Object.entries(apiDeductionsResponse.recordset[0])  
+                    .filter(([key, value]) => !["TotalDeductions"].includes(key) && !["DeductionEmployeeId"].includes(key) && value)  
+                    .map(([key, value]) => ({ component: key, amount: value })); 
+                }
 
-            const deductions = Object.entries(apiDeductionsResponse.recordset[0])  
-            .filter(([key, value]) => !["TotalDeductions"].includes(key) && value)  
-            .map(([key, value]) => ({ component: key, amount: value }));
+                const allowanceQuery = `exec Get_EOS_Employee_Components  '${formatted}',0,NULL,'${employeeId}','OneTimeAllowance'` ;  
+                const apiAllowanceQueryResponse = await pool.request().query(allowanceQuery); 
+                
+                if (apiAllowanceQueryResponse.recordset && apiAllowanceQueryResponse.recordset.length > 0) {
+                    allowances = Object.entries(apiAllowanceQueryResponse.recordset[0])  
+                    .filter(([key, value]) => !["TotalOneTimeAllowance"].includes(key) && !["AllowanceEmployeeId"].includes(key)  && value)  
+                    .map(([key, value]) => ({ component: key, amount: value }));        
+                }
+                 
 
-            const allowances = Object.entries(apiAllowanceQueryResponse.recordset[0])  
-            .filter(([key, value]) => !["TotalOneTimeAllowance"].includes(key) && value)  
-            .map(([key, value]) => ({ component: key, amount: value }));
+            }
 
 
             paySlipInfo = {
                 employeeInfo:apiResponse.recordset[0],
-                employeeEarnings:earnings,
-                employeeBenefits:benefits,  
-                employeeDeductions:deductions,
-                employeeAllowances:allowances, 
-
+                employeeEarnings:earnings || null,
+                employeeBenefits:benefits || null,  
+                employeeDeductions:deductions || null,
+                employeeAllowances:allowances || null, 
             }
 
         }
@@ -985,7 +1036,69 @@ const releaseEmployeeSalary = async (req, res) => {
     }
 };
 // end of releaseEmployeeSalary
- 
+
+const releaseEmployeeEOS = async (req, res) => {  
+    // const {employees,statusId} = req.body;  
+    const formData = req.body; 
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('formData');
+        console.log(formData);
+
+        // return formData; 
+        const newEmployees = JSON.parse(formData.selectedEmployees);   
+        // return [newEmployees,formData.statusId];
+
+        let result = await pool.request()
+        .input('ID2', sql.NVarChar,  '0')  
+        .input('PayrollMasterId', sql.NVarChar, formData.payrollId) 
+        .input('BankReferanceNo', sql.NVarChar, formData.bankReferanceNo)
+        .input('BankTotalAmount', sql.NVarChar, formData.bankTotalAmount)
+        .input('PayrollTotalAmount', sql.NVarChar, formData.payrollTotalAmount)
+        .input('TotalPaidEmployees', sql.Int, formData.totalEmployees)
+        .input('CreatedBy', sql.NVarChar, req.authUser.username)
+        .output('EOSReleaseId', sql.NVarChar(100))
+        .execute('PayrollMasterEOSReleases_SaveOrUpdate');
+
+        const eOSReleaseId = result.output.EOSReleaseId;
+
+        newEmployees.forEach(async (employee) => {
+            console.log('employee data');
+            console.log(employee);
+            
+            try {
+                let result = await pool.request()
+                    .input('ID2', sql.NVarChar, '0')
+                    .input('EOSMasterId', sql.NVarChar, formData.payrollId)
+                    .input('EOSReleaseId', sql.NVarChar, eOSReleaseId)
+                    .input('EmployeeId', sql.NVarChar, employee.ID2)  
+                    .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                    .execute('PayrollEOSReleaseEmployees_SaveOrUpdate');
+            
+            } catch (error) { 
+                return res.status(400).json({ message: error.message,data:null});
+        
+            }
+        });
+         
+         
+        res.status(200).json({
+            message: `employee EOS status changed successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of releaseEmployeeEOS
+
+
 
 function getStartOfMonth(date){
     // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
@@ -1006,7 +1119,7 @@ const getPayrollAccrualPreview = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
-        const query = `exec Get_Accrual_PayrollOutput_New '${Id}', 1`; 
+        const query = `exec Get_Accrual_PayrollOutput '${Id}', 1`; 
         const apiResponse = await pool.request().query(query);  
          // Calculate totals
         let totalEmployees = 0;
@@ -1051,7 +1164,61 @@ const getPayrollAccrualPreview = async (req, res) => {
 };
 // end of getPayrollAccrualPreview
 
+const saveEmployeeEOS = async (req, res) => {  
+    // const {employees,statusId} = req.body;  
+    const formData = req.body; 
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('formData');
+        console.log(formData);
+
+        // return formData;
+        const newEmployees = JSON.parse(formData.employees);   
+        // return [newEmployees,formData.statusId];
+        newEmployees.forEach(async (employee) => {
+            console.log('employee');
+            console.log(employee);
+            try {
+                if (formData.statusId == 4) {
+                    let result = await pool.request()
+                        .input('PayMonth', sql.NVarChar, formData.date)
+                        .input('OrganizationId', sql.NVarChar, formData.organizationId)
+                        .input('employeeId', sql.NVarChar, employee.ID2)
+                        .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                        .execute('Save_EOS_PayrollOutput');
+                    
+                }else{
+                     let result = await pool.request() 
+                        .input('employeeId', sql.NVarChar, employee.ID2)
+                        .input('statusId', sql.Int, formData.statusId)
+                        .input('createdBy', sql.NVarChar, req.authUser.username) 
+                        .execute('EOS_Change_Status');
+                }
+            
+            } catch (error) { 
+                return res.status(400).json({ message: error.message,data:null});
+        
+            }
+        });
+         
+         
+        res.status(200).json({
+            message: `employee EOS saved successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of saveEmployeeEOS
+
 
  
 
-module.exports =  {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollEmployeeDetails,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;
+module.exports =  {saveEmployeeEOS,releaseEmployeeEOS,releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollEmployeeDetails,getPayrollPreview,getPayrollSummary,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails} ;

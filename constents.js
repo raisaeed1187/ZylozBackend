@@ -29,6 +29,8 @@ const states = {
             trustedConnection:false,
             enableArithAbort:true,
             // instancename:"SQLEXPRESS", 
+            connectionTimeout: 60000,  
+            requestTimeout: 600000, 
         }
     },
     // config:null,

@@ -11,8 +11,8 @@ const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetai
 const {approvalWorkFlowSaveUpdate,getApprovalWorkFlowDetails,getApprovalWorkFlowsList} = require('./controllers/approvalWorkFlowController'); 
 
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
-const {getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
-const {releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
+const {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
+const {saveEmployeeEOS,releaseEmployeeEOS,releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
 const {getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
@@ -256,6 +256,15 @@ app.post('/api/employee/delete/deduction-allowance',authenticateToken,express.js
 
 
 app.post('/api/employee/payslips',authenticateToken,express.json(),employeePayslips );
+app.post('/api/employee/deductions',authenticateToken,express.json(),employeeDeductions );
+app.post('/api/employee/one-time-allowances',authenticateToken,express.json(),employeeOneTimeAllowances );
+app.post('/api/employee/salary-adjustment/save-update',authenticateToken,express.json(),upload,employeeSalaryAdjustmentSaveUpdate );
+app.post('/api/employee/salary-adjustments',authenticateToken,express.json(),getSalaryAdjustments );
+app.post('/api/employee/salary-adjustment/schedule',authenticateToken,express.json(),getSalaryAdjustmentSchedule );
+app.post('/api/employee/salary-adjustment/change-status',authenticateToken,express.json(),salaryAdjustmentChangeStatus );
+
+
+
 
 app.post('/api/employee/exit-clearance/save-update',authenticateToken,express.json(),upload,employeeExitClearanceSaveUpdate);
 app.post('/api/employee/exit-clearances',authenticateToken,express.json(),getEmployeeExitClearanceList);
@@ -275,6 +284,7 @@ app.post('/api/employee/attendance-master',authenticateToken,express.json(),getA
 app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendanceList ); 
 app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
 app.post('/api/employee/attendance/report',authenticateToken,express.json(),getAttendanceReport ); 
+
 
 app.post('/api/attendance/shift/save-update',authenticateToken,express.json(),upload,shiftSaveUpdate );
 app.post('/api/attendance/shift',authenticateToken,express.json(),getShiftDetails ); 
@@ -301,6 +311,9 @@ app.post('/api/payroll/preview',authenticateToken,express.json(),getPayrollPrevi
 app.post('/api/payroll/employee',authenticateToken,express.json(),getPayrollEmployeeDetails );
 app.post('/api/payroll/hold-salary',authenticateToken,express.json(),upload,holdEmployeeSalary );
 app.post('/api/payroll/release-salary',authenticateToken,express.json(),upload,releaseEmployeeSalary );
+app.post('/api/payroll/eos-save',authenticateToken,express.json(),upload,saveEmployeeEOS );
+app.post('/api/payroll/release-eos',authenticateToken,express.json(),upload,releaseEmployeeEOS );
+
 
 
 app.post('/api/payroll/accrual/preview',authenticateToken,express.json(),getPayrollAccrualPreview );
@@ -419,6 +432,10 @@ const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+// server.setTimeout(60000, () => {
+//     console.log('Request timed out after 60 seconds');
+// });
 
 
 // Graceful shutdown

@@ -59,7 +59,12 @@ const attendanceSaveUpdate = async (req,res)=>{
                       .input("attendanceDate", sql.Date, record.attendanceDate)
                       .input("dayStatus", sql.NVarChar(100), record.dayStatus)
                       .input("isLeaveDelete", sql.Bit, record.isLeaveDelete) 
-                      .input("breakTime", sql.NVarChar(100), record.breakTime)
+                    //   .input("breakTime", sql.NVarChar(100), record.breakTime)
+                    //   .input("breakTime", sql.NVarChar(100), record.breakTime?.toString() ?? "")
+                    //   .input("breakTime", sql.NVarChar(100), String(record.breakTime ?? ""))
+                      .input("breakTime", sql.NVarChar(100), record.breakTime ? String(record.breakTime) : "")
+
+
                       .input("totalWorkingHours", sql.NVarChar(100), record.totalWorkingHours)
                       .input("absentType", sql.NVarChar(100), record.absentType) 
                       .input("changedBy", sql.NVarChar(100), changedBy)
@@ -115,7 +120,9 @@ const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
                       .input("punchOut", sql.NVarChar(50), formatTime(record.punchOut)) 
                       .input("attendanceStatus", sql.NVarChar(20), record.attendanceStatus) 
                       .input("weeklyOffDay", sql.NVarChar(100), record.weeklyOffDay) 
-                      .input("breakTime", sql.NVarChar(100), record.breakTime) 
+                    //   .input("breakTime", sql.NVarChar(100), record.breakTime) 
+                      .input("breakTime", sql.NVarChar(100), record.breakTime ? String(record.breakTime) : "")
+
                       .input("changedBy", sql.NVarChar(100), changedBy)
                       .input("locationId", sql.NVarChar(65), record.locationId) 
                       .execute("dbo.StaffAttendanceMaster_SaveOrUpdate");
@@ -223,26 +230,23 @@ const getAttendanceReport = async (req, res) => {
                 ${shift ? `'${shift}'` : 'NULL'}
 
             `;
+
+            // query = `
+            // exec StaffAttendance_Get_Monthly_Report_new  
+            //     '${attendanceStartDate}',
+            //     '${attendanceEndDate}',
+            //     '${organizationId}',
+            //     ${project ? `'${project}'` : 'NULL'},
+            //     ${location ? `'${location}'` : 'NULL'},
+            //     ${shift ? `'${shift}'` : 'NULL'}
+
+            // `;
          
         const apiResponse = await pool.request().query(query); 
-        
-        const formatCreatedAt = (newDate) => {
-            const date = newDate.toISOString().split("T")[0];
-            // return date.toLocaleDateString("en-US");
-            return date;
-
-        };
-
-        let formatedData = apiResponse.recordset.map(data => ({
-            ...data 
-        })); 
-        // formatedData = formatedData.map(({ ID, ...rest }) => rest);
-
-        
-        // Return a response (do not return the whole req/res object)
+         
         res.status(200).json({
             message: `Attendances List loaded successfully!`,
-            data:formatedData // apiResponse.recordset
+            data:  apiResponse.recordset
         });
          
     } catch (error) {
