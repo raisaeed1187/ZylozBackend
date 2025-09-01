@@ -10,7 +10,8 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
-
+const SynologyService = require("./synologyService"); 
+const path = require("path");
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -18,6 +19,8 @@ const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STR
 const CONTAINER_NAME = "documents";
 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+
+
 
   
 const customerSaveUpdate = async (req,res)=>{
@@ -31,7 +34,52 @@ const customerSaveUpdate = async (req,res)=>{
 
             const pool = await sql.connect(config);
             try { 
-                  
+
+                // const synology = new SynologyService({
+                //     // url: "https://airostars.cz4.quickconnect.to:5006",
+                //     // url: "https://192.168.0.20:5006", 
+                //     url:"https://airostars.synology.me:5006",
+                //     username: process.env.SYNO_USER,
+                //     password: process.env.SYNO_PASS,
+                //     timeout: 180000, // 3 minutes
+                //     retries: 2
+                // });
+
+                // console.log('req.files');
+                // console.log(req.files);
+
+                // console.log(synology);
+
+                //  try {
+                //     // Attempt to list root folder
+                //     const contents = await synology.listFolder("/");
+                //     console.log("Connection successful! Root contents:", contents);
+                // } catch (err) {
+                //     console.error("Connection failed:", err.message);
+                // }
+
+                // if (req.files?.attachments?.length > 0) {
+                //     const file = req.files.attachments[0];
+                //     const localPath = path.join(__dirname, "../uploads", file.filename);
+                //     const remotePath = `/ERP_Documents/${Date.now()}-${file.originalname}`;
+
+                //     const fileBuffer = fs.readFileSync(localPath); // read file as Buffer
+
+                //     await synology.uploadFile(remotePath, fileBuffer);
+                //     // await synology.uploadFile(remotePath, file.buffer);
+
+                //     return res.status(200).json({
+                //         success: true,
+                //         message: "File uploaded to Synology",
+                //         path: remotePath
+                //     });
+                // }
+
+                // return res.status(200).json({
+                //     message: 'Customer saved/updated',
+                //     data: '' //result
+                // });  
+
                 const result = await pool.request()
                     .input('ID2', sql.NVarChar(350), formData.id)
                     .input('CustomerType', sql.NVarChar(250), formData.customerType)
