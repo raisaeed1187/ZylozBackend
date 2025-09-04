@@ -30,7 +30,7 @@ const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustome
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
 const {getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
-const {getExpensesList,expenseSaveUpdate,getExpenseDetails} = require('./controllers/finance/expenseController'); 
+const {getExpensesList,expenseSaveUpdate,getExpenseDetails,getPettyCashDetails,getPettyCashExpensesList} = require('./controllers/finance/expenseController'); 
 
 const {getFinAdditionalFieldsList,finAdditionalFieldSaveUpdate,getFinAdditionalFieldDetails} = require('./controllers/finance/finAdditionalFieldController'); 
 const {getBanksList,bankSaveUpdate,getBankDetails} = require('./controllers/finance/bankController'); 
@@ -380,6 +380,8 @@ app.post('/api/finance/vendor-credit-note/applied/bills',authenticateToken,expre
 app.post('/api/finance/expense/save-update',authenticateToken,express.json(),upload,expenseSaveUpdate );
 app.post('/api/finance/expenses',authenticateToken,express.json(),getExpensesList );
 app.post('/api/finance/expense',authenticateToken,express.json(),getExpenseDetails );
+app.post('/api/finance/pettycash',authenticateToken,express.json(),getPettyCashDetails );
+app.post('/api/finance/pettycash-expenses',authenticateToken,express.json(),getPettyCashExpensesList );
 
 
 app.post('/api/finance/supplier-bill/save-update',authenticateToken,express.json(),upload,supplierBillSaveUpdate );

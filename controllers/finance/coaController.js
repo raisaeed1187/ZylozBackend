@@ -46,6 +46,7 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
                 request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
                 request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false); 
+                request.input("OrganizationId", sql.Bit, parseBoolean(formData.organizationId) || false); 
 
                 await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
  
@@ -106,6 +107,7 @@ const coaSaveUpdateNew = async (req,res)=>{
                             request.input("ChangePercentage", sql.Decimal(5, 2), item.change || 0);
                             request.input("CreatedBy", sql.NVarChar(100), "admin"); // replace with real user
                             request.input("IsActive", sql.Bit, item.active !== false);
+                            request.input("OrganizationId", sql.NVarChar(100), formData.organizationId || null); 
 
                             await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
 
@@ -163,7 +165,7 @@ function encryptID(id) {
 // end of encryptID
  
 const getCOAList = async (req, res) => {  
-    const {isDetailsView,transaction} = req.body; // user data sent from client
+    const {isDetailsView,organizationId,transaction} = req.body; // user data sent from client
      
     try {
          
@@ -174,13 +176,13 @@ const getCOAList = async (req, res) => {
         let query = '';
         
         if(isDetailsView){
-            query = `exec GetChartOfAccountsDetailsView`; 
+            query = `exec GetChartOfAccountsDetailsView Null,'${organizationId}'`; 
         }
         else if (transaction){
-            query = `exec ChartOfAccount_GetAll '${transaction}'`; 
+            query = `exec ChartOfAccount_GetAll '${transaction}','${organizationId}'`; 
         }
         else{
-            query = `exec ChartOfAccount_GetAll`; 
+            query = `exec ChartOfAccount_GetAll Null,'${organizationId}'`; 
         }
         const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
@@ -210,14 +212,22 @@ const getCOAList = async (req, res) => {
  
 
 const getCOAListNew = async (req, res) => {
+    const {organizationId,transaction} = req.body; // user data sent from client
+
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
 
-    const result = await pool.request().execute("ChartOfAccount_GetAll");
+    console.log(`ChartOfAccount_GetAll Null,'${organizationId}' `);
+    // const result = await pool.request().execute(`ChartOfAccount_GetAll Null,'${organizationId}'`);
+    const result = await pool.request()
+            .input('Transaction', sql.NVarChar(100), null)  
+            .input('OrganizationId', sql.NVarChar(100), organizationId)
+            .execute('ChartOfAccount_GetAll');
     const rows = result.recordset;
+
 
     // Step 1: Clean and normalize
     const accountsFlat = rows.map(row => ({

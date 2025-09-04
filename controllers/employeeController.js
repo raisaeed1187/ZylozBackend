@@ -426,7 +426,7 @@ const employeeSalaryAdjustmentSaveUpdate = async (req,res)=>{
                             console.log('updatedPayrollDate');      
                             console.log(updatedPayrollDate);
                             
-                            if (formData.category == 'Addition') {
+                            if (formData.adjustmentType == 'Addition') {
                                 let result = await pool.request()
                                 .input('ID2', sql.NVarChar, '0')
                                 .input('EmployeeId', sql.NVarChar, employee) 
@@ -510,7 +510,7 @@ const getSalaryAdjustments = async (req,res)=>{
 // getSalaryAdjustments
 
 const getSalaryAdjustmentSchedule = async (req, res) => {
-  const { employeeId, deductionTypeId, organizationId } = req.body;
+  const { employeeId, deductionTypeId,type, organizationId } = req.body;
 
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -521,11 +521,20 @@ const getSalaryAdjustmentSchedule = async (req, res) => {
 
     try {
       // Execute stored procedure with parameters
-      const result = await pool.request()
-        .input("employeeId", sql.NVarChar(65), employeeId || null)
-        .input("deductionTypeId", sql.NVarChar(65), deductionTypeId || null)
-        .input("organizationId", sql.NVarChar(65), organizationId || null)
-        .execute("EmployeeSalaryAdjustment_GetSchedule");
+      let result = null;
+      if (type == 'Addition') {
+         result = await pool.request()
+            .input("employeeId", sql.NVarChar(65), employeeId || null)
+            .input("allowanceTypeId", sql.NVarChar(65), deductionTypeId || null)
+            .input("organizationId", sql.NVarChar(65), organizationId || null)
+            .execute("EmployeeOneTimeAllowance_GetSchedule");
+      }else{
+        result = await pool.request()
+            .input("employeeId", sql.NVarChar(65), employeeId || null)
+            .input("deductionTypeId", sql.NVarChar(65), deductionTypeId || null)
+            .input("organizationId", sql.NVarChar(65), organizationId || null)
+            .execute("EmployeeSalaryAdjustment_GetSchedule");
+      }
 
         const data = {
             schedule: result.recordsets[0], // Detailed schedule
@@ -549,7 +558,7 @@ const getSalaryAdjustmentSchedule = async (req, res) => {
 
 
 const salaryAdjustmentChangeStatus = async (req, res) => {
-  const { employeeId,actionType,deferMonth, deductionId, organizationId } = req.body;
+  const { employeeId,actionType,deferMonth, typeId,category, organizationId } = req.body;
 
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -561,10 +570,11 @@ const salaryAdjustmentChangeStatus = async (req, res) => {
     try {
       // Execute stored procedure with parameters
       const result = await pool.request()
-        .input("DeductionId", sql.NVarChar(65), deductionId || null)
+        .input("DeductionId", sql.NVarChar(65), typeId || null)
         .input("EmployeeId", sql.NVarChar(65), employeeId || null)
         .input("ActionType", sql.NVarChar(65), actionType || null) 
         .input("DeferMonth", sql.NVarChar(65), deferMonth || null)  
+        .input("Category", sql.NVarChar(65), category || null)  
         .input("UpdatedBy", sql.NVarChar(65), req.authUser.username || null)
         .execute("EmployeeDeduction_UpdateStatus");
 

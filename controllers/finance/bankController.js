@@ -49,6 +49,8 @@ const bankSaveUpdate = async (req,res)=>{
                 .input('iban', sql.NVarChar(250), formData.iban || null)
                 .input('branch', sql.NVarChar(250), formData.branch || null)
                 .input('beneficiaryName', sql.NVarChar(250), formData.beneficiaryName || null)
+                .input('accountType', sql.NVarChar(250), formData.accountType || null)
+                .input('employee', sql.NVarChar(250), formData.employee || null)
                 .execute('BankAccount_SaveOrUpdate');
   
 
