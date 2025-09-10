@@ -228,7 +228,6 @@ const getAttendanceReport = async (req, res) => {
                 ${project ? `'${project}'` : 'NULL'},
                 ${location ? `'${location}'` : 'NULL'},
                 ${shift ? `'${shift}'` : 'NULL'}
-
             `;
 
             // query = `
@@ -255,6 +254,40 @@ const getAttendanceReport = async (req, res) => {
     }
 };
 // end of getAttendanceReport
+
+const getEmployeeProjectWiseReport = async (req, res) => {  
+    const {date,attendanceStartDate,attendanceEndDate,organizationId,project,location,shift} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+
+         
+          query = `
+            exec GetAttendanceProjectWiseSummary  
+                '${date}', 
+                '${organizationId}' 
+            `;
+ 
+         
+        const apiResponse = await pool.request().query(query); 
+         
+        res.status(200).json({
+            message: `Project Wise Summary loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getEmployeeProjectWiseReport
+
 
 const getAttendanceMasterList = async (req, res) => {  
     const {organizationId,date,isMonthly} = req.body; // user data sent from client
@@ -370,4 +403,4 @@ const getAttendanceAcountTypes = async (req, res) => {
 
 
 
-module.exports =  {getAttendanceReport,getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;
+module.exports =  {getEmployeeProjectWiseReport,getAttendanceReport,getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;

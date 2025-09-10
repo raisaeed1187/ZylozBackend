@@ -479,6 +479,7 @@ const payrollConfigurationSave = async (req, res) => {
             .input("payMonthEndDate", sql.NVarChar(255), formData.payMonthEndDate) 
             .input("totalPayDays", sql.NVarChar(255), formData.totalPayDays) 
             .input("isFullCalendar", sql.BIT, formData.isFullCalendar == 'true' ? 1 : 0) 
+            .input("OTSalary", sql.NVarChar(255), formData.otSalary)  
             .output('NewID', sql.NVarChar(255))  
             .execute('PayrollConfiguration_SaveOrUpdate');    
  
@@ -796,10 +797,26 @@ const getPayrollPreview = async (req, res) => {
                 isApprover: isApprover
 
             }
+            
             // console.log(payrollSummary);
             // console.log(payrollSummary);
 
+            let allKeys = Object.keys(letResponseData[0]);
+
+            let validKeys = allKeys.filter(key => {
+            return letResponseData.some(record => record[key] !== null && record[key] !== undefined);
+            });
+            
+            letResponseData = letResponseData.map(record => {
+            let newRecord = {};
+            validKeys.forEach(key => {
+                newRecord[key] = record[key];
+            });
+            return newRecord;
+            });
+
         }  
+
         res.status(200).json({
             message: `Payroll summary loaded successfully!`,
             data: {
