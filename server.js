@@ -25,7 +25,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -350,6 +350,10 @@ app.post('/api/finance/journal-entries',authenticateToken,express.json(),getJour
 app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJournalEntryDetails );
 app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
 app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailBalance );
+app.post('/api/finance/p-and-l',authenticateToken,express.json(),getProfitAndLoss );
+app.post('/api/finance/aging',authenticateToken,express.json(),getCustomerInvoiceAging );
+
+
 app.post('/api/finance/vat-returns',authenticateToken,express.json(),getVatReturns );
 app.post('/api/finance/bank-transections',authenticateToken,express.json(),getBankTransections );
 app.post('/api/finance/vat-settings/save-update',authenticateToken,express.json(),upload,vatSettingsSaveUpdate );

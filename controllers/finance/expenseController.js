@@ -64,6 +64,7 @@ const expenseSaveUpdate = async (req,res)=>{
                 .input('createdBy', sql.NVarChar(100), formData.createdBy || null)  
                 .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false)
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
+                .input('description', sql.NVarChar(300), formData.description || null)
 
                 .output('ID', sql.NVarChar(100))
                 .execute('FinExpenses_SaveOrUpdate'); 
@@ -181,6 +182,7 @@ async function expenseItemSaveUpdate(req,expenseId){
                                 .input('netAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                                 .input('pettyCashId', sql.NVarChar(100), expenseId || null)
                                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
+                                .input('description', sql.NVarChar(300), item.description || null)
 
                                 .output('ID', sql.NVarChar(100))
                                 .execute('FinExpenses_SaveOrUpdate'); 
