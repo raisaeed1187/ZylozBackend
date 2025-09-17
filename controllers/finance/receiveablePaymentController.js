@@ -41,7 +41,7 @@ const paymentSaveUpdate = async (req,res)=>{
                 .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo || null)
                 .input('PaymentDate', sql.NVarChar(100), formData.paymentDate || null)
                 .input('PaymentMode', sql.NVarChar(50), formData.paymentMode || null)
-                .input('AmountReceived', sql.Decimal(18, 2), parseFloat(formData.amountReceived) || 0.00)
+                .input('AmountReceived', sql.Decimal(18, 8), parseFloat(formData.amountReceived) || 0.00)
                 .input('DepositTo', sql.NVarChar(65), formData.depositTo || null)
                 .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks || null)
                 .input('StatusId', sql.Int, formData.statusId || 1)
@@ -90,13 +90,13 @@ async function paymentItemSaveUpdate(req,paymentId){
                             .input('InvoiceId', sql.NVarChar(65), item.invoiceId) 
                             .input('InvoiceDate', sql.Date, item.invoiceDate || null)
                             .input('InvoiceNo', sql.NVarChar(100), item.invoiceNo || null)
-                            .input('InvoiceAmount', sql.Decimal(18, 2), parseFloat(item.invoiceAmount) || 0.00)
-                            .input('DueAmount', sql.Decimal(18, 2), parseFloat(item.dueAmount) || 0.00)
-                            .input('Payment', sql.Decimal(18, 2), parseFloat(item.payment) || 0.00)
-                            .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
+                            .input('InvoiceAmount', sql.Decimal(18, 8), (item.invoiceAmount || '0').toString().replace(/,/g, ''))
+                            .input('DueAmount', sql.Decimal(18, 8), ( item.dueAmount  || '0').toString().replace(/,/g, '') || 0.00)
+                            .input('Payment', sql.Decimal(18, 8), (item.payment  || '0').toString().replace(/,/g, '') || 0.00)
+                            .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null) 
                             .input('Currency', sql.NVarChar(100), item.currency || null) 
-                            .input('BankCurrencyPayment', sql.Decimal(18, 2), parseFloat(item.bankCurrencyPayment) || 0.00)
-                            .input('BaseCurrencyRate', sql.Decimal(18, 2), parseFloat(item.baseCurrencyRate) || 0.00)
+                            .input('BankCurrencyPayment', sql.Decimal(18, 8), ( item.bankCurrencyPayment || '0').toString().replace(/,/g, '')  || 0.00)
+                            .input('BaseCurrencyRate', sql.Decimal(18, 8), parseFloat(item.baseCurrencyRate) || 0.00)
 
                             .execute('FinReceivedPaymentItem_SaveOrUpdate');
                         }
@@ -146,9 +146,16 @@ const getPaymentDetails = async (req, res) => {
         const itemsQuery = `exec FinReceivedPaymentItem_Get '${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Received Payment'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
+
         const data = {
             paymentDetails: apiResponse.recordset[0],
-            paymentItems: itemsApiResponse.recordset
+            paymentItems: itemsApiResponse.recordset,
+            jouralLedgers: jouralLedgerApiResponse.recordset,  
+
         }
         
         // Return a response (do not return the whole req/res object)
@@ -196,7 +203,7 @@ const getCustomerPayment = async (req, res) => {
  
 
 const getPaymentsList = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,organizationId} = req.body;  
      
     try {
          
@@ -206,7 +213,7 @@ const getPaymentsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinReceivedPayment_Get`;   
+        query = `exec FinReceivedPayment_Get Null,'${organizationId}'`;   
           
         const apiResponse = await pool.request().query(query); 
         

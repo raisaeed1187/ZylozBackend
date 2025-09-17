@@ -47,10 +47,10 @@ const creditNoteSaveUpdate = async (req,res)=>{
             .input('CreditNoteDate', sql.NVarChar(100), formData.creditNoteDate || new Date())
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
-            .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
+            .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00)
+            .input('baseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00)
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
             .execute('FinCreditNote_SaveOrUpdate');
@@ -95,8 +95,8 @@ async function creditNoteItemSaveUpdate(req,creditNoteId){
                             .input('Account', sql.NVarChar(100), item.account || null)
                             .input('Description', sql.NVarChar(255), item.description || null)
                             .input('Currency', sql.NVarChar(10), item.currency || null)
-                            .input('Qty', sql.Decimal(18, 2), parseFloat(item.qty) || 1)
-                            .input('Price', sql.Decimal(18, 2), parseFloat(item.price) || 0)
+                            .input('Qty', sql.Decimal(18, 8), parseFloat(item.qty) || 1)
+                            .input('Price', sql.Decimal(18, 8), parseFloat(item.price) || 0)
                             .input('Vat', sql.Decimal(5, 2), parseFloat(item.vat) || 0)
                             .input('VatName', sql.NVarChar(100), item.vatName || null)
                             .input('VatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
@@ -145,7 +145,7 @@ const applycreditNoteOnInvoice = async (req,res)=>{
                             .input('creditNoteId', sql.NVarChar(65), item.creditNoteId)
                             .input('invoiceId', sql.NVarChar(100), item.invoiceId || null)
                             .input('invoiceNo', sql.NVarChar(100), item.invoiceNo || null) 
-                            .input('appliedAmount', sql.Decimal(18, 2), parseFloat(item.appliedAmount) || 0)
+                            .input('appliedAmount', sql.Decimal(18, 8), parseFloat(item.appliedAmount) || 0)
                             .input('appliedBy', sql.NVarChar(100), formData.createdBy || 'system')  
                             .input('account', sql.NVarChar(100), item.account || '')   
                             .execute('FinCreditNoteAppliedInvoice_SaveOrUpdate');

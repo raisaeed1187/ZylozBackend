@@ -39,7 +39,7 @@ const salaryComponentSaveUpdate = async (req,res)=>{
                     .input('EarningName', sql.NVarChar(255), formData.earningName)
                     .input('NameInPayslip', sql.NVarChar(255), formData.nameInPayslip)
                     .input('CalculationType', sql.NVarChar(50), formData.calculationType)
-                    .input('Amount', sql.Decimal(18, 2), formData.amount|| 0)
+                    .input('Amount', sql.Decimal(18, 8), formData.amount|| 0)
                     .input('Percentage', sql.Decimal(5, 2), formData.percentage||0)
                     .input('ProRata', sql.Bit, formData.proRata ? 1 : 0)
                     .input('IsActive', sql.Bit, formData.isActive ? 1: 0)

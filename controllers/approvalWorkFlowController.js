@@ -39,7 +39,7 @@ const approvalWorkFlowSaveUpdate = async (req,res)=>{
             .input('Transaction', sql.NVarChar(100), formData.transaction || null)
             .input('NumbersOfLevels', sql.Int, formData.numbersOfLevels || 0)
             .input('IsLimitApplicable', sql.Bit, parseBoolean(formData.isLimitApplicable) || false)
-            .input('LimitPrice', sql.Decimal(18, 2), formData.limitPrice || null)
+            .input('LimitPrice', sql.Decimal(18, 8), formData.limitPrice || null)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId || null)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy || null)
             .input('ApprovalFor', sql.NVarChar(100), formData.approvalFor || null)
@@ -91,8 +91,8 @@ async function approvalLevelSaveUpdate(req,approvalId){
                             .input('Delegate', sql.NVarChar(65), level.delegate || null)
                             .input('IsFinal', sql.Bit, parseBoolean(level.isFinal) || false )
                             .input('CreatedBy', sql.NVarChar(100), formData.createdBy || null)
-                            .input('PriceFrom', sql.Decimal(18, 2), level.priceFrom || null)
-                            .input('PriceTo', sql.Decimal(18, 2), level.priceTo || null)
+                            .input('PriceFrom', sql.Decimal(18, 8), level.priceFrom || null)
+                            .input('PriceTo', sql.Decimal(18, 8), level.priceTo || null)
                             .execute('ApprovalWorkflowLevels_SaveOrUpdate');
                         }
                     } 

@@ -47,6 +47,9 @@ const journalEntrySaveUpdate = async (req,res)=>{
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
+            .input('currency', sql.NVarChar(65), formData.currency || null)
+            .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)
+
             .output('ID', sql.NVarChar(100)) 
             .execute('FinJournalEntry_SaveOrUpdate');
 
@@ -79,6 +82,9 @@ async function journalEntryItemSaveUpdate(req,journalEntryId){
             try { 
                 if (journalEntryItems) {
                     for (let item of journalEntryItems) {  
+                        console.log('item');
+                        console.log(item);
+
                         if(item.account){ 
                             await pool.request()
                             .input('ID2', sql.NVarChar(65), item.ID2 || '0')  // Use '0' for insert
@@ -94,12 +100,12 @@ async function journalEntryItemSaveUpdate(req,journalEntryId){
                             .input('baseCurrencyDebits', sql.NVarChar(100), String(item.baseCurrencyDebits) || '0.00')
                             .input('baseCurrencyCredits', sql.NVarChar(100), String(item.baseCurrencyCredits) || '0.00')
                             .input('taxRate', sql.NVarChar(100), String(item.taxRate) || '0.00')
+                            .input('vatId', sql.NVarChar(100), item.vatId || null) 
                             .input('taxRateName', sql.NVarChar(100), item.taxRateName || null)
                             .input('project', sql.NVarChar(65), item.project || null)
                             .input('branchId', sql.NVarChar(65), item.branch || null)
                             .input('costCenter', sql.NVarChar(65), item.costCenter || null)
-                            .input('corporateTax', sql.NVarChar(65), item.corporateTax || null)
-
+                            .input('corporateTax', sql.NVarChar(65), item.corporateTax || null) 
                             .execute('FinJournalEntryLine_SaveOrUpdate');
                         }
                     } 
@@ -208,10 +214,44 @@ const getJournalEntrysList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec FinJournalEntry_Get Null,'${organizationId}'`;   
-         
-         
-        const apiResponse = await pool.request().query(query); 
+        query = `exec FinJournalEntry_Get Null,'${organizationId}'`;  
+        
+        // query = `ALTER TABLE FinJournalEntryLine
+        //     ALTER COLUMN isDeleted BIT NULL;
+        //     `; 
+        // query = `
+        //     DECLARE @TableName NVARCHAR(MAX);
+        //     DECLARE @Sql NVARCHAR(MAX);
+
+        //     DECLARE TableCursor CURSOR FOR
+        //     SELECT t.name AS TableName
+        //     FROM sys.tables t
+        //     JOIN sys.columns c ON t.object_id = c.object_id
+        //     WHERE c.name = 'isDeleted'
+        //         AND c.system_type_id = 104;  -- 104 = BIT type
+
+        //     OPEN TableCursor;
+        //     FETCH NEXT FROM TableCursor INTO @TableName;
+
+        //     WHILE @@FETCH_STATUS = 0
+        //     BEGIN
+        //         SET @Sql = '
+        //             UPDATE [' + @TableName + ']
+        //             SET isDeleted = 0
+        //             WHERE isDeleted IS NULL;
+        //         ';
+                
+        //         EXEC sp_executesql @Sql;
+
+        //         FETCH NEXT FROM TableCursor INTO @TableName;
+        //     END
+
+        //     CLOSE TableCursor;
+        //     DEALLOCATE TableCursor;
+        //     `;
+
+        const apiResponse = await pool.request().query(query);  
+
         
         res.status(200).json({
             message: `JournalEntrys List loaded successfully!`,
@@ -281,7 +321,7 @@ const getTrailBalance = async (req, res) => {
 // end of getTrailBalance
 
 const getProfitAndLoss = async (req, res) => {  
-    const {organizationId,fromYear,fromMonth,toYear,toMonth,Id} = req.body; // user data sent from client
+    const {organizationId,fromYear,fromMonth,toYear,toMonth,groupByYear,groupByOrganization,Id} = req.body; // user data sent from client
      
     try {
          
@@ -291,7 +331,13 @@ const getProfitAndLoss = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
          
-        query = `exec GetProfitAndLoss '${fromYear}','${fromMonth}','${toYear}','${toMonth}','${organizationId}'`;   
+        query = `exec GetProfitAndLoss
+        '${fromYear}', 
+         ${fromMonth ? `'${fromMonth}'` : 'NULL'},
+        '${toYear}', 
+         ${toMonth ? `'${toMonth}'` : 'NULL'}, 
+        '${organizationId}', 
+        ${groupByYear}`;   
           
         const apiResponse = await pool.request().query(query); 
         

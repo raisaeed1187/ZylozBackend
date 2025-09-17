@@ -47,15 +47,17 @@ const supplierBillSaveUpdate = async (req,res)=>{
             .input('SupplierBillDate', sql.NVarChar(100), formData.supplierBillDate || null)
             .input('DueDate', sql.NVarChar(100), formData.dueDate || null)
             .input('PaymentTerm', sql.NVarChar(65), formData.paymentTerm || null)
-            .input('InvoiceAmount', sql.Decimal(18, 2), formData.invoiceAmount || 0.00)
+            .input('InvoiceAmount', sql.Decimal(18, 8), formData.invoiceAmount || 0.00)
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
-            .input('TotalAmount', sql.Decimal(18, 2), formData.totalAmount || 0.00)
+            .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('IsForPO', sql.Bit, formData.isForPO == 'true' ? 1 : 0)
-            .input('baseCurrencyRate', sql.Decimal(18, 5), formData.baseCurrencyRate || 0.00) 
+            .input('baseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00) 
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
+            .input('POId', sql.NVarChar(65), formData.poId || null)   
+            .input('CostCenter', sql.NVarChar(65), formData.costCenter || null)    
             .output('ID', sql.NVarChar(100))  
             .execute('SupplierBill_SaveOrUpdate');
 
@@ -161,9 +163,14 @@ const getSupplierBillDetails = async (req, res) => {
         const itemsQuery = `exec finSupplierBillItemGet Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Supplier Bill'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
         const data = {
             supplierBillDetails: apiResponse.recordset[0],
-            supplierBillItems: itemsApiResponse.recordset
+            supplierBillItems: itemsApiResponse.recordset,
+            jouralLedgers: jouralLedgerApiResponse.recordset,  
         }
         
         // Return a response (do not return the whole req/res object)

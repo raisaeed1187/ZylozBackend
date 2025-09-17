@@ -34,6 +34,7 @@ const {getExpensesList,expenseSaveUpdate,getExpenseDetails,getPettyCashDetails,g
 
 const {getFinAdditionalFieldsList,finAdditionalFieldSaveUpdate,getFinAdditionalFieldDetails} = require('./controllers/finance/finAdditionalFieldController'); 
 const {getBanksList,bankSaveUpdate,getBankDetails} = require('./controllers/finance/bankController'); 
+const {costCenterTypeSaveUpdate,getCostCenterTypeDetails,getCostCenterTypesList,getCostCentersList,costCenterSaveUpdate,getCostCenterDetails} = require('./controllers/finance/costCenterController'); 
 
 const {supplierBillSaveUpdate,getSupplierBillsList,getSupplierBillDetails} = require('./controllers/finance/supplierBillController'); 
 const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = require('./controllers/finance/makePaymentController'); 
@@ -426,6 +427,17 @@ app.post('/api/finance/bank/save-update',authenticateToken,express.json(),upload
 app.post('/api/finance/banks',authenticateToken,express.json(),getBanksList );
 app.post('/api/finance/bank',authenticateToken,express.json(),getBankDetails );
 // end of bank
+
+app.post('/api/finance/cost-center/save-update',authenticateToken,express.json(),upload,costCenterSaveUpdate );
+app.post('/api/finance/cost-centers',authenticateToken,express.json(),getCostCentersList );
+app.post('/api/finance/cost-center',authenticateToken,express.json(),getCostCenterDetails );
+// end of costCenter
+
+app.post('/api/finance/cost-center/type/save-update',authenticateToken,express.json(),upload,costCenterTypeSaveUpdate );
+app.post('/api/finance/cost-center/types',authenticateToken,express.json(),getCostCenterTypesList );
+app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCostCenterTypeDetails );
+
+// end of costCenter type
 
 
 

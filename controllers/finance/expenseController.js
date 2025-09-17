@@ -49,7 +49,7 @@ const expenseSaveUpdate = async (req,res)=>{
                 .input('expenseAccount', sql.NVarChar(100), formData.expenseAccount || null)
                 .input('branchId', sql.NVarChar(65), formData.branchId || null)
                 .input('expenseDate', sql.NVarChar(100), formData.expenseDate || new Date())
-                .input('expenseAmount', sql.Decimal(18, 2), formData.expenseAmount || 0.00)
+                .input('expenseAmount', sql.Decimal(18, 8), formData.expenseAmount || 0.00)
                 .input('paymentMode', sql.NVarChar(65), formData.paymentMode || null)
                 .input('paymentThrough', sql.NVarChar(100), formData.paymentThrough || null)
                 .input('project', sql.NVarChar(100), formData.project || null)
@@ -110,13 +110,17 @@ async function pettyCashSaveUpdate(req,res){
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null) 
                 .input('branchId', sql.NVarChar(65), formData.branchId || null)  
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
-
+                .input('currency', sql.NVarChar(100), formData.currency || null)
+                .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null) 
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
              
                 const newID = result.output.ID; 
                 if(formData.expenseItems){  
-                    expenseItemSaveUpdate(req,newID)
+                    await expenseItemSaveUpdate(req,newID);
+                    const result = await pool.request() 
+                            .input('PettyCashId', sql.NVarChar(65), newID) 
+                            .execute('PettyCash_Create_JournalEntries');
                 }
              
 
@@ -151,7 +155,7 @@ async function expenseItemSaveUpdate(req,expenseId){
             try { 
                 if (expenseItems) {
                     for (let item of expenseItems) {  
-                        console.log(item);
+                        // console.log(item);
 
                         if(item.expenseAccount){ 
                             await pool.request()
@@ -161,7 +165,7 @@ async function expenseItemSaveUpdate(req,expenseId){
                                 .input('expenseAccount', sql.NVarChar(100), item.expenseAccount || null)
                                 .input('branchId', sql.NVarChar(65), formData.branchId || null)
                                 .input('expenseDate', sql.NVarChar(100), item.expenseDate || new Date())
-                                .input('expenseAmount', sql.Decimal(18, 2), item.expenseAmount || 0.00)
+                                .input('expenseAmount', sql.Decimal(18, 8), item.expenseAmount || 0.00)
                                 .input('paymentMode', sql.NVarChar(65), item.paymentMode || null)
                                 .input('paymentThrough', sql.NVarChar(100), item.paymentThrough || null)
                                 .input('project', sql.NVarChar(100), item.project || null)
@@ -183,6 +187,7 @@ async function expenseItemSaveUpdate(req,expenseId){
                                 .input('pettyCashId', sql.NVarChar(100), expenseId || null)
                                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                                 .input('description', sql.NVarChar(300), item.description || null)
+                                .input('isVatInclusive', sql.Bit, parseBoolean(formData.isVatInclusive) || false)
 
                                 .output('ID', sql.NVarChar(100))
                                 .execute('FinExpenses_SaveOrUpdate'); 

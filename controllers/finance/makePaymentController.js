@@ -42,17 +42,17 @@ const makePaymentSaveUpdate = async (req,res)=>{
             .input('BranchId', sql.NVarChar(65), formData.branchId || null)
             .input('Currency', sql.NVarChar(10), formData.currency || 'AED')
             .input('MakePaymentDate', sql.Date, formData.makePaymentDate || null)
-            .input('PaymentAmount', sql.Decimal(18, 4), formData.paymentAmount || 0.00)
+            .input('PaymentAmount', sql.Decimal(18, 8), formData.paymentAmount || 0.00)
             .input('PaymentMode', sql.NVarChar(100), formData.paymentMode || null)
             .input('PaymentThrough', sql.NVarChar(100), formData.paymentThrough || null)
             .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo || null)
             .input('Remarks', sql.NVarChar(sql.MAX), formData.remarks || null)
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
-            .input('TotalAmount', sql.Decimal(18, 4), formData.totalAmount || 0.00)
+            .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
-            .input('BaseCurrencyRate', sql.Decimal(18, 4), formData.baseCurrencyRate || 0.00) 
+            .input('BaseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00) 
             .output('ID', sql.NVarChar(100))
             .execute('FinMakePayment_SaveOrUpdate');
 
@@ -97,12 +97,16 @@ async function makePaymentItemSaveUpdate(req,makePaymentId){
                             .input('BillDate', sql.Date, item.billDate || null)
                             .input('BillNo', sql.NVarChar(100), item.billNo || null)
                             .input('PoNo', sql.NVarChar(100), item.poNo || null)
-                            .input('BillAmount', sql.Decimal(18, 4), item.billAmount != null ? item.billAmount : 0)
-                            .input('AmountDue', sql.Decimal(18, 4), item.amountDue != null ? item.amountDue : 0)
+                            .input('BillAmount', sql.Decimal(18, 8), item.billAmount != null ? (item.billAmount  || '0').toString().replace(/,/g, '') : 0)
+                            .input('AmountDue', sql.Decimal(18, 8), item.amountDue != null ? (item.amountDue  || '0').toString().replace(/,/g, '') : 0)
                             .input('PaymentMadeOn', sql.Date, item.paymentMadeOn || null)
-                            .input('PaymentAmount', sql.Decimal(18, 4), item.paymentAmount != null ? item.paymentAmount : 0)
+                            .input('PaymentAmount', sql.Decimal(18, 8), item.paymentAmount != null ?  (item.paymentAmount  || '0').toString().replace(/,/g, '') : 0)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
                             .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')
+                            .input('Currency', sql.NVarChar(100), item.currency || null) 
+                            .input('BankCurrencyPayment', sql.Decimal(18, 8), parseFloat( (item.bankCurrencyPayment  || '0').toString().replace(/,/g, '')) || 0.00)
+                            .input('BaseCurrencyRate', sql.Decimal(18, 8), parseFloat(item.baseCurrencyRate) || 0.00)
+
                             .execute('FinMakePaymentItem_SaveOrUpdate');
 
                         }
@@ -152,9 +156,15 @@ const getMakePaymentDetails = async (req, res) => {
         const itemsQuery = `exec FinMakePaymentItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Make Payment'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
         const data = {
             makePaymentDetails: apiResponse.recordset[0],
-            makePaymentItems: itemsApiResponse.recordset
+            makePaymentItems: itemsApiResponse.recordset,
+            jouralLedgers: jouralLedgerApiResponse.recordset,  
+
         }
         
         // Return a response (do not return the whole req/res object)

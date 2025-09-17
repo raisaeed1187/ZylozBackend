@@ -46,7 +46,7 @@ const grnSaveUpdate = async (req,res)=>{
             .input('remarks', sql.NVarChar(sql.MAX), formData.remarks)
             .input('statusId', sql.Int, formData.statusId || 1)
             .input('totalItems', sql.Int, formData.totalItems || 0)
-            .input('totalAmount', sql.Decimal(18, 2), formData.totalAmount || 0)
+            .input('totalAmount', sql.Decimal(18, 8), formData.totalAmount || 0)
             .input('createdBy', sql.NVarChar(100), formData.createdBy)
             .output('ID', sql.NVarChar(100))
             .execute('GRN_SaveUpdate');

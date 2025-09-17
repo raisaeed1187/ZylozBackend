@@ -41,7 +41,7 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("AccountType", sql.NVarChar(50), formData.accountType || "");
                 request.input("AccountGroup", sql.NVarChar(50), formData.accountGroup || "");
                 request.input("AccountSubGroup", sql.NVarChar(50), formData.accountSubGroup || "");
-                request.input("Value", sql.Decimal(18, 2), formData.value || 0);
+                request.input("Value", sql.Decimal(18, 8), formData.value || 0);
                 request.input("ChangePercentage", sql.Decimal(5, 2), formData.change || 0);
                 request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
                 request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
@@ -103,7 +103,7 @@ const coaSaveUpdateNew = async (req,res)=>{
                             request.input("AccountType", sql.NVarChar(50), accountType);
                             request.input("AccountGroup", sql.NVarChar(50), accountGroup);
                             request.input("AccountSubGroup", sql.NVarChar(50), accountSubGroup);
-                            request.input("Value", sql.Decimal(18, 2), item.value || 0);
+                            request.input("Value", sql.Decimal(18, 8), item.value || 0);
                             request.input("ChangePercentage", sql.Decimal(5, 2), item.change || 0);
                             request.input("CreatedBy", sql.NVarChar(100), "admin"); // replace with real user
                             request.input("IsActive", sql.Bit, item.active !== false);
