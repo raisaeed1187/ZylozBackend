@@ -46,6 +46,7 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
  
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // const storage = multer.diskStorage({
@@ -82,6 +83,15 @@ const upload = multer({
     { name: "img", maxCount: 1 }, 
     { name: "attachments", maxCount: 5 }
 ]);
+
+const expenseUpload = multer({
+  storage: storage,
+  limits: { 
+      fileSize: 10 * 1024 * 1024,
+      fieldSize: 10 * 1024 * 1024
+  }
+}).any();
+
 const employeeUpload = multer({
     storage: storage,
     limits: { 
@@ -383,7 +393,7 @@ app.post('/api/finance/vendor-credit-note',authenticateToken,express.json(),getV
 app.post('/api/finance/vendor-credit-note/applied/bills',authenticateToken,express.json(),getAppliedVendorCreditInvoicesList );
 // end of vendor credit note
 
-app.post('/api/finance/expense/save-update',authenticateToken,express.json(),upload,expenseSaveUpdate );
+app.post('/api/finance/expense/save-update',authenticateToken,express.json(),expenseUpload,expenseSaveUpdate );
 app.post('/api/finance/expenses',authenticateToken,express.json(),getExpensesList );
 app.post('/api/finance/expense',authenticateToken,express.json(),getExpenseDetails );
 app.post('/api/finance/pettycash',authenticateToken,express.json(),getPettyCashDetails );

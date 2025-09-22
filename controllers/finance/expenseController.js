@@ -31,13 +31,17 @@ const expenseSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
             console.log('formData');
             console.log(formData); 
-              
+            // const files = req.files || []; 
+            // console.log('files');  
+            // console.log(files);  
+
             const pool = await sql.connect(config);
             
             if (parseBoolean(formData.isPettyCash) ||formData.isPettyCash == 1) {
                 if(formData.expenseItems){ 
                     var newID = 0;
                     // expenseItemSaveUpdate(req,newID)
+                    console.log('isPettyCash');
                     pettyCashSaveUpdate(req,res);
                 }
             }else{
@@ -142,73 +146,222 @@ function parseBoolean(value) {
   return Boolean(value); // handles 0, 1, null, undefined
 }
 
-async function expenseItemSaveUpdate(req,expenseId){
-    const formData = req.body; 
-    const expenseItems = JSON.parse(formData.expenseItems);  
+// async function expenseItemSaveUpdate(req,expenseId){
+//     const formData = req.body; 
+//     const expenseItems = JSON.parse(formData.expenseItems);  
 
-    try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;   
+//     try {
+//             store.dispatch(setCurrentDatabase(req.authUser.database));
+//             store.dispatch(setCurrentUser(req.authUser)); 
+//             const config = store.getState().constents.config;   
 
-            const pool = await sql.connect(config);
-            try { 
-                if (expenseItems) {
-                    for (let item of expenseItems) {  
-                        // console.log(item);
+//             const pool = await sql.connect(config);
+//             try { 
+//                 if (expenseItems) {
+//                     for (let item of expenseItems) {  
+//                         // console.log(item);
 
-                        if(item.expenseAccount){ 
-                            await pool.request()
-                                .input('ID2', sql.NVarChar(65), item.ID2 || '0')
-                                .input('expenseCode', sql.NVarChar(100), item.expenseCode || null)
-                                .input('vendorId', sql.NVarChar(65), item.vendorId || null)
-                                .input('expenseAccount', sql.NVarChar(100), item.expenseAccount || null)
-                                .input('branchId', sql.NVarChar(65), formData.branchId || null)
-                                .input('expenseDate', sql.NVarChar(100), item.expenseDate || new Date())
-                                .input('expenseAmount', sql.Decimal(18, 8), item.expenseAmount || 0.00)
-                                .input('paymentMode', sql.NVarChar(65), item.paymentMode || null)
-                                .input('paymentThrough', sql.NVarChar(100), item.paymentThrough || null)
-                                .input('project', sql.NVarChar(100), item.project || null)
-                                .input('costCenterId', sql.NVarChar(65), item.costCenterId || null)
-                                .input('referenceNo', sql.NVarChar(100), item.referenceNo || null)
-                                .input('remarks', sql.NVarChar(sql.MAX), item.remarks || null)
-                                .input('statusId', sql.Int, item.statusId || 1)
-                                .input('isBulkExpense', sql.Bit, parseBoolean( item.isBulkExpense) || false)
-                                .input('billable', sql.Bit, item.billable || false)
-                                .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
-                                .input('currency', sql.NVarChar(10), item.currency || 'AED')
-                                .input('createdBy', sql.NVarChar(100), formData.createdBy || null) 
-                                .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false) 
-                                .input('vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
-                                .input('vatName', sql.NVarChar(100), (item.vatName || '0').toString()) 
-                                .input('vatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
-                                .input('vatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
-                                .input('netAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
-                                .input('pettyCashId', sql.NVarChar(100), expenseId || null)
-                                .input('emirate', sql.NVarChar(100), formData.emirate || null)
-                                .input('description', sql.NVarChar(300), item.description || null)
-                                .input('isVatInclusive', sql.Bit, parseBoolean(formData.isVatInclusive) || false)
+//                         if(item.expenseAccount){ 
+//                             await pool.request()
+//                                 .input('ID2', sql.NVarChar(65), item.ID2 || '0')
+//                                 .input('expenseCode', sql.NVarChar(100), item.expenseCode || null)
+//                                 .input('vendorId', sql.NVarChar(65), item.vendorId || null)
+//                                 .input('expenseAccount', sql.NVarChar(100), item.expenseAccount || null)
+//                                 .input('branchId', sql.NVarChar(65), formData.branchId || null)
+//                                 .input('expenseDate', sql.NVarChar(100), item.expenseDate || new Date())
+//                                 .input('expenseAmount', sql.Decimal(18, 8), item.expenseAmount || 0.00)
+//                                 .input('paymentMode', sql.NVarChar(65), item.paymentMode || null)
+//                                 .input('paymentThrough', sql.NVarChar(100), item.paymentThrough || null)
+//                                 .input('project', sql.NVarChar(100), item.project || null)
+//                                 .input('costCenterId', sql.NVarChar(65), item.costCenterId || null)
+//                                 .input('referenceNo', sql.NVarChar(100), item.referenceNo || null)
+//                                 .input('remarks', sql.NVarChar(sql.MAX), item.remarks || null)
+//                                 .input('statusId', sql.Int, item.statusId || 1)
+//                                 .input('isBulkExpense', sql.Bit, parseBoolean( item.isBulkExpense) || false)
+//                                 .input('billable', sql.Bit, item.billable || false)
+//                                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
+//                                 .input('currency', sql.NVarChar(10), item.currency || 'AED')
+//                                 .input('createdBy', sql.NVarChar(100), formData.createdBy || null) 
+//                                 .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false) 
+//                                 .input('vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
+//                                 .input('vatName', sql.NVarChar(100), (item.vatName || '0').toString()) 
+//                                 .input('vatId', sql.NVarChar(100), (item.vatId || '0').toString()) 
+//                                 .input('vatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
+//                                 .input('netAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
+//                                 .input('pettyCashId', sql.NVarChar(100), expenseId || null)
+//                                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
+//                                 .input('description', sql.NVarChar(300), item.description || null)
+//                                 .input('isVatInclusive', sql.Bit, parseBoolean(item.isVatInclusive) || false)
 
-                                .output('ID', sql.NVarChar(100))
-                                .execute('FinExpenses_SaveOrUpdate'); 
+//                                 .output('ID', sql.NVarChar(100))
+//                                 .execute('FinExpenses_SaveOrUpdate'); 
 
-                        }
-                    } 
-                }
+//                         }
+//                     } 
+//                 }
 
 
-            } catch (err) {
-                throw new Error(err.message);
-            }  
-        } catch (error) { 
-            throw new Error(error.message);
-        }
-}
-// end of expenseItemSaveUpdate
+//             } catch (err) {
+//                 throw new Error(err.message);
+//             }  
+//         } catch (error) { 
+//             throw new Error(error.message);
+//         }
+// }
+// // end of expenseItemSaveUpdate
  
+
+
  
  
 // end of customerContactSaveUpdate
+
+
+
+async function expenseItemSaveUpdate(req, expenseId) {
+    const formData = req.body;
+
+    console.log('expenseItemSaveUpdate inside');
+    try {
+
+    // Parse all row-wise expense items
+    let expenseItems = [];
+
+    if (req.body.expenseItems) {
+    // req.body.expenseItems is an object like { '0': '{"ID2":...}', '': '[{...}]' }
+    const itemsObj = req.body.expenseItems;
+
+    Object.keys(itemsObj).forEach((key) => {
+        const value = itemsObj[key];
+
+        // Value might already be string or object, handle both
+        if (typeof value === 'string') {
+        try {
+            expenseItems.push(JSON.parse(value));
+        } catch (err) {
+            console.error(`Error parsing expense item for key ${key}:`, err);
+        }
+        } else if (Array.isArray(value)) {
+        // Sometimes frontend sends an array stringified, parse each
+        value.forEach(v => {
+            try {
+            expenseItems.push(typeof v === 'string' ? JSON.parse(v) : v);
+            } catch (err) {
+            console.error(`Error parsing array expense item for key ${key}:`, err);
+            }
+        });
+        } else if (typeof value === 'object' && value !== null) {
+        // Already an object, push directly
+        expenseItems.push(value);
+        }
+    });
+    }
+
+        console.log('after expenseItems');
+        console.log(expenseItems);
+
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+
+        console.log('req.files');
+        console.log(req.files);
+
+        // Azure Storage setup
+        const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+        const containerClient = blobServiceClient.getContainerClient("expenses");
+
+        for (let rowIdx = 0; rowIdx < expenseItems.length; rowIdx++) {
+            const item = expenseItems[rowIdx];
+            console.log('loop item');
+            console.log(item); 
+
+            if (!item.expenseAccount) continue;
+
+            console.log('after expense account');
+             
+            console.log('rowFiles');
+            const rowFiles = req.files.filter(f => f.fieldname == `attachments[${rowIdx}]`);
+            console.log(rowFiles);
+
+            let documentUrl = null;
+            let documentName = null;
+
+
+            for (let file of rowFiles) {
+                console.log('inside file loop');
+                // const blobName = `expense-${new Date()}-${Date.now()}-${file.originalname}`;
+                // const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+                // await blockBlobClient.uploadData(file.buffer, {
+                //     blobHTTPHeaders: { blobContentType: file.mimetype }
+                // });
+                // documentUrl = blockBlobClient.url;
+                documentUrl = file ? (await uploadDocument(file)).fileUrl : null;
+                documentName = file.originalname;
+                console.log(documentUrl);
+                console.log(documentName);
+
+                // Optional: save URL in SQL
+                // const blobUrl = blockBlobClient.url;
+                // await pool.request()
+                //     .input('ExpenseId', sql.NVarChar(65), expenseRowId)
+                //     .input('FileName', sql.NVarChar(255), file.originalname)
+                //     .input('BlobUrl', sql.NVarChar(sql.MAX), blobUrl)
+                //     .execute('FinExpensesAttachment_Save'); // create SP to save attachments
+
+            }
+
+
+            // Save expense row in SQL
+            const result = await pool.request()
+                .input('ID2', sql.NVarChar(65), item.ID2 || '0')
+                .input('expenseCode', sql.NVarChar(100), item.expenseCode || null)
+                .input('vendorId', sql.NVarChar(65), item.vendorId || null)
+                .input('expenseAccount', sql.NVarChar(100), item.expenseAccount || null)
+                .input('branchId', sql.NVarChar(65), formData.branchId || null)
+                .input('expenseDate', sql.NVarChar(100), item.expenseDate || new Date())
+                .input('expenseAmount', sql.Decimal(18, 8), item.expenseAmount || 0.0)
+                .input('paymentMode', sql.NVarChar(65), item.paymentMode || null)
+                .input('paymentThrough', sql.NVarChar(100), item.paymentThrough || null)
+                .input('project', sql.NVarChar(100), item.project || null)
+                .input('costCenterId', sql.NVarChar(65), item.costCenterId || null)
+                .input('referenceNo', sql.NVarChar(100), item.referenceNo || null)
+                .input('remarks', sql.NVarChar(sql.MAX), item.remarks || null)
+                .input('statusId', sql.Int, item.statusId || 1)
+                .input('isBulkExpense', sql.Bit, parseBoolean(item.isBulkExpense) || false)
+                .input('billable', sql.Bit, item.billable || false)
+                .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
+                .input('currency', sql.NVarChar(10), item.currency || 'AED')
+                .input('createdBy', sql.NVarChar(100), formData.createdBy || null)
+                .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false)
+                .input('vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
+                .input('vatName', sql.NVarChar(100), (item.vatName || '0').toString())
+                .input('vatId', sql.NVarChar(100), (item.vatId || '0').toString())
+                .input('vatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
+                .input('netAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
+                .input('pettyCashId', sql.NVarChar(100), expenseId || null)
+                .input('emirate', sql.NVarChar(100), formData.emirate || null)
+                .input('description', sql.NVarChar(300), item.description || null)
+                .input('isVatInclusive', sql.Bit, parseBoolean(item.isVatInclusive) || false)
+                .input('documentName', sql.NVarChar(250), documentName || null)
+                .input('documentUrl', sql.NVarChar(sql.MAX), documentUrl || null) 
+                .input('billNo', sql.NVarChar(sql.MAX), item.billNo || null)   
+                .output('ID', sql.NVarChar(100))
+                .execute('FinExpenses_SaveOrUpdate');
+
+            const expenseRowId = result.output.ID;
+
+            
+           
+        }
+
+    } catch (err) {
+        throw new Error(err.message);
+    }
+}
+
 function encryptID(id) {
   
     const secretKey = process.env.ENCRYPT_SECRET_KEY;   
@@ -324,6 +477,44 @@ const getPettyCashDetails = async (req, res) => {
 };
 // end of getPettyCashDetails
  
+async function uploadDocument(file){ 
+    try {
+         
+
+        if(file){
+            const blobName = file.originalname;
+            const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+            const uploadFilePath = file.path;
+    
+            // Upload file to Azure Blob Storage
+            const uploadStream = fs.createReadStream(uploadFilePath);
+            await blockBlobClient.uploadStream(uploadStream);
+            fs.unlinkSync(uploadFilePath); // Delete local file
+    
+            const fileUrl = blockBlobClient.url;
+            console.log('fileUrl');
+            console.log(fileUrl);
+            const fileInfo = {
+                fileName: blobName.split('.').slice(0, -1).join('.'),
+                fileUrl:fileUrl
+            }
+            return fileInfo
+
+        }else{
+            const fileInfo = {
+                fileName: '',
+                fileUrl:''
+            }
+            return fileInfo;
+        }
+    } catch (error) {
+        console.error(error);
+        throw new Error(error.message);
+    }
+}
+// end of uploadDocument
+
+
 const getPettyCashExpensesList = async (req, res) => {  
     const {organizationId,Id,isPettyCash} = req.body; // user data sent from client
      

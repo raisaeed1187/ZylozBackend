@@ -48,8 +48,7 @@ const journalEntrySaveUpdate = async (req,res)=>{
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
             .input('currency', sql.NVarChar(65), formData.currency || null)
-            .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)
-
+            .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null) 
             .output('ID', sql.NVarChar(100)) 
             .execute('FinJournalEntry_SaveOrUpdate');
 

@@ -21,7 +21,6 @@
     "multer": "^1.4.5-lts.1",
     "nodemon": "^3.1.9",
     "redux": "^5.0.1",
-    "redux-thunk": "^3.1.0",
-    "webdav": "^5.8.0"
+    "redux-thunk": "^3.1.0" 
   }
 }

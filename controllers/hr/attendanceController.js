@@ -256,7 +256,7 @@ const getAttendanceReport = async (req, res) => {
 // end of getAttendanceReport
 
 const getEmployeeProjectWiseReport = async (req, res) => {  
-    const {date,attendanceStartDate,attendanceEndDate,organizationId,project,location,shift} = req.body; // user data sent from client
+    const {date,attendanceStartDate,attendanceEndDate,organizationId,projectId,location,shift} = req.body; // user data sent from client
      
     try {
          
@@ -266,12 +266,21 @@ const getEmployeeProjectWiseReport = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
 
-         
-          query = `
+         if (projectId) {
+            query = `
+            exec GetAttendanceProjectWiseSummary_Details  
+                '${date}', 
+                '${organizationId}',
+                '${projectId}'  
+            `;
+         }else{
+            query = `
             exec GetAttendanceProjectWiseSummary  
                 '${date}', 
                 '${organizationId}' 
             `;
+         }
+          
  
          
         const apiResponse = await pool.request().query(query); 
