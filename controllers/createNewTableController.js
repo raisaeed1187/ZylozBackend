@@ -517,7 +517,7 @@ async function uploadDocument(req){
 
  
 const getTableDetailsById = async (req, res) => {  
-    const {tableId, tableName} = req.body; // user data sent from client
+    const {tableId, tableName, client} = req.body; // user data sent from client
      
     // // Check if required fields are present
     if (!tableId || !tableName) {
@@ -525,8 +525,8 @@ const getTableDetailsById = async (req, res) => {
     } 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
+        store.dispatch(setCurrentDatabase(req.authUser?.database || client || 'Zyloz'));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
         var getTableNameQuery

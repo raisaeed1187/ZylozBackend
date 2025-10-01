@@ -17,9 +17,11 @@ const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOA
 const {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
 
+
+
 const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
-const {itemSaveUpdate,getItemDetails,getItemsList} = require('./controllers/procurement/itemController'); 
+const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
 const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
@@ -41,6 +43,11 @@ const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = requir
 
 
 const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} = require('./controllers/finance/receiveablePaymentController'); 
+
+
+const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
+    getLaundryItems,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,  getLaundryOrderItems
+} = require('./controllers/laundry/laundryController'); 
 
 
  
@@ -133,7 +140,7 @@ app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDyna
  
 // POST method API route
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
-app.post('/api/get-table',authenticateToken,express.json(),getTableDetailsById );
+app.post('/api/get-table',express.json(),getTableDetailsById );
 app.post('/api/get-table-fields',authenticateToken,express.json(),getSpecificTableField );
 
 app.post('/api/save-dynamic-table-data',authenticateToken,express.json(),dynamicFileUpload.single("file"),saveDynamicTableData );
@@ -202,7 +209,10 @@ app.post('/api/vendors',authenticateToken,express.json(),getVendorsList );
 
 app.post('/api/item/save-update',authenticateToken,express.json(),upload,itemSaveUpdate ); 
 app.post('/api/item',authenticateToken,express.json(),getItemDetails );
-app.post('/api/items',authenticateToken,express.json(),getItemsList );
+app.post('/api/items',express.json(),getItemsList );
+app.post('/api/item/variations',express.json(),getItemVariationsList );
+app.post('/api/items-variations',express.json(),getItemsWithVariations );
+
  
 //end item controller
 
@@ -296,6 +306,7 @@ app.post('/api/employee/attendance',authenticateToken,express.json(),getAttendan
 app.post('/api/employee/payslip',authenticateToken,express.json(),getPaySlip ); 
 app.post('/api/employee/attendance/report',authenticateToken,express.json(),getAttendanceReport ); 
 app.post('/api/employee/project-wise/report',authenticateToken,express.json(),getEmployeeProjectWiseReport ); 
+
 
 
 app.post('/api/attendance/shift/save-update',authenticateToken,express.json(),upload,shiftSaveUpdate );
@@ -449,6 +460,20 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 
 // end of costCenter type
 
+//  ----------- public url
+
+
+app.post('/api/laundry/order/save-update',express.json(),upload,laundryOrderSaveUpdate ); 
+app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeOrderStatus ); 
+
+app.post('/api/laundry/orders',express.json(),getLaundryOrders );
+app.post('/api/laundry/order',express.json(),getLaundryOrders );
+app.post('/api/laundry/order-items',express.json(),getLaundryOrderItems );
+
+
+
+
+
 
 
  
@@ -462,6 +487,11 @@ const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
 
+
+// const server =  app.listen(3000, "0.0.0.0", () => {
+//   console.log("Server running on port 3000");
+// });
+ 
 // server.setTimeout(60000, () => {
 //     console.log('Request timed out after 60 seconds');
 // });

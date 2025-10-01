@@ -800,20 +800,26 @@ const getPayrollPreview = async (req, res) => {
             
             // console.log(payrollSummary);
             // console.log(payrollSummary);
+            console.log('before inside it');
 
-            let allKeys = Object.keys(letResponseData[0]);
+            if (letResponseData && letResponseData.length > 0) {
+            console.log('inside it');
 
-            let validKeys = allKeys.filter(key => {
-            return letResponseData.some(record => record[key] !== null && record[key] !== undefined);
-            });
-            
-            letResponseData = letResponseData.map(record => {
-            let newRecord = {};
-            validKeys.forEach(key => {
-                newRecord[key] = record[key];
-            });
-            return newRecord;
-            });
+                let allKeys = Object.keys(letResponseData[0]);
+    
+                let validKeys = allKeys.filter(key => {
+                return letResponseData.some(record => record[key] !== null && record[key] !== undefined);
+                });
+                
+                letResponseData = letResponseData.map(record => {
+                let newRecord = {};
+                validKeys.forEach(key => {
+                    newRecord[key] = record[key];
+                });
+                return newRecord;
+                });
+                
+            }
 
         }  
 
