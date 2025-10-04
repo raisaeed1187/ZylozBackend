@@ -207,7 +207,7 @@ const getAttendanceList = async (req, res) => {
 // end of getAttendanceList
 
 const getAttendanceReport = async (req, res) => {  
-    const {attendanceStartDate,attendanceEndDate,organizationId,project,location,shift} = req.body; // user data sent from client
+    const {attendanceStartDate,attendanceEndDate,organizationId,project,location,shift,employeeCategory} = req.body; // user data sent from client
      
     try {
          
@@ -227,7 +227,9 @@ const getAttendanceReport = async (req, res) => {
                 '${organizationId}',
                 ${project ? `'${project}'` : 'NULL'},
                 ${location ? `'${location}'` : 'NULL'},
-                ${shift ? `'${shift}'` : 'NULL'}
+                ${shift ? `'${shift}'` : 'NULL'},
+                ${employeeCategory ? `'${employeeCategory}'` : 'NULL'}
+
             `;
 
             // query = `

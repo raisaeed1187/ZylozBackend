@@ -249,11 +249,14 @@ const getItemsWithVariations = async (req, res) => {
 
             // Transform into desired format
             let transformedItem = {
-                itemName: item.itemName || ''
+                itemName: item.itemName || '',
+                itemId: item.ID2 || '', 
             };
 
             itemVariations.forEach((variation, index) => {
                 transformedItem[`Variation ${index + 1}`] = `${variation.variationName} - ${variation.price}`;
+                transformedItem[`ServiceId ${index + 1}`] = `${variation.ID2}`;
+                 
                 // transformedItem[`Variation-price ${index + 1}`] = `${variation.price}`;
 
             });

@@ -46,7 +46,7 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
 
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
-    getLaundryItems,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,  getLaundryOrderItems
+    getLaundryItems,getLaundryCustomerDetails,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
 } = require('./controllers/laundry/laundryController'); 
 
 
@@ -468,7 +468,12 @@ app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeO
 
 app.post('/api/laundry/orders',express.json(),getLaundryOrders );
 app.post('/api/laundry/order',express.json(),getLaundryOrders );
+app.post('/api/laundry/order-details',express.json(),getLaundryOrderDetails );
+
 app.post('/api/laundry/order-items',express.json(),getLaundryOrderItems );
+app.post('/api/laundry/customer-details',express.json(),getLaundryCustomerDetails );
+
+
 
 
 
