@@ -352,6 +352,36 @@ const getProfitAndLoss = async (req, res) => {
 };
 // end of getProfitAndLoss
 
+const getBalanceSheet = async (req, res) => {  
+    const {organizationId,fromYear,asOnDate} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+        query = `exec GetBalanceSheet
+        '${asOnDate}',  
+        '${organizationId}'`;   
+          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Profit & Loss loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getBalanceSheet
+
+
 
 const getCustomerInvoiceAging = async (req, res) => {  
     const {organizationId,Id} = req.body; // user data sent from client
@@ -518,4 +548,4 @@ const getVatSettingsDetails = async (req, res) => {
  
 
 
-module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

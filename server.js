@@ -1,9 +1,15 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const sql = require("mssql");
 const router = express.Router(); 
 const cors = require("cors");
 const authenticateToken = require('./middleware');   
-const multer = require("multer");
- 
+const multer = require("multer"); 
+// Import the socket server logic
+const { initSocketServer } = require("./socket/socketServer");
+
+
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
 const {signUp,signIn} = require('./controllers/authController'); 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
@@ -27,7 +33,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -46,7 +52,7 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
 
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
-    getLaundryItems,getLaundryCustomerDetails,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
+    getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
 } = require('./controllers/laundry/laundryController'); 
 
 
@@ -137,7 +143,11 @@ app.post('/api/get-all-dynamics-tables',authenticateToken,express.json(),getDyna
 app.post('/api/get-main-modules',authenticateToken,express.json(),getMainModules);
 app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDynamicCreatedTablesWithModules);
 
+
  
+//  ----------- public url
+
+
 // POST method API route
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
 app.post('/api/get-table',express.json(),getTableDetailsById );
@@ -373,6 +383,8 @@ app.post('/api/finance/journal-entry',authenticateToken,express.json(),getJourna
 app.post('/api/finance/journal-ledger',authenticateToken,express.json(),getJournalLedgers );
 app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailBalance );
 app.post('/api/finance/p-and-l',authenticateToken,express.json(),getProfitAndLoss );
+app.post('/api/finance/balance-sheet',authenticateToken,express.json(),getBalanceSheet );
+
 app.post('/api/finance/aging',authenticateToken,express.json(),getCustomerInvoiceAging );
 
 
@@ -460,8 +472,6 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 
 // end of costCenter type
 
-//  ----------- public url
-
 
 app.post('/api/laundry/order/save-update',express.json(),upload,laundryOrderSaveUpdate ); 
 app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeOrderStatus ); 
@@ -472,6 +482,8 @@ app.post('/api/laundry/order-details',express.json(),getLaundryOrderDetails );
 
 app.post('/api/laundry/order-items',express.json(),getLaundryOrderItems );
 app.post('/api/laundry/customer-details',express.json(),getLaundryCustomerDetails );
+app.post('/api/laundry/order/delete-item',express.json(),deleteOrderItem );
+
 
 
 
@@ -484,11 +496,17 @@ app.post('/api/laundry/customer-details',express.json(),getLaundryCustomerDetail
  
 const port = process.env.PORT || 3000;
 
+const server = http.createServer(app);
+
+// Create a single Socket.IO server
+// const io = new Server(server, { cors: { origin: "*" } });
+// initSocketServer(io);
+
 // app.listen(port,()=>{
 //     console.log('server has started');
 // })
 
-const server = app.listen(port, () => {
+server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
 

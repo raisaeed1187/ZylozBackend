@@ -234,6 +234,31 @@ const getLaundryCustomerDetails = async (req, res) => {
 };
 // end of get customer details
 
+const deleteOrderItem = async (req, res) => {
+    const { id,ID2,client } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'System'));  
+
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('Phone', sql.NVarChar(65), phone || null)
+            .execute('Laundry_Customer_Details');
+
+        res.status(200).json({
+            message: 'Laundry order item deleted  successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of deleteOrderItem
+
 
 // ------------------------- LAUNDRY ITEMS -------------------------
 const getLaundryItems = async (req, res) => {
@@ -404,6 +429,6 @@ const getLaundryOrderItems = async (req, res) => {
 module.exports = {
     laundryItemSaveUpdate,laundryChangeOrderStatus,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,  laundryOrderItemSaveUpdate,
     // ------
-    getLaundryCustomerDetails,getLaundryItems,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
+    deleteOrderItem,getLaundryCustomerDetails,getLaundryItems,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
 
 };

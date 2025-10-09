@@ -79,8 +79,8 @@ const signIn = async (req,res)=>{
 
             store.dispatch(setCurrentDatabase( client )); 
             const config =  store.getState().constents.config;  
-            // console.log('config login');
-            // console.log(config);
+            console.log('config login');
+            console.log(config);
 
             const pool = await sql.connect(config);
             
@@ -122,7 +122,8 @@ const signIn = async (req,res)=>{
                             email:user.Email,
                             userName:user.UserName,
                             isAdmin: user.IsAdmin,
-                            client:user.databaseName,
+                            // client:user.databaseName,
+                            client:'aa', 
                             permissions:user.Access, 
                         },
                         token:token,
