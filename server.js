@@ -50,6 +50,12 @@ const {makePaymentSaveUpdate,getMakePaymentsList,getMakePaymentDetails} = requir
 
 const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} = require('./controllers/finance/receiveablePaymentController'); 
 
+// user roles
+
+const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionAccesssList,getAllTransectionAccessWithPermissions} = require('./controllers/UserRole/transectionAccessSetupController'); 
+
+const {roleSaveOrUpdate,assignRoleToUser,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
+
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
     getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
@@ -473,6 +479,26 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 // end of costCenter type
 
 
+// user roles
+app.post('/api/role/transection-access-setup/save-update',authenticateToken,express.json(),upload,transactionAccessSaveOrUpdate );
+app.post('/api/role/transection-access-setups',authenticateToken,express.json(),getTransectionAccesssList );
+app.post('/api/role/transection-access-setup',authenticateToken,express.json(),getTransectionAccessDetails );
+app.post('/api/role/transection-accesses',authenticateToken,express.json(),getAllTransectionAccessWithPermissions );
+
+
+app.post('/api/role/save-update',authenticateToken,express.json(),upload,roleSaveOrUpdate );
+app.post('/api/role/assign-to-user',authenticateToken,express.json(),upload,assignRoleToUser );
+app.post('/api/role',authenticateToken,express.json(),getRoleDetails );
+app.post('/api/roles',authenticateToken,express.json(),getRolesList );
+app.post('/api/role/users-roles',authenticateToken,express.json(),getUsersRolesList );
+app.post('/api/role/users-permissions',authenticateToken,express.json(),getUserPermissions );
+
+
+ 
+
+
+
+
 app.post('/api/laundry/order/save-update',express.json(),upload,laundryOrderSaveUpdate ); 
 app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeOrderStatus ); 
 
@@ -499,8 +525,8 @@ const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 
 // Create a single Socket.IO server
-// const io = new Server(server, { cors: { origin: "*" } });
-// initSocketServer(io);
+const io = new Server(server, { cors: { origin: "*" } });
+initSocketServer(io);
 
 // app.listen(port,()=>{
 //     console.log('server has started');

@@ -235,7 +235,7 @@ const getLaundryCustomerDetails = async (req, res) => {
 // end of get customer details
 
 const deleteOrderItem = async (req, res) => {
-    const { id,ID2,client } = req.body;
+    const { id,orderID,ID2,client } = req.body;
 
     try {
         store.dispatch(setCurrentDatabase(client));
@@ -245,8 +245,9 @@ const deleteOrderItem = async (req, res) => {
 
         const pool = await sql.connect(config);
         const result = await pool.request()
-            .input('Phone', sql.NVarChar(65), phone || null)
-            .execute('Laundry_Customer_Details');
+            .input('OrderID', sql.NVarChar(65), orderID || null)
+            .input('ItemID', sql.NVarChar(65), ID2 || null)
+            .execute('Delete_Order_item');
 
         res.status(200).json({
             message: 'Laundry order item deleted  successfully',

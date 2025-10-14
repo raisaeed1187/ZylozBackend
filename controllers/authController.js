@@ -107,7 +107,7 @@ const signIn = async (req,res)=>{
     
                     }
     
-                    const token = jwt.sign({ Id: user.ID, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName}, SECRET_KEY, {
+                    const token = jwt.sign({ Id: user.ID,ID2: user.ID2, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName}, SECRET_KEY, {
                         expiresIn: "5h",
                     });
                     // constents.methods.setCurrentDatabase(user.databaseName);  
@@ -116,23 +116,37 @@ const signIn = async (req,res)=>{
                     const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
                     const organizations = organizationsQueryResponse.recordset;
                     
-                    const data = {
-                        userDetails:{
-                            id: user.ID2,
-                            email:user.Email,
-                            userName:user.UserName,
-                            isAdmin: user.IsAdmin,
-                            // client:user.databaseName,
-                            client:'aa', 
-                            permissions:user.Access, 
-                        },
-                        token:token,
-                        organizations:organizations
-                    }  
-                    return res.status(200).json({
-                        message: "Login successful",
-                        data: data
-                    }); 
+                    const modules = await pool
+                    .request()
+                    .input("UserID", sql.NVarChar, user.ID2)
+                    .execute("GetUserModulesMenus");
+                    if (modules.recordset.length > 0) {
+                        console.log(modules.recordset);
+                        const data = {
+                            userDetails:{
+                                id: user.ID2,
+                                email:user.Email,
+                                userName:user.UserName,
+                                isAdmin: user.IsAdmin,
+                                // client:user.databaseName,
+                                client:'aa', 
+                                permissions:user.Access, 
+                                roleName:modules.recordset[0].RoleName,
+                                roleCode:modules.recordset[0].RoleCode, 
+                            },
+                            token:token,
+                            organizations:organizations,
+                            modules: modules.recordset,
+                        }  
+                        return res.status(200).json({
+                            message: "Login successful",
+                            data: data
+                        }); 
+                        
+                    }else{
+                      return  res.status(400).json({ message: 'Un Authenticated User',data:null});
+                    }
+
 
                     pool.close();
                 }else{

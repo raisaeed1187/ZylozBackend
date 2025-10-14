@@ -1,13 +1,14 @@
 const sql = require("mssql");
 const store = require("../store");
 const { setCurrentDatabase, setCurrentUser } = require('../constents').actions;
+const { setIO } = require("./socket");
 
 let io;
 let lastPendingIds = new Set();
 
 function initSocketServer(ioInstance) {
   io = ioInstance;
-
+  setIO(io);
   io.on("connection", (socket) => {
     console.log("🟢 Client connected:", socket.id);
 
@@ -16,7 +17,7 @@ function initSocketServer(ioInstance) {
     });
   });
 
-  startOrderPolling();
+  // startOrderPolling();
 }
 
 async function fetchLaundryOrders(client = "VPSLaundry971") {
