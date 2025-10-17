@@ -92,17 +92,16 @@ const laundryOrderSaveUpdate = async (req, res) => {
             .input('Address', sql.NVarChar(250), formData.Address)  
             .input('Latitude', sql.NVarChar(250), formData.locationLat)  
             .input('Longitude', sql.NVarChar(250), formData.locationLang)  
-            .input('MapLocation', sql.NVarChar(250), formData.locationName)  
-
+            .input('MapLocation', sql.NVarChar(250), formData.locationName)   
             .output('ID', sql.NVarChar(100))
             .execute('Laundry_Customer_Save_Update');
 
             const customerId = customerResult.output.ID;
-             
+        console.log(formData);
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || null)
             .input('CustomerId', sql.NVarChar(65), customerId || null)
-            .input('OrderNo', sql.NVarChar(100), formData.OrderNo || null)
+            .input('OrderNo', sql.NVarChar(100), formData.OrderNo || formData.orderNo ||  null)
             .input('CustomerName', sql.NVarChar(100), formData.CustomerName)
             .input('Phone', sql.NVarChar(20), formData.Phone)
             .input('Address', sql.NVarChar(255), formData.Address || null)
@@ -116,6 +115,8 @@ const laundryOrderSaveUpdate = async (req, res) => {
             .input('ShippingCharges', sql.Decimal(10,5), formData.ShippingCharges || 0)
             .input('Status', sql.NVarChar(50), formData.Status || 'Pending')
             .input('User', sql.NVarChar(100), formData.User || null)
+            .input('AreaId', sql.NVarChar(65), formData.AreaId)  
+            .input('AreaName', sql.NVarChar(100), formData.AreaName)  
             .output('ID', sql.NVarChar(100))
             .execute('LaundryOrders_SaveOrUpdate');
 

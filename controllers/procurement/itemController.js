@@ -93,6 +93,8 @@ async function itemVariationSaveUpdate(req, itemId) {
                         .input('VariationName', sql.NVarChar(250), item.variationName)
                         .input('VariationValue', sql.NVarChar(250), item.variationName)
                         .input('AdditionalPrice', sql.Decimal(18, 2), item.price || 0)
+                        .input('AreaId', sql.NVarChar(65), item.areaId || null)
+                        .input('AreaName', sql.NVarChar(65), item.areaName || null) 
                         .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')
                         .execute('ItemVariation_SaveOrUpdate'); 
                 }
@@ -223,7 +225,7 @@ const getItemVariationsList = async (req, res) => {
 // end of getItemVariationsList
 
 const getItemsWithVariations = async (req, res) => {  
-    const {client} = req.body; // user data sent from client
+    const {client,areaId} = req.body; // user data sent from client
 
     try {
 
@@ -233,7 +235,11 @@ const getItemsWithVariations = async (req, res) => {
         const pool = await sql.connect(config);  
 
         // Fetch all items
-        const apiResponse = await pool.request().query(`exec MaterialItem_Get`);
+        // const apiResponse = await pool.request().query(`exec MaterialItem_Get`);
+       const apiResponse = await pool.request()
+                .input('areaId', sql.VarChar, areaId)
+                .query(`exec MaterialItem_Get  Null, '${areaId}'`);
+
         const allItems = apiResponse.recordset || [];
 
         let result = [];
@@ -243,7 +249,8 @@ const getItemsWithVariations = async (req, res) => {
             // Fetch variations for this item
             const itemQueryApiResponse = await pool.request()
                 .input('itemId', sql.VarChar, item.ID2)
-                .query(`exec ItemVariation_Get '${item.ID2}'`);
+                .input('areaId', sql.VarChar, areaId)
+                .query(`exec ItemVariation_Get '${item.ID2}','${areaId}'`);
             
             const itemVariations = itemQueryApiResponse.recordset || [];
 
