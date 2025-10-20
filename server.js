@@ -11,7 +11,8 @@ const { initSocketServer } = require("./socket/socketServer");
 
 
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
-const {signUp,signIn} = require('./controllers/authController'); 
+const {signUp,userCreation,signIn} = require('./controllers/authController'); 
+
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {approvalWorkFlowSaveUpdate,getApprovalWorkFlowDetails,getApprovalWorkFlowsList} = require('./controllers/approvalWorkFlowController'); 
@@ -480,6 +481,10 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 
 
 // user roles
+
+app.post('/api/users/save-update',authenticateToken,express.json(),upload,userCreation );
+
+
 app.post('/api/role/transection-access-setup/save-update',authenticateToken,express.json(),upload,transactionAccessSaveOrUpdate );
 app.post('/api/role/transection-access-setups',authenticateToken,express.json(),getTransectionAccesssList );
 app.post('/api/role/transection-access-setup',authenticateToken,express.json(),getTransectionAccessDetails );

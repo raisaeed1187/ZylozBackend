@@ -9,6 +9,65 @@ const { setCurrentDatabase } = require('../constents').actions;
 const SECRET_KEY = process.env.SECRET_KEY;
  
  
+const userCreation = async (req,res)=>{
+    // const { username,email, password,client } = req.body;
+    const formData = req.body;  
+
+    try {
+            if (!formData.email || !formData.password || !formData.fullName) {
+                return res.status(400).json({ message: 'Enter required fields!' });
+            }
+            console.log('database');
+            console.log(formData.client); 
+            store.dispatch(setCurrentDatabase(formData.client || 'Zyloz')); 
+            const config =  store.getState().constents.config;  
+           
+            const pool = await sql.connect(config);
+            
+            const existingUser = await pool
+            .request()
+            .input("email", sql.NVarChar, formData.email)
+            .query("SELECT * FROM Users WHERE email = @email");
+
+            if (existingUser.recordset.length > 0) {
+                // return res.status(400).json({ message: "Email already exists" });
+                return res.status(400).json({ message: "Email already exists",data:null});
+            } 
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(formData.password, 10);
+
+            // Insert new user into the database
+            // await pool
+            // .request()
+            // .input("username", sql.NVarChar, username)
+            // .input("email", sql.NVarChar, email)
+            // .input("password", sql.NVarChar, hashedPassword)
+            // .input("client", sql.NVarChar, client) 
+            // .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
+
+            const request = pool.request();
+            request.input("ID2", sql.NVarChar(100), formData.ID2);
+            request.input("username", sql.NVarChar(100), formData.fullName);
+            request.input("email", sql.NVarChar(100), formData.email);
+            request.input("password", sql.NVarChar(255), hashedPassword);
+            request.input("client", sql.NVarChar(50), formData.client);
+            request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
+
+            await request.execute("User_Registeration");
+
+
+            res.status(200).json({
+                message: 'User registered successfully',
+                data: 'user registered'
+            });
+             
+        } catch (error) {
+            // console.log(error);
+            throw new Error(error.message);
+
+        }
+}
+// end userCreation
 
 const signUp = async (req,res)=>{
     const { username,email, password,client } = req.body;
@@ -164,4 +223,4 @@ const signIn = async (req,res)=>{
 // end of signIn
 
 
-module.exports =  {signUp,signIn} ;
+module.exports =  {signUp,userCreation,signIn} ;
