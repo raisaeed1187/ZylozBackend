@@ -50,6 +50,7 @@ const paymentSaveUpdate = async (req,res)=>{
                 .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
                 .input('Currency', sql.NVarChar(100), formData.currency || '')
                 .input('BaseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || '') 
+                .input('PostingDate', sql.Date, formData.postingDate || null)
                 .output('ID', sql.NVarChar(100))
                 .execute('FinReceivedPayment_SaveOrUpdate');
 

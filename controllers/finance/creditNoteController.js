@@ -52,6 +52,7 @@ const creditNoteSaveUpdate = async (req,res)=>{
             .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
             .input('baseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00)
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
+            .input('PostingDate', sql.Date, formData.postingDate || null)
             .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
             .execute('FinCreditNote_SaveOrUpdate');
 

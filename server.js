@@ -24,6 +24,7 @@ const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOA
 const {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
 
+const {financeConfigurationSave,getFinanceConfiguration} = require('./controllers/finance/financeConfigurationController'); 
 
 
 const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
@@ -56,6 +57,8 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
 const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionAccesssList,getAllTransectionAccessWithPermissions} = require('./controllers/UserRole/transectionAccessSetupController'); 
 
 const {roleSaveOrUpdate,assignRoleToUser,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
+
+const {getProfitAndLossDashboard,getAgingDashboard} = require('./controllers/dashboardController'); 
 
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
@@ -365,6 +368,10 @@ app.post('/api/payroll/configuration',authenticateToken,express.json(),getPayrol
 
 // start of finance 
 
+app.post('/api/finance/configuration/save-update',authenticateToken,express.json(),upload,financeConfigurationSave );
+app.post('/api/finance/configuration',authenticateToken,express.json(),getFinanceConfiguration );
+
+
 app.post('/api/coa/save-update',authenticateToken,express.json(),upload,coaSaveUpdate );
 app.post('/api/coa/save-update/multiple',authenticateToken,express.json(),upload,coaSaveUpdateNew );
 
@@ -478,6 +485,14 @@ app.post('/api/finance/cost-center/types',authenticateToken,express.json(),getCo
 app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCostCenterTypeDetails );
 
 // end of costCenter type
+
+// dashbaord
+
+app.post('/api/dashboard/p-and-l',authenticateToken,express.json(),getProfitAndLossDashboard ); 
+app.post('/api/dashboard/aging',authenticateToken,express.json(),getAgingDashboard ); 
+
+
+
 
 
 // user roles

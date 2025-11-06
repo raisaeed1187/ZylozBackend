@@ -115,7 +115,9 @@ async function pettyCashSaveUpdate(req,res){
                 .input('branchId', sql.NVarChar(65), formData.branchId || null)  
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                 .input('currency', sql.NVarChar(100), formData.currency || null)
-                .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null) 
+                .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)  
+                .input('postingDate', sql.Date, formData.postingDate || null)
+
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
              
@@ -123,8 +125,8 @@ async function pettyCashSaveUpdate(req,res){
                 if(formData.expenseItems){  
                     await expenseItemSaveUpdate(req,newID);
                     const result = await pool.request() 
-                            .input('PettyCashId', sql.NVarChar(65), newID) 
-                            .execute('PettyCash_Create_JournalEntries');
+                            // .input('PettyCashId', sql.NVarChar(65), newID) 
+                            // .execute('PettyCash_Create_JournalEntries');
                 }
              
 

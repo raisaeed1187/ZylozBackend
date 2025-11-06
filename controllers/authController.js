@@ -5,6 +5,11 @@ const bcrypt = require("bcrypt");
 require("dotenv").config(); 
 const store = require('../store'); 
 const { setCurrentDatabase } = require('../constents').actions;
+const { sendEmail } = require('../services/mailer');
+const { generateOtp } = require('../utils/generateOTP');
+const { getOtpTemplate } = require('../utils/otpEmailTemplates');
+
+
 
 const SECRET_KEY = process.env.SECRET_KEY;
  
@@ -24,15 +29,14 @@ const userCreation = async (req,res)=>{
            
             const pool = await sql.connect(config);
             
-            const existingUser = await pool
-            .request()
-            .input("email", sql.NVarChar, formData.email)
-            .query("SELECT * FROM Users WHERE email = @email");
+            // const existingUser = await pool
+            // .request()
+            // .input("email", sql.NVarChar, formData.email)
+            // .query("SELECT * FROM Users WHERE email = @email");
 
-            if (existingUser.recordset.length > 0) {
-                // return res.status(400).json({ message: "Email already exists" });
-                return res.status(400).json({ message: "Email already exists",data:null});
-            } 
+            // if (existingUser.recordset.length > 0) {
+            //      return res.status(400).json({ message: "Email already exists",data:null});
+            // } 
             // Hash the password
             const hashedPassword = await bcrypt.hash(formData.password, 10);
 
@@ -44,6 +48,23 @@ const userCreation = async (req,res)=>{
             // .input("password", sql.NVarChar, hashedPassword)
             // .input("client", sql.NVarChar, client) 
             // .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
+            
+            const { otp, expiresAt } = generateOtp(6, 10); // 6 digits, expires in 10 mins
+            const otpHtml = getOtpTemplate(otp, formData.fullName);
+            const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
+
+            // await sendEmail(
+            // formData.email,
+            // 'Test Email',
+            // 'This is a test email sent from Allbiz.'
+            // );
+
+            await sendEmail(
+                formData.email,
+                "Your AllBiz OTP Code",
+                text,
+                otpHtml
+            );
 
             const request = pool.request();
             request.input("ID2", sql.NVarChar(100), formData.ID2);
@@ -54,7 +75,7 @@ const userCreation = async (req,res)=>{
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
 
             await request.execute("User_Registeration");
-
+ 
 
             res.status(200).json({
                 message: 'User registered successfully',

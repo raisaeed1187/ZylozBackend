@@ -58,6 +58,7 @@ const supplierBillSaveUpdate = async (req,res)=>{
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .input('POId', sql.NVarChar(65), formData.poId || null)   
             .input('CostCenter', sql.NVarChar(65), formData.costCenter || null)    
+            .input('PostingDate', sql.Date, formData.postingDate || null)
             .output('ID', sql.NVarChar(100))  
             .execute('SupplierBill_SaveOrUpdate');
 

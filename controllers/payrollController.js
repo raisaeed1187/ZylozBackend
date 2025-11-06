@@ -473,7 +473,7 @@ const payrollConfigurationSave = async (req, res) => {
             .input('ID2', sql.NVarChar(250), formData.ID2)  
             .input("PayrollStartDate", sql.NVarChar(255), formData.payrollStartDate)
             .input("PayFrequency", sql.NVarChar(255), formData.payFrequency)  
-            .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+            .input('CreatedBy', sql.NVarChar(250), formData.createdBy || formData.CreatedBy || "Admin")  
             .input("workingHours", sql.NVarChar(255), formData.workingHours) 
             .input("payMonthStartDate", sql.NVarChar(255), formData.payMonthStartDate) 
             .input("payMonthEndDate", sql.NVarChar(255), formData.payMonthEndDate) 
