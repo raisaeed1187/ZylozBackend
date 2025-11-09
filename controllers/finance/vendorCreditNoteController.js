@@ -198,7 +198,7 @@ const getVendorCreditNoteDetails = async (req, res) => {
         const itemsQuery = `exec FinVendorCreditNoteItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
-        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Received Payment'`;
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Vendor Credit Note'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
 
 
@@ -280,7 +280,37 @@ const getAppliedVendorCreditInvoicesList = async (req, res) => {
 };
 // end of getAppliedVendorCreditInvoicesList
 
+const deleteAppliedBillFromCreditNote = async (req, res) => {  
+    const {creditNoteId,billId,vendorId} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+         const response = await pool
+                    .request()
+                    .input("appliedBillId", sql.NVarChar, billId)
+                    .input("currentUser", sql.NVarChar, req.authUser.username) 
+                    .execute("FinCreditNoteAppliedBill_Delete");
+
+        res.status(200).json({
+            message: `Credit Note Applied Bill Deleted successfully!`,
+            data:  response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deleteAppliedBillFromCreditNote
+
+
  
 
 
-module.exports =  {getAppliedVendorCreditInvoicesList,applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} ;
+module.exports =  {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList,applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} ;

@@ -20,11 +20,11 @@ const {approvalWorkFlowSaveUpdate,getApprovalWorkFlowDetails,getApprovalWorkFlow
 const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {saveEmployeeEOS,releaseEmployeeEOS,releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
-const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
+const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,createDefaultCOASaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
 const {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
 const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
 
-const {financeConfigurationSave,getFinanceConfiguration} = require('./controllers/finance/financeConfigurationController'); 
+const {getfinancialPeriodLocks,financialPeriodLockSave,financeConfigurationSave,getFinanceConfiguration} = require('./controllers/finance/financeConfigurationController'); 
 
 
 const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
@@ -37,9 +37,9 @@ const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./control
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
-const {getAppliedCreditInvoicesList, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
+const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
-const {getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
+const {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
 const {getExpensesList,expenseSaveUpdate,getExpenseDetails,getPettyCashDetails,getPettyCashExpensesList} = require('./controllers/finance/expenseController'); 
 
 const {getFinAdditionalFieldsList,finAdditionalFieldSaveUpdate,getFinAdditionalFieldDetails} = require('./controllers/finance/finAdditionalFieldController'); 
@@ -371,9 +371,13 @@ app.post('/api/payroll/configuration',authenticateToken,express.json(),getPayrol
 app.post('/api/finance/configuration/save-update',authenticateToken,express.json(),upload,financeConfigurationSave );
 app.post('/api/finance/configuration',authenticateToken,express.json(),getFinanceConfiguration );
 
+app.post('/api/finance/period-locking/save-update',authenticateToken,express.json(),upload,financialPeriodLockSave );
+app.post('/api/finance/period-locking',authenticateToken,express.json(),getfinancialPeriodLocks );
+
 
 app.post('/api/coa/save-update',authenticateToken,express.json(),upload,coaSaveUpdate );
 app.post('/api/coa/save-update/multiple',authenticateToken,express.json(),upload,coaSaveUpdateNew );
+app.post('/api/coa/default-coa/save-update',authenticateToken,express.json(),upload,createDefaultCOASaveUpdate );
 
 
 app.post('/api/chart-of-accounts/formated',authenticateToken,express.json(),getCOAListNew );
@@ -418,7 +422,9 @@ app.post('/api/finance/credit-notes',authenticateToken,express.json(),getCreditN
 app.post('/api/finance/credit-note',authenticateToken,express.json(),getCreditNoteDetails );
 
 app.post('/api/finance/credit-note/applied/invoices',authenticateToken,express.json(),getAppliedCreditInvoicesList );
+app.post('/api/finance/credit-note/delete-invoice',authenticateToken,express.json(),deleteAppliedInvoiceFromCreditNote );
 // end of credit note
+
 
 
 app.post('/api/finance/vendor-credit-note/save-update',authenticateToken,express.json(),upload,vendorCreditNoteSaveUpdate );
@@ -428,6 +434,9 @@ app.post('/api/finance/vendor-credit-notes',authenticateToken,express.json(),get
 app.post('/api/finance/vendor-credit-note',authenticateToken,express.json(),getVendorCreditNoteDetails );
 
 app.post('/api/finance/vendor-credit-note/applied/bills',authenticateToken,express.json(),getAppliedVendorCreditInvoicesList );
+app.post('/api/finance/credit-note/delete-bill',authenticateToken,express.json(),deleteAppliedBillFromCreditNote );
+
+
 // end of vendor credit note
 
 app.post('/api/finance/expense/save-update',authenticateToken,express.json(),expenseUpload,expenseSaveUpdate );

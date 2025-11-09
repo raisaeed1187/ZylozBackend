@@ -37,7 +37,7 @@ const financeConfigurationSave = async (req, res) => {
         const result = await pool.request()
             .input('ID2', sql.NVarChar(250), formData.ID2)  
             .input("documentPostingDate", sql.NVarChar(255), formData.documentPostingDate) 
-            .input('CreatedBy', sql.NVarChar(250), formData.createdBy || formData.CreatedBy || "Admin")  
+            .input('CreatedBy', sql.NVarChar(250), req.authUser.username )  
             .execute('FinanceConfiguration_SaveOrUpdate');    
   
         
@@ -52,7 +52,7 @@ const financeConfigurationSave = async (req, res) => {
         
     }
 };
-// end of finAdditionalFieldSaveUpdate
+// end of financeConfigurationSave
 
 function parseBoolean(value) {
   if (typeof value === 'boolean') return value;
@@ -95,5 +95,73 @@ const getFinanceConfiguration = async (req, res) => {
 };
  
 
+const financialPeriodLockSave = async (req, res) => {
+    const formData = req.body;
 
-module.exports =  {financeConfigurationSave,getFinanceConfiguration} ;
+    try {
+        // set current database and user in Redux store
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+
+        // get MSSQL connection config
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+
+        console.log("Financial Period Lock formData:", formData);
+ 
+        const result = await pool.request()
+            .input("ID2", sql.NVarChar(65), formData.ID2 || null)
+            .input("ModuleName", sql.NVarChar(100), formData.name)
+            .input("LockType", sql.NVarChar(50), parseBoolean(formData.partial) ? 'Partial':'Full')
+            .input("LockDate", sql.NVarChar(100), formData.lockDate)
+            .input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false)
+            .input("Reason", sql.NVarChar(500), formData.reason || null)
+            .input("ActionBy", sql.NVarChar(100), req.authUser.username)
+            .input("OrganizationId", sql.NVarChar(100), formData.organizationId)
+
+            .execute("FinancialPeriodLock_SaveOrUpdate");
+
+        // send response
+        res.status(200).json({
+            message: "Financial Period Lock saved successfully!",
+            data: result.recordset || [],
+        });
+
+    } catch (error) {
+        console.error("Error saving Financial Period Lock:", error);
+        return res.status(400).json({
+            message: error.message,
+            data: null,
+        });
+    }
+};
+
+const getfinancialPeriodLocks = async (req, res) => {  
+    const {Id,organizationId} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+          
+        const response = await pool
+            .request()
+            .input("ID2", sql.NVarChar, null)
+            .input("organizationId", sql.NVarChar, organizationId || null) 
+            .execute("FinancialPeriodLock_Get");
+                            
+                            
+        res.status(200).json({
+            message: `Finance Period Locking loaded successfully!`,
+            data: response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+
+module.exports =  {getfinancialPeriodLocks,financialPeriodLockSave,financeConfigurationSave,getFinanceConfiguration} ;

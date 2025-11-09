@@ -219,7 +219,7 @@ const getSupplierBillItems = async (req, res) => {
  
 
 const getSupplierBillsList = async (req, res) => {  
-    const {organizationId,Id,vendorId,currency} = req.body; // user data sent from client
+    const {organizationId,Id,vatAble,vendorId,currency} = req.body; // user data sent from client
      
     try {
          
@@ -229,18 +229,20 @@ const getSupplierBillsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         
-        if (vendorId) {
-            query = `exec finSupplierBillGet Null,'${organizationId}','${vendorId}', ${currency ? `'${currency}'` : 'NULL'}`;   
-        }else{
-            query = `exec finSupplierBillGet Null,'${organizationId}'`;   
 
-        }  
+        const response = await pool
+        .request()
+        .input("ID2", sql.NVarChar,  null)
+        .input("organizationId", sql.NVarChar, organizationId || null)
+        .input("vendorId", sql.NVarChar, vendorId || null)
+        .input("currency", sql.NVarChar, currency || null)
+        .input("IsVatAble", sql.Bit, parseBoolean(vatAble) ?? null)
+        .execute("finSupplierBillGet");
          
-        const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
             message: `SupplierBills List loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  response.recordset
         });
          
     } catch (error) {
@@ -250,7 +252,15 @@ const getSupplierBillsList = async (req, res) => {
 };
 // end of getSupplierBillsList
 
- 
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const lower = value.toLowerCase();
+    return lower === "yes" || lower === "true" || lower === "1";
+  }
+  return Boolean(value);
+}
+
  
 
 

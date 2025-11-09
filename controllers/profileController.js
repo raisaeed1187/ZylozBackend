@@ -96,6 +96,14 @@ const orgProfileSaveUpdate = async (req,res)=>{
                         SET ID2 = '${encryptedId}' 
                         WHERE ID = ${newId}
                     `);
+
+                    const coaRequest = pool.request();
+                        request.input("Mode", sql.NVarChar(100), String(formData.mode));
+                        request.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
+                        request.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
+                        request.input("CreatedBy", sql.NVarChar(100), req.authUser.username); 
+                        await request.execute("TransferChartOfAccounts");
+
                 }
                 if(attachments){
                     await saveOrgProfileDocuments(pool,attachments,encryptedId,formData);

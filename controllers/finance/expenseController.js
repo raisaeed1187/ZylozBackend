@@ -42,7 +42,7 @@ const expenseSaveUpdate = async (req,res)=>{
                     var newID = 0;
                     // expenseItemSaveUpdate(req,newID)
                     console.log('isPettyCash');
-                    pettyCashSaveUpdate(req,res);
+                    await pettyCashSaveUpdate(req,res);
                 }
             }else{
                 console.log('else conditions');
@@ -116,7 +116,7 @@ async function pettyCashSaveUpdate(req,res){
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                 .input('currency', sql.NVarChar(100), formData.currency || null)
                 .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)  
-                .input('postingDate', sql.Date, formData.postingDate || null)
+                .input('postingDate', sql.NVarChar(100), formData.postingDate != 'null' ? formData.postingDate : null || null)
 
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
@@ -284,7 +284,7 @@ async function expenseItemSaveUpdate(req, expenseId) {
             console.log('after expense account');
              
             console.log('rowFiles');
-            const rowFiles = req.files.filter(f => f.fieldname == `attachments[${rowIdx}]`);
+            const rowFiles = await req.files.filter(f => f.fieldname == `attachments[${rowIdx}]`);
             console.log(rowFiles);
 
             let documentUrl = null;
@@ -461,9 +461,14 @@ const getPettyCashDetails = async (req, res) => {
 
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Petty Cash'`;
+        const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+
         const data = {
             expenseDetails: apiResponse.recordset[0],
-            expenseItems: itemsApiResponse.recordset
+            expenseItems: itemsApiResponse.recordset,
+            jouralLedgers: jouralLedgerApiResponse.recordset,  
         }
         
         // Return a response (do not return the whole req/res object)

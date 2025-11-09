@@ -194,14 +194,29 @@ const signIn = async (req,res)=>{
                     store.dispatch(setCurrentDatabase(user.databaseName)); 
                     const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
                     const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
-                    const organizations = organizationsQueryResponse.recordset;
+                    // const organizations = organizationsQueryResponse.recordset;
                     
                     const modules = await pool
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
                     .execute("GetUserModulesMenus");
+
+                    const usersAccess = await pool
+                    .request()
+                    .input("UserID", sql.NVarChar, user.ID2)
+                    .execute("UsersAccessInfo_Get");
+
+                    console.log('usersAccess.recordsets');
+                    console.log(usersAccess.recordsets);
+
+                    // const userInfo = usersAccess.recordsets[0][0];
+                    // const roles = usersAccess.recordsets[1];
+                    const organizations = usersAccess.recordsets[2];
+                    const branches = usersAccess.recordsets[3];
+
+                    
                     if (modules.recordset.length > 0) {
-                        console.log(modules.recordset);
+                        // console.log(modules.recordset);
                         const data = {
                             userDetails:{
                                 id: user.ID2,
@@ -216,6 +231,7 @@ const signIn = async (req,res)=>{
                             },
                             token:token,
                             organizations:organizations,
+                            branches:branches, 
                             modules: modules.recordset,
                         }  
                         return res.status(200).json({

@@ -167,28 +167,44 @@ function parseBoolean(value) {
 const assignRoleToUser = async (req, res) => {
   const formData = req.body;
 
-  try {
-    // Set DB connection & user context
+  try { 
     store.dispatch(setCurrentDatabase(req.authUser.database));
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
- 
-    const roleResult = await pool
-      .request()
-      .input("ID2", sql.NVarChar(65), formData.ID2 || null)
-      .input("RoleID", sql.NVarChar(100), formData.RoleID)
-      .input("UserID", sql.NVarChar(500), formData.UserID || null)
-      .input("CreatedBy", sql.NVarChar(100), req.authUser.username || "System") 
-      .execute("UserApplicationRole_SaveOrUpdate");
-      
 
+    console.log(formData);
+ 
+    console.log(req.authUser);
+
+
+    // const roleResult = await pool
+    //   .request()
+    //   .input("ID2", sql.NVarChar(65), formData.ID2 || null)
+    //   .input("RoleID", sql.NVarChar(100), formData.RoleID)
+    //   .input("UserID", sql.NVarChar(500), formData.UserID || null)
+    //   .input("CreatedBy", sql.NVarChar(100), req.authUser.username || "System") 
+    //   .execute("UserApplicationRole_SaveOrUpdate");
+
+    const roleResult = await pool
+      .request() 
+      .input("UserID", sql.NVarChar(500), formData.UserID || null)
+      .input("RoleIDs", sql.NVarChar(sql.MAX), formData.RoleIDs)
+      .input("OrganizationIDs", sql.NVarChar(sql.MAX), formData.OrganizationIDs)
+      .input("BranchIDs", sql.NVarChar(sql.MAX), formData.BranchIDs)
+      .input("IsActive", sql.Bit, parseBoolean(formData.IsActive) ? 1 : 0)
+      .input("CreatedBy", sql.NVarChar(100), req.authUser.username) 
+      .execute("UserApplicationRole_SaveOrUpdate_Multi");
+
+      
+      
+ 
     const io = getIO(); 
     if (io) {
         // console.log('inside before emmit'); 
       io.emit("permissionsUpdated", {
-        roleId: formData.RoleID,
+        userId: formData.UserID,
         message: `Permissions updated for role`,
       }); 
     }
@@ -212,9 +228,15 @@ const getRolesList = async (req, res) => {
     store.dispatch(setCurrentDatabase(req.authUser.database));
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
-    const pool = await sql.connect(config);
 
+    const pool = await sql.connect(config); 
     const result = await pool.request().query(`EXEC ApplicationRole_Get`);
+
+    console.log("UsersRoles result:");
+
+    console.log("UsersRoles result:", result.recordset.length);
+
+
     res.status(200).json({
       message: "Roles loaded successfully",
       data: result.recordset,
@@ -224,6 +246,7 @@ const getRolesList = async (req, res) => {
   }
 };
 
+
 // GET all users
 const getUsersRolesList = async (req, res) => {
   try {
@@ -232,11 +255,43 @@ const getUsersRolesList = async (req, res) => {
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
 
-    const result = await pool.request().query(`EXEC UsersRoles_Get`);
+    // const result = await pool.request().query(`EXEC UsersRoles_Get`);
+
+    const result = await pool.request()
+      .execute("UsersAccessInfo_GetAll");
+ 
+    const parseIDs = (json) => {
+      if (!json) return [];
+
+      let parsed;
+      try {
+        parsed = typeof json === "string" ? JSON.parse(json) : json;
+      } catch (err) {
+        console.warn("Invalid JSON, returning empty array:", json);
+        return [];
+      }
+
+      if (Array.isArray(parsed)) return parsed.map(p => p?.ID2 || p);
+      if (parsed && parsed.ID2) return [parsed.ID2];
+      return [];
+    };
+
+ 
+    const users = result.recordset.map(u => ({
+      ID2: u.ID2,
+      UserName: u.UserName,
+      Email: u.Email,
+      IsActive: u.IsActive ?? true,
+      RoleIDs: parseIDs(u.RoleIDs),
+      OrganizationIDs: parseIDs(u.OrganizationIDs),
+      BranchIDs: parseIDs(u.BranchIDs)
+    }));
+
     res.status(200).json({
-      message: "Users Roles loaded successfully",
-      data: result.recordset,
+      message: "User access info loaded successfully",
+      data: users
     });
+    
   } catch (error) {
     res.status(400).json({ message: error.message, data: null });
   }
@@ -255,10 +310,27 @@ const getUserPermissions = async (req, res) => {
                         .input("UserID", sql.NVarChar, req.authUser.ID2)
                         .execute("GetUserModulesMenus");
 
+      
+    const usersAccess = await pool
+        .request()
+        .input("UserID", sql.NVarChar, req.authUser.ID2)
+        .execute("UsersAccessInfo_Get");
+
+        // const userInfo = usersAccess.recordsets[0][0];
+        // const roles = result.recordsets[1];
+        const organizations = usersAccess.recordsets[2];
+        const branches = usersAccess.recordsets[3];
+
+    const data = {
+      modules:result.recordset,
+      organizations:organizations,
+      branches:branches, 
+    }                                        
+
 
     res.status(200).json({
       message: "Users Permissions loaded successfully",
-      data: result.recordset,
+      data: data,
     });
   } catch (error) {
     res.status(400).json({ message: error.message, data: null });

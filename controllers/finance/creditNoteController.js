@@ -131,8 +131,8 @@ const applycreditNoteOnInvoice = async (req,res)=>{
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
-            console.log('formData');
-            console.log(formData); 
+            // console.log('formData');
+            // console.log(formData); 
               
             const pool = await sql.connect(config);
             const allocations = JSON.parse(formData.allocations); 
@@ -147,7 +147,7 @@ const applycreditNoteOnInvoice = async (req,res)=>{
                             .input('invoiceId', sql.NVarChar(100), item.invoiceId || null)
                             .input('invoiceNo', sql.NVarChar(100), item.invoiceNo || null) 
                             .input('appliedAmount', sql.Decimal(18, 8), parseFloat(item.appliedAmount) || 0)
-                            .input('appliedBy', sql.NVarChar(100), formData.createdBy || 'system')  
+                            .input('appliedBy', sql.NVarChar(100), req.authUser.username)  
                             .input('account', sql.NVarChar(100), item.account || '')   
                             .execute('FinCreditNoteAppliedInvoice_SaveOrUpdate');
                         }
@@ -319,16 +319,17 @@ const getAppliedCreditInvoicesList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
-        let query = '';
-         
-        query = `exec FinCreditNoteAppliedInvoice_Get Null,'${creditNoteId}'`;   
-          
-         
-        const apiResponse = await pool.request().query(query); 
         
+          
+        const response = await pool
+                    .request()
+                    .input("ID2", sql.NVarChar, null)
+                    .input("creditNoteId", sql.NVarChar, creditNoteId || null) 
+                    .execute("FinCreditNoteAppliedInvoice_Get");
+
         res.status(200).json({
             message: `Credit Note Applied Invoice List loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  response.recordset
         });
          
     } catch (error) {
@@ -338,7 +339,36 @@ const getAppliedCreditInvoicesList = async (req, res) => {
 };
 // end of getAppliedCreditInvoicesList
 
+const deleteAppliedInvoiceFromCreditNote = async (req, res) => {  
+    const {creditNoteId,invoiceId,customerId} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+         
+         const response = await pool
+                    .request()
+                    .input("appliedInvoiceId", sql.NVarChar, invoiceId)
+                    .input("currentUser", sql.NVarChar, req.authUser.username) 
+                    .execute("FinCreditNoteAppliedInvoice_Delete");
+
+        res.status(200).json({
+            message: `Credit Note Applied Invoice Deleted successfully!`,
+            data:  response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deleteAppliedInvoiceFromCreditNote
+
  
 
 
-module.exports =  {getAppliedCreditInvoicesList,applycreditNoteOnInvoice,getJournalLedgers,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails,getCreditNoteItems} ;
+module.exports =  {deleteAppliedInvoiceFromCreditNote,getAppliedCreditInvoicesList,applycreditNoteOnInvoice,getJournalLedgers,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails,getCreditNoteItems} ;

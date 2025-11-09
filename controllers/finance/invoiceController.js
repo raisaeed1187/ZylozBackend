@@ -230,7 +230,7 @@ const getInvoiceDetails = async (req, res) => {
 // end of getInvoiceDetails
 
 const getCustomerInvoice = async (req, res) => {  
-    const {customerId,organizationId,currency} = req.body; // user data sent from client
+    const {customerId,creditNote,vatAble,organizationId,currency} = req.body; // user data sent from client
       
     try {
          
@@ -240,19 +240,30 @@ const getCustomerInvoice = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
-        if (currency) {
-            query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}','${currency}'`;    
-        }else{
-            query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
-        }
+        // if (currency) {
+        //     query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}','${currency}',$vatAble`;    
+        // }else{
+        //     query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}'`;   
+        // }
         // console.log('itemsQuery');
         // console.log(itemsQuery);
+        // console.log('vatAble');
+        // console.log(vatAble);
+        // console.log(parseBoolean(vatAble));
 
-        const itemsApiResponse = await pool.request().query(query); 
+        const response = await pool
+            .request()
+            .input("CustomerId", sql.NVarChar, customerId || null)
+            .input("OrganizationId", sql.NVarChar, organizationId || null)
+            .input("Currency", sql.NVarChar, currency || null)
+            .input("IsVatAble", sql.Bit, parseBoolean(vatAble) ?? null)
+            .execute("FinCustomerInvoices_Get");
+
+        // const itemsApiResponse = await pool.request().query(query); 
           
         res.status(200).json({
             message: `Invoice details loaded successfully!`,
-            data: itemsApiResponse.recordset
+            data: response.recordset
         });
          
     } catch (error) {
@@ -262,6 +273,14 @@ const getCustomerInvoice = async (req, res) => {
 };
 // end of getCustomerInvoice
  
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const lower = value.toLowerCase();
+    return lower === "yes" || lower === "true" || lower === "1";
+  }
+  return Boolean(value);
+}
 
 const getInvoicesList = async (req, res) => {  
     const {Id,organizationId} = req.body;  

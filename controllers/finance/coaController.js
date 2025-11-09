@@ -46,7 +46,7 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
                 request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
                 request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false); 
-                request.input("OrganizationId", sql.Bit, parseBoolean(formData.organizationId) || false); 
+                request.input("OrganizationId", sql.NVarChar(100), formData.organizationId || false); 
 
                 await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
  
@@ -372,6 +372,46 @@ const deleteCustomerContact = async (req, res) => {
     }
 };
 // end of deleteCustomerContact
+
+
+const createDefaultCOASaveUpdate = async (req,res)=>{
+    const formData = req.body;
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            console.log('formData');
+            console.log(formData);
+
+            const pool = await sql.connect(config);
+            try {  
+                const request = pool.request();
+                request.input("Mode", sql.NVarChar(100), String(formData.mode));
+                request.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
+                request.input("TargetOrganizationId", sql.NVarChar(100), String(formData.organizationId) || null); 
+                request.input("CreatedBy", sql.NVarChar(100), req.authUser.username); 
+                await request.execute("TransferChartOfAccounts");
+ 
+                res.status(200).json({
+                    message: 'COA Created saved/updated',
+                    data: '' //result
+                });
+            } catch (err) { 
+                return res.status(400).json({ message: err.message,data:null}); 
+
+            } 
+             
+        } catch (error) { 
+            return res.status(400).json({ message: error.message,data:null}); 
+
+        }
+}
+// end of createDefaultCOASaveUpdate
+
+
+
 const getCOAAcountTypes = async (req, res) => {  
     
     try {
@@ -536,4 +576,4 @@ const getCOAAllocationDetails = async (req, res) => {
  
 
 
-module.exports =  {getCOAAllocationDetails,getCOAAllocations,coaAllocationSaveUpdate,deleteCOAAccount,getCOAAcountTypes, deleteCustomerContact,coaSaveUpdateNew,coaSaveUpdate,getCOAListNew,getCOAList,getCOADetails} ;
+module.exports =  {getCOAAllocationDetails,getCOAAllocations,coaAllocationSaveUpdate,deleteCOAAccount,getCOAAcountTypes, deleteCustomerContact,coaSaveUpdateNew,coaSaveUpdate,createDefaultCOASaveUpdate,getCOAListNew,getCOAList,getCOADetails} ;
