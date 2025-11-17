@@ -11,7 +11,7 @@ const { initSocketServer } = require("./socket/socketServer");
 
 
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
-const {signUp,userCreation,signIn} = require('./controllers/authController'); 
+const {signUp,userCreation,sendOTP,varifyOTP,signIn} = require('./controllers/authController'); 
 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
@@ -32,6 +32,7 @@ const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controller
 const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
 const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
+const {rfqSaveUpdate,getRFQDetails,getRFQsList,getRFQPOsList} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
@@ -143,6 +144,12 @@ app.use('/api', router);
 app.post('/api/signup',express.json(),signUp );
 app.post('/api/signin',express.json(),signIn );
 
+app.post('/api/send-otp',express.json(),upload,sendOTP );
+
+app.post('/api/varify-otp',express.json(),varifyOTP );
+
+
+
 app.post('/api/contact-info/save-update',express.json(),upload,contactSaveUpdate );
 app.post('/api/become-partner/save-update',express.json(),upload,becomePartnerSaveUpdate );
 
@@ -252,6 +259,15 @@ app.post('/api/grn/po-items',authenticateToken,express.json(),getGRNPOItems );
 app.post('/api/pos',authenticateToken,express.json(),getPOsList );
 app.post('/api/procurement/purchase-report',authenticateToken,express.json(),getPurchaseReport );
 //end po controller
+
+// rfq
+app.post('/api/rfq/save-update',authenticateToken,express.json(),upload,rfqSaveUpdate ); 
+app.post('/api/rfq',authenticateToken,express.json(),getRFQDetails );
+app.post('/api/rfqs',authenticateToken,express.json(),getRFQsList );
+app.post('/api/rfq/pos',authenticateToken,express.json(),getRFQPOsList );
+app.post('/api/rfq-item/delete',authenticateToken,express.json(),deletePOItem );
+ 
+
 
 
 app.post('/api/grn/save-update',authenticateToken,express.json(),upload,grnSaveUpdate ); 

@@ -23,6 +23,13 @@ const states = {
         server:process.env.DB_SERVER,
         port:parseInt(process.env.DB_PORT, 10), 
         database:process.env.DB_DATABASE, 
+        pool: {
+            max: 10,
+            min: 0,
+            idleTimeoutMillis: 30000
+        },
+        requestTimeout: 60000, // 60 seconds
+        connectionTimeout: 30000,
         // pool: { max: 1, min: 0, idleTimeoutMillis: 500 },
         options:{
             trustServerCertificate:true,

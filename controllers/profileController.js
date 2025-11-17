@@ -101,7 +101,7 @@ const orgProfileSaveUpdate = async (req,res)=>{
                         request.input("Mode", sql.NVarChar(100), String(formData.mode));
                         request.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
                         request.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
-                        request.input("CreatedBy", sql.NVarChar(100), req.authUser.username); 
+                        request.input("CreatedBy", sql.NVarChar(100), req?.authUser?.username || 'admin'); 
                         await request.execute("TransferChartOfAccounts");
 
                 }

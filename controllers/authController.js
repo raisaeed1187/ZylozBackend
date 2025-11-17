@@ -23,8 +23,8 @@ const userCreation = async (req,res)=>{
                 return res.status(400).json({ message: 'Enter required fields!' });
             }
             console.log('database');
-            console.log(formData.client); 
-            store.dispatch(setCurrentDatabase(formData.client || 'Zyloz')); 
+            console.log(req.authUser.database); 
+            store.dispatch(setCurrentDatabase(req.authUser.database || 'Zyloz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -71,7 +71,7 @@ const userCreation = async (req,res)=>{
             request.input("username", sql.NVarChar(100), formData.fullName);
             request.input("email", sql.NVarChar(100), formData.email);
             request.input("password", sql.NVarChar(255), hashedPassword);
-            request.input("client", sql.NVarChar(50), formData.client);
+            request.input("client", sql.NVarChar(50), req.authUser.database);
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
 
             await request.execute("User_Registeration");
@@ -213,7 +213,6 @@ const signIn = async (req,res)=>{
                     // const roles = usersAccess.recordsets[1];
                     const organizations = usersAccess.recordsets[2];
                     const branches = usersAccess.recordsets[3];
-
                     
                     if (modules.recordset.length > 0) {
                         // console.log(modules.recordset);
@@ -259,5 +258,146 @@ const signIn = async (req,res)=>{
 }
 // end of signIn
 
+const sendOTP = async (req,res)=>{
+    // const { username,email, password,client } = req.body;
+    const formData = req.body;  
 
-module.exports =  {signUp,userCreation,signIn} ;
+    try {
+            if (!formData.email) {
+                return res.status(400).json({ message: 'Email is required!' });
+            } 
+            store.dispatch(setCurrentDatabase(formData.from)); 
+            const config =  store.getState().constents.config;  
+           
+            const pool = await sql.connect(config);
+
+            const vendorResponse = await pool
+                .request()
+                .input("ID2", sql.NVarChar, formData.ID2)
+                .execute("Vendor_GetDetails"); 
+            console.log(vendorResponse.recordset);
+            if (vendorResponse.recordset.length > 0) {
+
+                const vendor = vendorResponse.recordset[0]; 
+                const { otp, expiresAt } = generateOtp(6, 10); // 6 digits, expires in 10 mins
+                const otpHtml = getOtpTemplate(otp, vendor.vendorName || formData.name);
+                const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
+                console.log(formData); 
+                // const email = vendor.email || formData.email || 'notifications@allbiz.ae';
+                const email =  'raisaeedanwar1187@gmail.com';
+                await sendEmail(
+                    email,
+                    "Your AllBiz OTP Code",
+                    text,
+                    otpHtml
+                );
+    
+                // const request = pool.request();
+                // request.input("ID2", sql.NVarChar(100), formData.ID2);
+                // request.input("username", sql.NVarChar(100), formData.fullName);
+                // request.input("email", sql.NVarChar(100), formData.email);
+                // request.input("password", sql.NVarChar(255), hashedPassword);
+                // request.input("client", sql.NVarChar(50), req.authUser.database);
+                // request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
+     
+                // await request.execute("User_Registeration");
+     
+    
+                res.status(200).json({
+                    message: 'Vendor registered successfully',
+                    data: 'vendor registered'
+                });
+            }else{
+                return res.status(400).json({ message: 'Vendor not registered!' });
+
+            }    
+             
+        } catch (error) {
+            // console.log(error);
+            throw new Error(error.message);
+
+        }
+}
+
+const varifyOTP = async (req,res)=>{
+    const { ID2,rfqID,from,email,client,otp } = req.body;
+
+    try {
+            if (!email) {
+                return res.status(400).json({ message: 'Email & Password is required!' });
+            }    
+
+            store.dispatch(setCurrentDatabase( from )); 
+            const config =  store.getState().constents.config;  
+           
+
+            const pool = await sql.connect(config);
+            
+            // const result = await pool
+            //     .request()
+            //     .input("email", sql.NVarChar, email)
+            //     .query("SELECT * FROM Users WHERE email = @email");
+
+                let result = await await pool.request()
+                            .input('ID2', sql.NVarChar(65), rfqID)
+                            .input('OrganizationId', sql.NVarChar(65), null)
+                            .input('VendorId', sql.NVarChar(65), ID2) 
+                            .execute('RFQ_Get');
+                
+
+
+                if (result.recordset.length === 0) {
+                    // return res.status(401).json({ message: "Invalid email" });
+                  return  res.status(400).json({ message: 'Invalid email',data:null});
+                } 
+ 
+                const user = result.recordset[0];  
+
+                if(user){ 
+                    const vendorEmail = user.vendorEmail; 
+                    
+                    const token = jwt.sign({ Id: ID2,ID2: user.ID2, username: user.vendorName,staffId: ID2,email:vendorEmail,database:from}, SECRET_KEY, {
+                        expiresIn: "5h",
+                    });
+                      
+                    
+                    if (result.recordset.length > 0) {
+                        // console.log(modules.recordset);
+                        const data = {
+                            userDetails:{
+                                id: user.ID2,
+                                email:user.vendorEmail,
+                                userName:user.vendorName,
+                                isAdmin: user?.IsAdmin || 0,
+                                // client:user.databaseName,
+                                client:'aa', 
+                                // permissions:user.Access,  
+                            },
+                            token:token, 
+                        }  
+                        return res.status(200).json({
+                            message: "Login successful",
+                            data: data
+                        }); 
+                        
+                    }else{
+                      return  res.status(400).json({ message: 'Un Authenticated User',data:null});
+                    }
+
+
+                    pool.close();
+                }else{
+                    console.log('in else condition');
+                   return  res.status(400).json({ message: 'User not found',data:null});
+                }
+                pool.close();
+            
+        } catch (error) {
+            console.log(error);
+           return res.status(400).json({ message: error.message,data:null});
+
+        }
+}
+// end of signIn
+
+module.exports =  {signUp,varifyOTP,userCreation,signIn,sendOTP} ;
