@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { sendEmail } = require("../../services/mailer");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -66,6 +67,34 @@ const poSaveUpdate = async (req,res)=>{
             const newID = result.output.ID;
             if(formData.poItems){ 
                 poItemSaveUpdate(req,newID,transaction)
+            }
+            console.log('before email sent status 6');
+            if (formData.statusId == 6) {
+                const pdfBuffer = Buffer.from(formData.pdfBase64, 'base64');
+ 
+                const attachments = [
+                    {
+                        filename: `${formData.poCode || ' PO'}.pdf`,
+                        content: pdfBuffer,
+                        contentType: 'application/pdf',
+                    },
+                ];
+                const text = `Please find attached the PO.`;
+                // const html = await getRfqTemplateNew(vendorName,vendorEmail,vendorId,newRFQID2, companyName,rfqNumber,rfqDate,dueDate,deliveryDate,deliveryLocation,message,formData.baseUrl ||'');
+                const html = '<h5>Please find the attached PO </h5>';
+                console.log('before email sent');
+                const vendorEmail = formData.vendorEmail;
+                // const vendorEmail = 'raisaeedanwar1187@gmail.com';
+
+                await sendEmail(
+                    vendorEmail,
+                    `PO ${formData.poCode}`,
+                    text,
+                    html,
+                    attachments
+                );  
+                console.log('email has sent');
+
             }
 
             await transaction.commit();

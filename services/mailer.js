@@ -19,14 +19,15 @@ const transporter = nodemailer.createTransport({
  
 
 // Email sending function
-const sendEmail = async (to, subject, text, html = null) => {
+const sendEmail = async (to, subject, text, html = null, attachments = []) => {
   try {
     const mailOptions = {
       from: `"AllBiz Support" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
-      ...(html && { html })
+      ...(html && { html }),
+      ...(attachments.length > 0 && { attachments }), 
     };
 
     const info = await transporter.sendMail(mailOptions);

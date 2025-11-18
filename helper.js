@@ -1,6 +1,6 @@
 require("dotenv").config(); 
 const states = {
-
+    logoCache:{}
 }
 
 // get next n day
@@ -29,10 +29,31 @@ function getCurrentDateTime() {
     return `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
 }
 
+const urlToBase64 = async (url) => {
+    if (!url) return null;
+
+    if (states.logoCache[url]) {
+        return states.logoCache[url];
+    }
+
+    const response = await fetch(url);
+    const buffer = await response.arrayBuffer();
+    const base64 = `data:${response.headers.get("content-type")};base64,${Buffer.from(buffer).toString("base64")}`;
+
+    // Store in cache
+    states.logoCache[url] = base64;
+
+    return base64;
+};
+
+
 const methods = { 
     getNextDay,
-    getCurrentDateTime
+    getCurrentDateTime,
+    urlToBase64
 }
+
+
 
 const helper = {
     states,methods

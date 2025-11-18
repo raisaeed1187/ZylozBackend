@@ -283,8 +283,8 @@ const sendOTP = async (req,res)=>{
                 const otpHtml = getOtpTemplate(otp, vendor.vendorName || formData.name);
                 const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
                 console.log(formData); 
-                // const email = vendor.email || formData.email || 'notifications@allbiz.ae';
-                const email =  'raisaeedanwar1187@gmail.com';
+                const email = vendor.email || formData.email || 'notifications@allbiz.ae';
+                // const email =  'raisaeedanwar1187@gmail.com';
                 await sendEmail(
                     email,
                     "Your AllBiz OTP Code",

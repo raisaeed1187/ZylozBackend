@@ -15,6 +15,7 @@ const { sendEmail } = require('../../services/mailer');
 
 const { getRfqTemplate,getRfqTemplateNew } = require('../../utils/rfqEmailTemplate');
 const { getRfqSubmittedTemplate } = require('../../utils/rfqSubmittedTemplate');
+const { helper } = require("../../helper");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -129,8 +130,8 @@ const rfqSaveUpdate = async (req, res) => {
                             deliveryLocation = rfqResponse.recordset[0].deliveryLocation,
 
                             message = "",
-                            // vendorEmail = rfqResponse.recordset[0].vendorEmail; 
-                            vendorEmail = 'raisaeedanwar1187@gmail.com'; 
+                            vendorEmail = rfqResponse.recordset[0].vendorEmail; 
+                            // vendorEmail = 'raisaeedanwar1187@gmail.com'; 
 
 
                             if (isValidEmail(vendorEmail)) { 
@@ -500,6 +501,7 @@ const getRFQPOsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        const logoCache = {};
 
         const result = await pool.request()
             .input('RFQID', sql.NVarChar(65), rfqId)
@@ -507,11 +509,25 @@ const getRFQPOsList = async (req, res) => {
 
         const poHeaders = result.recordsets[0];
         const poItems = result.recordsets[1];
+
+        
+
  
-        const poWithItems = poHeaders.map(po => ({
-            ...po,
-            items: poItems.filter(i => i.PoId === po.ID2)
-        }));
+        // const poWithItems = poHeaders.map(po => ({
+        //     ...po,
+        //     items: poItems.filter(i => i.PoId === po.ID2)
+        // }));
+
+        const poWithItems = await Promise.all(
+            poHeaders.map(async (po) => {
+                const logoBase64 = await helper.methods.urlToBase64(po.logo);
+                return {
+                    ...po,
+                    logo: logoBase64,
+                    items: poItems.filter(i => i.PoId === po.ID2)
+                };
+            })
+        );
             
 
           

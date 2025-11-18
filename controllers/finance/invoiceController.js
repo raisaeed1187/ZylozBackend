@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { helper } = require("../../helper");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -208,19 +209,34 @@ const getInvoiceDetails = async (req, res) => {
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
 
 
+        if (apiResponse.recordset.length > 0) {
+            const invoiceDetails = apiResponse.recordset[0];
+            
+            const logoBase64 = await helper.methods.urlToBase64(invoiceDetails.logo);
+    
+            const invoiceUpdatedDetails = {
+                ...invoiceDetails,
+                logo: logoBase64
+            };
+    
+            const data = {
+                invoiceDetails: invoiceUpdatedDetails,
+                invoiceItems: itemsApiResponse.recordset,
+                additionalFields: addOnFieldsApiResponse.recordset, 
+                jouralLedgers: jouralLedgerApiResponse.recordset, 
+            }
+            
+            // Return a response (do not return the whole req/res object)
+            res.status(200).json({
+                message: `Invoice details loaded successfully!`,
+                data: data
+            });
+            
+        }else{
+            return res.status(400).json({ message: 'No record found',data:null});
+    
 
-        const data = {
-            invoiceDetails: apiResponse.recordset[0],
-            invoiceItems: itemsApiResponse.recordset,
-            additionalFields: addOnFieldsApiResponse.recordset, 
-            jouralLedgers: jouralLedgerApiResponse.recordset, 
         }
-        
-        // Return a response (do not return the whole req/res object)
-        res.status(200).json({
-            message: `Invoice details loaded successfully!`,
-            data: data
-        });
          
     } catch (error) {
         return res.status(400).json({ message: error.message,data:null});
