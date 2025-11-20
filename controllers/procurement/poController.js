@@ -134,12 +134,13 @@ async function poItemSaveUpdate(req,poId,transaction){
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
-            const poItemRequest = new sql.Request(transaction);
             
             try { 
                 if (poItems) {
                     for (let item of poItems) {  
                         if(item.itemName){
+                            const poItemRequest = new sql.Request(transaction);
+
                             console.log('item');
                             console.log(item);
 
@@ -317,7 +318,7 @@ const deletePOItem = async (req, res) => {
 // end of deletePOItem
 
 const getPOsList = async (req, res) => {  
-    const {Id,organizationId,vendorId} = req.body; // user data sent from client
+    const {Id,organizationId,vendorId,grn} = req.body; // user data sent from client
      
     try {
          
@@ -326,7 +327,9 @@ const getPOsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
-        if (vendorId) {
+        if (grn) {
+            query = `exec PurchaseOrder_FOR_GRN_Get  '${organizationId}' `;   
+        }else  if (vendorId) {
             query = `exec PurchaseOrder_Get Null,'${organizationId}','${vendorId}' `;   
         } else{
             query = `exec PurchaseOrder_Get Null,'${organizationId}' `;   

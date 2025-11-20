@@ -32,7 +32,7 @@ const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controller
 const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
 const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
-const {rfqSaveUpdate,getRFQDetails,getRFQsList,getRFQPOsList} = require('./controllers/procurement/rfqController'); 
+const {rfqSaveUpdate,getRFQDetails,getRFQsList,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
@@ -265,7 +265,7 @@ app.post('/api/rfq/save-update',authenticateToken,express.json(),upload,rfqSaveU
 app.post('/api/rfq',authenticateToken,express.json(),getRFQDetails );
 app.post('/api/rfqs',authenticateToken,express.json(),getRFQsList );
 app.post('/api/rfq/pos',authenticateToken,express.json(),getRFQPOsList );
-app.post('/api/rfq-item/delete',authenticateToken,express.json(),deletePOItem );
+app.post('/api/rfq-item/delete',authenticateToken,express.json(),deleteRFQItem );
  
 
 

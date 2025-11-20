@@ -158,7 +158,7 @@ const rfqSaveUpdate = async (req, res) => {
                                 }
                                 
                             }else{
-                                console.log("❌ Invalid vendor email:", vendorEmail);
+                                console.log(" Invalid vendor email:", vendorEmail);
                                 throw new Error("Vendor email is not invalid. "+vendorEmail);
                             } 
                             
@@ -543,7 +543,39 @@ const getRFQPOsList = async (req, res) => {
 };
 // end of getRFQPOsList
 
+const deleteRFQItem = async (req, res) => {  
+    const {Id, poId, rfqId,vendorId} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
  
+        const request = pool.request();
+
+        request.input("ID2", sql.NVarChar(65), Id || null);  
+        request.input("RFQId", sql.NVarChar(65), rfqId || null);
+        request.input("VendorId", sql.NVarChar(65), vendorId || null); 
+        const apiResponse = await request.execute("RFQItem_Delete");
+ 
+         
+            
+        res.status(200).json({
+            message: `RFQ item deleted loaded successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null}); 
+    }
+
+};
+// end of deleteRFQItem
 
 
-module.exports =  {getRFQPOsList,rfqSaveUpdate,getRFQsList,getRFQDetails,getPOItems,deletePOItem} ;
+
+
+module.exports =  {deleteRFQItem,getRFQPOsList,rfqSaveUpdate,getRFQsList,getRFQDetails,getPOItems,deletePOItem} ;
