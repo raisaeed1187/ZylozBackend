@@ -31,7 +31,7 @@ const getOtpTemplate = (otp, userName = "User") => `
                 ${otp}
               </div>
               <p style="color:#666; font-size:14px; margin-top:15px;">
-                This OTP is valid for <strong>10 minutes</strong>.<br/>
+                This OTP is valid for <strong>5 minutes</strong>.<br/>
                 Do not share it with anyone.
               </p>
             </td>

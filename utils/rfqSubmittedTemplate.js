@@ -118,8 +118,8 @@ const getRfqSubmittedTemplate = async (
           <!-- Footer -->
           <tr>
             <td bgcolor="#f3f4f6" style="padding:20px; text-align:center; font-size:12px; color:#6b7280;">
-              <img src="https://storage.googleapis.com/uxpilot-images-and-a-z/1718890432296_allbiz-logo.png" alt="Allbiz Logo" width="80" style="margin-bottom:5px;">
-              <div>Allbiz - Your Materials & Services Marketplace</div>
+              <img src="https://allbiz.ae/assets/newImages/allbiz_new.png" alt="Allbiz Logo" width="80" style="margin-bottom:5px;">
+              <div>Allbiz - Inspiring Digital change.</div>
               <div>Connecting buyers and suppliers across UAE</div>
             </td>
           </tr>

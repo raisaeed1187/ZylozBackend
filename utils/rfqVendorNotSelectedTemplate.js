@@ -115,14 +115,14 @@ const getRfqVendorNotSelectedTemplate = async (
 
     <!-- ACTIONS -->
     <div style="text-align:center; margin-top:25px;">
-        <a href="https://allbiz.ae/dashboard" class="button">Go to Dashboard</a><br/>
+        <a href="https://allbiz.ae/" class="button">Go to Dashboard</a><br/>
         <a href="#" class="button-secondary">Close Window</a>
     </div>
 
     <!-- FOOTER -->
     <div class="footer">
-        <img src="https://storage.googleapis.com/uxpilot-images-and-a-z/1718890432296_allbiz-logo.png" style="height:40px; margin-bottom:10px;" />
-        <div><strong>AllBiz – Materials & Services Marketplace</strong></div>
+        <img src="https://allbiz.ae/assets/newImages/allbiz_new.png" style="height:40px; margin-bottom:10px;" />
+        <div><strong>AllBiz – Inspiring Digital change.</strong></div>
         <div>Connecting businesses across UAE</div>
     </div>
 

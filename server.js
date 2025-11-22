@@ -32,8 +32,9 @@ const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controller
 const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
 const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
-const {rfqSaveUpdate,getRFQDetails,getRFQsList,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
-const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList} = require('./controllers/procurement/grnController'); 
+const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
+const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
+const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
@@ -260,12 +261,21 @@ app.post('/api/pos',authenticateToken,express.json(),getPOsList );
 app.post('/api/procurement/purchase-report',authenticateToken,express.json(),getPurchaseReport );
 //end po controller
 
+// inventory
+
+app.post('/api/inventory/grn-items',authenticateToken,express.json(),getInventoryGRNItems );
+
+
+// end of inventory
+
+
 // rfq
 app.post('/api/rfq/save-update',authenticateToken,express.json(),upload,rfqSaveUpdate ); 
 app.post('/api/rfq',authenticateToken,express.json(),getRFQDetails );
 app.post('/api/rfqs',authenticateToken,express.json(),getRFQsList );
 app.post('/api/rfq/pos',authenticateToken,express.json(),getRFQPOsList );
 app.post('/api/rfq-item/delete',authenticateToken,express.json(),deleteRFQItem );
+app.post('/api/rfq/change-status',authenticateToken,express.json(),rfqChangeStatus );
  
 
 
@@ -275,6 +285,8 @@ app.post('/api/grn',authenticateToken,express.json(),getGRNDetails );
 app.post('/api/grn-items',authenticateToken,express.json(),getGRNItems );
 
 app.post('/api/grns',authenticateToken,express.json(),getGRNsList );
+app.post('/api/po/previous-grns',authenticateToken,express.json(),getPOPreviousGRns );
+
 //end GRN controller
  
 

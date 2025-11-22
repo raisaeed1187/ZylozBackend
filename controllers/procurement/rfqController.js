@@ -16,8 +16,7 @@ const { sendEmail } = require('../../services/mailer');
 const { getRfqTemplate,getRfqTemplateNew } = require('../../utils/rfqEmailTemplate');
 const { getRfqSubmittedTemplate } = require('../../utils/rfqSubmittedTemplate');
 const { helper } = require("../../helper");
-
-
+ 
 const SECRET_KEY = process.env.SECRET_KEY;
 
 const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
@@ -462,6 +461,35 @@ const deletePOItem = async (req, res) => {
 };
 // end of deletePOItem
 
+const rfqChangeStatus = async (req, res) => {
+  const { Id,statusId, organizationId, vendorId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+    const pool = await sql.connect(config);
+
+    const request = pool.request();
+
+    request.input("ID2", sql.NVarChar(65), Id);  
+    request.input("StatusId", sql.Int, statusId || null);
+    request.input("OrganizationID", sql.NVarChar(65), organizationId);
+    request.input("CurrentUser", sql.NVarChar(65), req.authUser.username);
+
+    const apiResponse = await request.execute("RFQ_Change_Status");
+
+    res.status(200).json({
+      message: "RFQ Status Changed successfully!",
+      data: apiResponse.recordset
+    });
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message, data: null });
+  }
+}; 
+// end of rfqChangeStatus
+
 const getRFQsList = async (req, res) => {
   const { Id, organizationId, vendorId } = req.body;
 
@@ -487,8 +515,7 @@ const getRFQsList = async (req, res) => {
   } catch (error) {
     return res.status(400).json({ message: error.message, data: null });
   }
-};
-
+}; 
 // end of getRFQsList
 
 const getRFQPOsList = async (req, res) => {  
@@ -510,20 +537,41 @@ const getRFQPOsList = async (req, res) => {
         const poHeaders = result.recordsets[0];
         const poItems = result.recordsets[1];
 
+
         
 
- 
-        // const poWithItems = poHeaders.map(po => ({
-        //     ...po,
-        //     items: poItems.filter(i => i.PoId === po.ID2)
-        // }));
+        const rfqResponse = await pool.request()
+        .input('ID2', sql.NVarChar(65), rfqId)
+        .input('OrganizationId', sql.NVarChar(65), null)
+        .input('VendorId', sql.NVarChar(65), null)
+        .execute('RFQ_Get');
+
+        let rfqDetails =  null;
+
+        if (rfqResponse.recordset.length > 0) {
+                rfqDetails =  rfqResponse.recordset[0];
+        }
+  
+        let isApprover = false;
+
+        const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.ID2}','${rfqId}','PO' `); 
+            
+        console.log(checkIsApproverResponse.recordset);
+        if (checkIsApproverResponse.recordset.length > 0) {
+            isApprover = checkIsApproverResponse.recordset[0].IsApprover;
+        }
+
+        rfqDetails = {
+            ...rfqDetails,
+            isApprover: isApprover
+        };
 
         const poWithItems = await Promise.all(
             poHeaders.map(async (po) => {
                 const logoBase64 = await helper.methods.urlToBase64(po.logo);
                 return {
                     ...po,
-                    logo: logoBase64,
+                    logo: logoBase64, 
                     items: poItems.filter(i => i.PoId === po.ID2)
                 };
             })
@@ -532,8 +580,11 @@ const getRFQPOsList = async (req, res) => {
 
           
         res.status(200).json({
-            message: `RFQ POs loaded successfully!`,
-            data:  poWithItems
+            message: `RFQ POs loaded successfully!`, 
+            data: {
+                rfqDetails: rfqDetails, 
+                poWithItems: poWithItems
+            } 
         });
          
     } catch (error) {
@@ -578,4 +629,4 @@ const deleteRFQItem = async (req, res) => {
 
 
 
-module.exports =  {deleteRFQItem,getRFQPOsList,rfqSaveUpdate,getRFQsList,getRFQDetails,getPOItems,deletePOItem} ;
+module.exports =  {deleteRFQItem,getRFQPOsList,rfqSaveUpdate,rfqChangeStatus,getRFQsList,getRFQDetails,getPOItems,deletePOItem} ;

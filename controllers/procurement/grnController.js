@@ -251,9 +251,34 @@ const getGRNsList = async (req, res) => {
 };
 // end of getGRNsList
 
+const getPOPreviousGRns = async (req, res) => {  
+    const {poID,IsForPO} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = ''; 
+        query = `exec PO_Previous_GRNs_Get  ${poID}`;   
+          
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Previous GRNs List loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPOPreviousGRns
  
 
 
 
 
-module.exports =  {grnSaveUpdate,getGRNsList,getGRNDetails,getGRNItems} ;
+module.exports =  {grnSaveUpdate,getPOPreviousGRns,getGRNsList,getGRNDetails,getGRNItems} ;

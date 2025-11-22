@@ -245,8 +245,8 @@ const getPODetails = async (req, res) => {
 };
 // end of getPODetails
 
-const getPOItems = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
+const getInventoryGRNItems = async (req, res) => {  
+    const {Id, organizationId} = req.body; // user data sent from client
       
     try {
          
@@ -257,15 +257,14 @@ const getPOItems = async (req, res) => {
         let query = '';
  
        
-        const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
-        console.log('itemsQuery');
-        console.log(itemsQuery);
+        const response = await pool.request() 
+                .input('OrganizationId', sql.NVarChar(65), organizationId || null) 
+                .execute('Inventory_GRNItem_Get');
 
-        const itemsApiResponse = await pool.request().query(itemsQuery); 
-          
+      
         res.status(200).json({
             message: `PO details loaded successfully!`,
-            data: itemsApiResponse.recordset
+            data: response.recordset
         });
          
     } catch (error) {
@@ -273,133 +272,9 @@ const getPOItems = async (req, res) => {
         
     }
 };
-// end of getPOItems
-
-const getGRNPOItems = async (req, res) => {  
-    const {poID} = req.body; // user data sent from client
-      
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
- 
-       
-        const itemsQuery = `exec GRNPurchaseOrderItem_Get '${poID}'`;   
-        console.log('itemsQuery');
-        console.log(itemsQuery);
-
-        const itemsApiResponse = await pool.request().query(itemsQuery); 
-          
-        res.status(200).json({
-            message: `GRN PO items loaded successfully!`,
-            data: itemsApiResponse.recordset
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of getGRNPOItems
-
-const deletePOItem = async (req, res) => {  
-    const {Id, poId, prId,itemId} = req.body; // user data sent from client
-      
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
- 
-        query = `exec PurchaseOrderItem_Delete  '${Id}','${poId}','${prId}','${itemId}'`;   
-        const apiResponse = await pool.request().query(query); 
-         
-           
-        // Return a response (do not return the whole req/res object)
-        res.status(200).json({
-            message: `PO item deleted loaded successfully!`,
-            data: ''
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of deletePOItem
-
-const getPOsList = async (req, res) => {  
-    const {Id,organizationId,vendorId,grn} = req.body; // user data sent from client
-     
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
-        if (grn) {
-            query = `exec PurchaseOrder_FOR_GRN_Get  '${organizationId}' `;   
-        }else  if (vendorId) {
-            query = `exec PurchaseOrder_Get Null,'${organizationId}','${vendorId}' `;   
-        } else{
-            query = `exec PurchaseOrder_Get Null,'${organizationId}' `;   
-        }
-            
-
-         
-        const apiResponse = await pool.request().query(query); 
-        
-        res.status(200).json({
-            message: `POs List loaded successfully!`,
-            data:  apiResponse.recordset
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of getPOsList
-
-const getPurchaseReport = async (req, res) => {  
-    const {Id,organizationId,vendorId} = req.body; // user data sent from client
-     
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
-        if (vendorId) {
-            query = `exec PurchaseReport_Get '${organizationId}','${vendorId}' `;   
-        } else{
-            query = `exec PurchaseReport_Get '${organizationId}' `;   
-        }
-            
-
-         
-        const apiResponse = await pool.request().query(query); 
-        
-        res.status(200).json({
-            message: `Purchase Report loaded successfully!`,
-            data:  apiResponse.recordset
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of getPurchaseReport
+// end of getInventoryGRNItems
 
  
 
 
-module.exports =  {getPurchaseReport,poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem} ;
+module.exports =  {poSaveUpdate,getPODetails,getInventoryGRNItems} ;
