@@ -35,6 +35,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
+const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
@@ -265,8 +266,15 @@ app.post('/api/procurement/purchase-report',authenticateToken,express.json(),get
 
 app.post('/api/inventory/grn-items',authenticateToken,express.json(),getInventoryGRNItems );
 
-
 // end of inventory
+
+// warehouse
+app.post('/api/warehouse/save-update',authenticateToken,express.json(),upload,warehouseSaveUpdate ); 
+
+app.post('/api/warehouse',authenticateToken,express.json(),getWarehouseDetails );
+app.post('/api/warehouses',authenticateToken,express.json(),getWarehousesList );
+
+// end of warehouse
 
 
 // rfq
