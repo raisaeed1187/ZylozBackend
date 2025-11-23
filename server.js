@@ -36,6 +36,8 @@ const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,del
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
+const {crmLeadSaveUpdate,getCRMLeadDetails,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
+
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
@@ -270,11 +272,16 @@ app.post('/api/inventory/grn-items',authenticateToken,express.json(),getInventor
 
 // warehouse
 app.post('/api/warehouse/save-update',authenticateToken,express.json(),upload,warehouseSaveUpdate ); 
-
 app.post('/api/warehouse',authenticateToken,express.json(),getWarehouseDetails );
 app.post('/api/warehouses',authenticateToken,express.json(),getWarehousesList );
 
 // end of warehouse
+
+app.post('/api/crm-lead/save-update',authenticateToken,express.json(),upload,crmLeadSaveUpdate ); 
+app.post('/api/crm-lead',authenticateToken,express.json(),getCRMLeadDetails );
+app.post('/api/crm-leads',authenticateToken,express.json(),getCRMLeadsList );
+
+// end of crm
 
 
 // rfq
