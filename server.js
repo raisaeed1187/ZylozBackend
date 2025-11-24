@@ -36,7 +36,7 @@ const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,del
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
-const {crmLeadSaveUpdate,getCRMLeadDetails,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
+const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,leadCallLogSaveOrUpdate,saveOrUpdateLeadNote,getCRMLeadDetails,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
@@ -280,8 +280,13 @@ app.post('/api/warehouses',authenticateToken,express.json(),getWarehousesList );
 app.post('/api/crm-lead/save-update',authenticateToken,express.json(),upload,crmLeadSaveUpdate ); 
 app.post('/api/crm-lead',authenticateToken,express.json(),getCRMLeadDetails );
 app.post('/api/crm-leads',authenticateToken,express.json(),getCRMLeadsList );
+app.post('/api/crm-lead/change-status',authenticateToken,express.json(),upload,saveOrUpdateLeadStatusHistory ); 
+app.post('/api/crm-lead/log-call/save-update',authenticateToken,express.json(),upload,leadCallLogSaveOrUpdate ); 
+app.post('/api/crm-lead/note/save-update',authenticateToken,express.json(),upload,saveOrUpdateLeadNote ); 
 
-// end of crm
+
+
+// end of crm-lead
 
 
 // rfq

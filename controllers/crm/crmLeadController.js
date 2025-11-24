@@ -41,7 +41,7 @@ const crmLeadSaveUpdate = async (req, res) => {
             .input('Email', sql.NVarChar(255), formData.email || null)
             .input('Phone', sql.NVarChar(50), formData.phone || null)
             .input('LeadSource', sql.NVarChar(100), formData.leadSource || null)
-            .input('LeadStatus', sql.NVarChar(100), formData.leadStatus || null)
+            .input('LeadStatus', sql.NVarChar(100),String(formData.leadStatus) || null)
             .input('AssignedOwner', sql.NVarChar(100), formData.assignedOwner || null)
             .input('Priority', sql.NVarChar(50), formData.priority || null)
             .input('Country', sql.NVarChar(100), formData.country || null)
@@ -147,9 +147,174 @@ const getCRMLeadsList = async (req, res) => {
 };
 // end of getCRMLeadsList
   
+
+const saveOrUpdateLeadStatusHistory = async (req, res) => {
+  const formData = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const transaction = new sql.Transaction(pool);
+
+    let transactionBegun = false;
+
+    try {
+      await transaction.begin();
+      transactionBegun = true;
+
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 ?? null);
+      request.input("LeadID", sql.NVarChar(65), formData.leadID);
+      request.input("FromStatus", sql.Int, formData.fromStatus ?? null);
+      request.input("ToStatus", sql.Int, formData.toStatus ?? null);
+      request.input("ActionType", sql.NVarChar(50), formData.actionType ?? null);
+      request.input("ChangeBy", sql.NVarChar(100), req.authUser.username);
+      request.input("DurationInPreviousStage", sql.Int, formData.durationInPreviousStage ?? null);
+
+      const result = await request.execute("LeadStatusHistory_SaveOrUpdate");
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        message: "Lead status history saved/updated successfully",
+        data: result.recordset?.[0] || null,
+      });
+
+    } catch (err) {
+
+      // 🛑 Rollback ONLY if transaction actually started
+      if (transactionBegun) {
+        await transaction.rollback();
+      }
+
+      console.error("Transaction rolled back due to error:", err);
+
+      return res.status(400).json({
+        message: err.message,
+        data: null,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
  
+const leadCallLogSaveOrUpdate = async (req, res) => {
+  const formData = req.body;
+
+  try {
+    // Set database and current user
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("LeadID", sql.NVarChar(65), formData.leadID);
+      request.input("CallType", sql.NVarChar(50), formData.callType || null);
+      request.input("CallOutcome", sql.NVarChar(50), formData.callOutcome || null);
+      request.input("CallDate", sql.Date, formData.callDate);
+      request.input("StartTime", sql.Time, formData.startTime || null);
+      request.input("DurationInMinutes", sql.Int, formData.duration || null);
+      request.input("Subject", sql.NVarChar(255), formData.subject || null);
+      request.input("Notes", sql.NVarChar(sql.MAX), formData.notes || null);
+      request.input("Tags", sql.NVarChar(sql.MAX), formData.tags ? formData.tags.join(",") : null);
+      request.input("NextAction", sql.NVarChar(100), formData.nextAction || null);
+      request.input("FollowUpDate", sql.Date, formData.followUpDate || null);
+      request.input("Priority", sql.NVarChar(20), formData.priority || null);
+      request.input("FollowUpNotes", sql.NVarChar(sql.MAX), formData.followUpNotes || null);
+      request.input("NewStatus", sql.NVarChar(50), formData.newStatus || null);
+      request.input("ConvertLead", sql.Bit, parseBoolean(formData.convertLead) ? 1 : 0);
+      request.input("CreatedBy", sql.NVarChar(100), req.authUser.username);
+      request.input("UpdatedBy", sql.NVarChar(100), req.authUser.username || null);
+
+      const result = await request.execute("LeadCallLog_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Lead call log saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back due to error:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
+
+ 
+// Example Node.js function
+const saveOrUpdateLeadNote = async (req, res) => {
+  const formData = req.body; // Expecting { ID2, LeadID, Title, Content, Category, Priority, Tags }
+  const currentUser = req.authUser?.username || "Unknown";
+
+  try {
+    // Assuming you have a Redux-like store or config object for DB
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("LeadID", sql.NVarChar(65), formData.LeadID);
+      request.input("Title", sql.NVarChar(255), formData.Title);
+      request.input("Content", sql.NVarChar(sql.MAX), formData.Content || null);
+      request.input("Category", sql.NVarChar(100), formData.Category || null);
+      request.input("Priority", sql.NVarChar(20), formData.Priority || "Medium");
+      request.input("Tags", sql.NVarChar(sql.MAX), formData.Tags || null);
+      request.input("UserName", sql.NVarChar(100), currentUser);
+
+      const result = await request.execute("CRMLeadNotes_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Lead note saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back due to error:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
+
+
+
+
  
  
 
 
-module.exports =  {crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails} ;
+module.exports =  {saveOrUpdateLeadNote,leadCallLogSaveOrUpdate,saveOrUpdateLeadStatusHistory,crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails} ;
