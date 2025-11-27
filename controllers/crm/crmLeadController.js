@@ -101,9 +101,14 @@ const getCRMLeadDetails = async (req, res) => {
             .input('OrganizationId', sql.NVarChar(65), null)
             .execute('CRMLead_Get');
  
+            // const resultActivities = await pool.request()
+            // .input('LeadID', sql.NVarChar(65), Id ||  null)  
+            // .execute('CRMLeadActivities_Get');
+ 
+
         const data = {
             crmLeadDetails: result.recordset[0],
-            // crmLeadItems: itemsApiResponse.recordset
+            // crmLeadActivities: resultActivities.recordset
         }
          
         res.status(200).json({
@@ -117,6 +122,35 @@ const getCRMLeadDetails = async (req, res) => {
     }
 };
 // end of getCRMLeadDetails
+ 
+const getCRMLeadActivities = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+ 
+           const result = await pool.request()
+            .input('LeadID', sql.NVarChar(65), Id ||  null)  
+            .execute('CRMLeadActivities_Get');
+ 
+       
+         
+        res.status(200).json({
+            message: `CRMLead details loaded successfully!`,
+            data: result.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getCRMLeadActivities
  
 
 const getCRMLeadsList = async (req, res) => {  
@@ -229,14 +263,14 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
       request.input("LeadID", sql.NVarChar(65), formData.leadID);
       request.input("CallType", sql.NVarChar(50), formData.callType || null);
       request.input("CallOutcome", sql.NVarChar(50), formData.callOutcome || null);
-      request.input("CallDate", sql.Date, formData.callDate);
-      request.input("StartTime", sql.Time, formData.startTime || null);
+      request.input("CallDate", sql.NVarChar(50), formData.callDate);
+      request.input("StartTime", sql.NVarChar(50), formData.startTime || null);
       request.input("DurationInMinutes", sql.Int, formData.duration || null);
       request.input("Subject", sql.NVarChar(255), formData.subject || null);
       request.input("Notes", sql.NVarChar(sql.MAX), formData.notes || null);
-      request.input("Tags", sql.NVarChar(sql.MAX), formData.tags ? formData.tags.join(",") : null);
+      request.input("Tags", sql.NVarChar(sql.MAX), formData.tags && formData.tags.trim() !== "" ? formData.tags : null);
       request.input("NextAction", sql.NVarChar(100), formData.nextAction || null);
-      request.input("FollowUpDate", sql.Date, formData.followUpDate || null);
+      request.input("FollowUpDate", sql.NVarChar(50), formData.followUpDate || null);
       request.input("Priority", sql.NVarChar(20), formData.priority || null);
       request.input("FollowUpNotes", sql.NVarChar(sql.MAX), formData.followUpNotes || null);
       request.input("NewStatus", sql.NVarChar(50), formData.newStatus || null);
@@ -263,9 +297,8 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
   }
 };
 
- 
-// Example Node.js function
-const saveOrUpdateLeadNote = async (req, res) => {
+  
+const leadNoteSaveOrUpdate = async (req, res) => {
   const formData = req.body; // Expecting { ID2, LeadID, Title, Content, Category, Priority, Tags }
   const currentUser = req.authUser?.username || "Unknown";
 
@@ -283,12 +316,12 @@ const saveOrUpdateLeadNote = async (req, res) => {
       const request = new sql.Request(transaction);
 
       request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
-      request.input("LeadID", sql.NVarChar(65), formData.LeadID);
-      request.input("Title", sql.NVarChar(255), formData.Title);
-      request.input("Content", sql.NVarChar(sql.MAX), formData.Content || null);
-      request.input("Category", sql.NVarChar(100), formData.Category || null);
-      request.input("Priority", sql.NVarChar(20), formData.Priority || "Medium");
-      request.input("Tags", sql.NVarChar(sql.MAX), formData.Tags || null);
+      request.input("LeadID", sql.NVarChar(65), formData.leadId);
+      request.input("Title", sql.NVarChar(255), formData.title);
+      request.input("Content", sql.NVarChar(sql.MAX), formData.content || null);
+      request.input("Category", sql.NVarChar(100), formData.category || null);
+      request.input("Priority", sql.NVarChar(20), formData.priority || "Medium");
+      request.input("Tags", sql.NVarChar(sql.MAX), formData.tags || null);
       request.input("UserName", sql.NVarChar(100), currentUser);
 
       const result = await request.execute("CRMLeadNotes_SaveOrUpdate");
@@ -309,7 +342,69 @@ const saveOrUpdateLeadNote = async (req, res) => {
     res.status(500).json({ message: error.message, data: null });
   }
 };
+// end of save
 
+
+const leadMeetingSaveOrUpdate = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Set database and logged-in user
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("LeadID", sql.NVarChar(65), formData.leadId);
+
+      request.input("MeetingType", sql.NVarChar(100), formData.meetingType);
+      request.input("Duration", sql.NVarChar(50), formData.duration);
+      request.input("Title", sql.NVarChar(255), formData.title);
+
+      request.input("MeetingDate", sql.NVarChar(50), formData.date);
+      request.input("MeetingTime", sql.NVarChar(50), formData.time || null);
+
+      request.input("Platform", sql.NVarChar(100), formData.platform);
+      request.input("Agenda", sql.NVarChar(sql.MAX), formData.agenda);
+      request.input("Notes", sql.NVarChar(sql.MAX), formData.notes);
+
+      // Attendees as JSON string
+      request.input(
+        "Attendees",
+        sql.NVarChar(sql.MAX),
+        formData.attendees
+      );
+
+      request.input("UserName", sql.NVarChar(100), req.authUser.username);
+
+      const result = await request.execute("CRMLeadMeetings_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Meeting saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error("DB error:", error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
 
 
 
@@ -317,4 +412,4 @@ const saveOrUpdateLeadNote = async (req, res) => {
  
 
 
-module.exports =  {saveOrUpdateLeadNote,leadCallLogSaveOrUpdate,saveOrUpdateLeadStatusHistory,crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails} ;
+module.exports =  {leadMeetingSaveOrUpdate,leadNoteSaveOrUpdate,leadCallLogSaveOrUpdate,saveOrUpdateLeadStatusHistory,crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails,getCRMLeadActivities} ;
