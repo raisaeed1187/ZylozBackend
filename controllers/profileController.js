@@ -98,11 +98,11 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     `);
 
                     const coaRequest = pool.request();
-                        request.input("Mode", sql.NVarChar(100), String(formData.mode));
-                        request.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
-                        request.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
-                        request.input("CreatedBy", sql.NVarChar(100), req?.authUser?.username || 'admin'); 
-                        await request.execute("TransferChartOfAccounts");
+                        coaRequest.input("Mode", sql.NVarChar(100), String(formData.mode));
+                        coaRequest.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
+                        coaRequest.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
+                        coaRequest.input("CreatedBy", sql.NVarChar(100), req?.authUser?.username || 'admin'); 
+                        await coaRequest.execute("TransferChartOfAccounts");
 
                 }
                 if(attachments){

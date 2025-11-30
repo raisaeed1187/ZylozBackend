@@ -32,7 +32,7 @@ const attendanceSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
             const attendanceData = JSON.parse(attendance); 
             // console.log('formData');
-            console.log(attendanceData);
+            // console.log(attendanceData);
              
             const formatTime = (time) => {
                 if (!time) return '';   

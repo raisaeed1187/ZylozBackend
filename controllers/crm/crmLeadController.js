@@ -124,7 +124,7 @@ const getCRMLeadDetails = async (req, res) => {
 // end of getCRMLeadDetails
  
 const getCRMLeadActivities = async (req, res) => {  
-    const {Id} = req.body;  
+    const {Id,isOpportunity} = req.body;  
       
     try {
          
@@ -132,11 +132,21 @@ const getCRMLeadActivities = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
-        let query = '';
- 
-           const result = await pool.request()
+        let result = null;
+
+          if (isOpportunity) {
+            result = await pool.request()
+            .input('OpportunityID', sql.NVarChar(65), Id ||  null)  
+            .execute('CRMLeadOpportunityActivities_Get'); 
+          }else{
+            result = await pool.request()
             .input('LeadID', sql.NVarChar(65), Id ||  null)  
             .execute('CRMLeadActivities_Get');
+          }
+
+           
+
+            
  
        
          
@@ -260,7 +270,7 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
       const request = new sql.Request(transaction);
 
       request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
-      request.input("LeadID", sql.NVarChar(65), formData.leadID);
+      request.input("LeadID", sql.NVarChar(65), formData.leadID|| null);
       request.input("CallType", sql.NVarChar(50), formData.callType || null);
       request.input("CallOutcome", sql.NVarChar(50), formData.callOutcome || null);
       request.input("CallDate", sql.NVarChar(50), formData.callDate);
@@ -277,6 +287,7 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
       request.input("ConvertLead", sql.Bit, parseBoolean(formData.convertLead) ? 1 : 0);
       request.input("CreatedBy", sql.NVarChar(100), req.authUser.username);
       request.input("UpdatedBy", sql.NVarChar(100), req.authUser.username || null);
+      request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
 
       const result = await request.execute("LeadCallLog_SaveOrUpdate");
 
@@ -316,13 +327,14 @@ const leadNoteSaveOrUpdate = async (req, res) => {
       const request = new sql.Request(transaction);
 
       request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
-      request.input("LeadID", sql.NVarChar(65), formData.leadId);
+      request.input("LeadID", sql.NVarChar(65), formData.leadId || null);
       request.input("Title", sql.NVarChar(255), formData.title);
       request.input("Content", sql.NVarChar(sql.MAX), formData.content || null);
       request.input("Category", sql.NVarChar(100), formData.category || null);
       request.input("Priority", sql.NVarChar(20), formData.priority || "Medium");
       request.input("Tags", sql.NVarChar(sql.MAX), formData.tags || null);
       request.input("UserName", sql.NVarChar(100), currentUser);
+      request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
 
       const result = await request.execute("CRMLeadNotes_SaveOrUpdate");
 
@@ -365,7 +377,7 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
       const request = new sql.Request(transaction);
 
       request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
-      request.input("LeadID", sql.NVarChar(65), formData.leadId);
+      request.input("LeadID", sql.NVarChar(65), formData.leadId || null);
 
       request.input("MeetingType", sql.NVarChar(100), formData.meetingType);
       request.input("Duration", sql.NVarChar(50), formData.duration);
@@ -386,6 +398,7 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
       );
 
       request.input("UserName", sql.NVarChar(100), req.authUser.username);
+      request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
 
       const result = await request.execute("CRMLeadMeetings_SaveOrUpdate");
 
@@ -407,9 +420,448 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
 };
 
 
+const opportunitysaveUpdate = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Set DB and user
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("LeadID", sql.NVarChar(65), formData.leadID);
+
+      request.input("OpportunityName", sql.NVarChar(255), formData.opportunityName);
+      request.input("Account", sql.NVarChar(65), formData.account);
+      request.input("DealValue", sql.Decimal(18, 2), formData.dealValue);
+      request.input("Stage", sql.NVarChar(100), formData.stage);
+      request.input("Probability", sql.Int, formData.probability);
+      request.input("ExpectedCloseDate", sql.NVarChar(100), formData.expectedCloseDate);
+      request.input("Owner", sql.NVarChar(100), formData.owner);
+
+      request.input("Description", sql.NVarChar(sql.MAX), formData.description);
+      request.input("LeadSource", sql.NVarChar(100), formData.leadSource);
+      request.input("Campaign", sql.NVarChar(100), formData.campaign);
+      request.input("PrimaryContact", sql.NVarChar(255), formData.primaryContact);
+      request.input("DecisionMaker", sql.NVarChar(255), formData.decisionMaker);
+
+      request.input("OrganizationId", sql.NVarChar(65), formData.organizationId);
+      request.input("StatusId", sql.Int, formData.statusId);
+
+      request.input("UserName", sql.NVarChar(100), req.authUser.username);
+
+      const result = await request.execute("CRMOpportunity_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Opportunity saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error("DB error:", error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
+
+const getCRMOpportunity = async (req, res) => {
+  const { id2, organizationId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const request = pool.request();
+
+    request.input("ID2", sql.NVarChar(65), id2 || null);
+    request.input("OrganizationId", sql.NVarChar(65), organizationId || null);
+
+    const result = await request.execute("CRMOpportunity_Get");
+
+    res.status(200).json({
+      message: "Opportunity data retrieved",
+      data: result.recordset,
+    });
+  } catch (err) {
+    console.error("Error fetching opportunity:", err);
+    res.status(500).json({ message: err.message, data: null });
+  }
+};
+const getCRMOpportunityDetails = async (req, res) => {  
+    const {Id} = req.body;  
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+ 
+           const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), Id ||  null) 
+            .input('OrganizationId', sql.NVarChar(65), null)
+            .execute('CRMOpportunity_Get');
+ 
+            // const resultActivities = await pool.request()
+            // .input('LeadID', sql.NVarChar(65), Id ||  null)  
+            // .execute('CRMLeadActivities_Get');
+ 
+
+        const data = {
+            crmOpportunityDetails: result.recordset[0],
+            // crmLeadActivities: resultActivities.recordset
+        }
+         
+        res.status(200).json({
+            message: `CRM Opportunity details loaded successfully!`,
+            data: data
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getCRMLeadDetails
+ 
+
+const crmAccountSaveUpdate = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Set DB and user
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+
+      request.input("CompanyName", sql.NVarChar(255), formData.companyName);
+      request.input("AccountType", sql.NVarChar(100), formData.accountType);
+      request.input("Industry", sql.NVarChar(150), formData.industry);
+      request.input("CompanySize", sql.NVarChar(100), formData.companySize);
+      request.input("AnnualRevenue", sql.Decimal(18, 2), formData.annualRevenue);
+      request.input("Website", sql.NVarChar(255), formData.website);
+      request.input("Description", sql.NVarChar(sql.MAX), formData.description);
+
+      request.input("MainPhone", sql.NVarChar(50), formData.mainPhone);
+      request.input("Email", sql.NVarChar(255), formData.email);
+
+      request.input("StreetAddress", sql.NVarChar(300), formData.streetAddress);
+      request.input("City", sql.NVarChar(150), formData.city);
+      request.input("State", sql.NVarChar(150), formData.state);
+      request.input("ZipCode", sql.NVarChar(50), formData.zipCode);
+      request.input("Country", sql.NVarChar(150), formData.country);
+
+      request.input("AccountOwner", sql.NVarChar(150), formData.accountOwner);
+      request.input("PriorityLevel", sql.NVarChar(50), formData.priorityLevel);
+
+      request.input("LeadSource", sql.NVarChar(100), formData.leadSource);
+      request.input("Territory", sql.NVarChar(100), formData.territory);
+
+      request.input("Tags", sql.NVarChar(sql.MAX), formData.tags ? JSON.stringify(formData.tags) : null);
+
+      request.input("StatusId", sql.Int, formData.statusId || 1);
+      request.input("OrganizationId", sql.NVarChar(65), formData.organizationId);
+
+      request.input("User", sql.NVarChar(150), req.authUser.username);
+
+      const result = await request.execute("CRMAccount_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Account saved/updated successfully",
+        data: result.recordset?.[0] || null,
+      });
+
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back:", err);
+
+      res.status(400).json({
+        message: err.message,
+        data: null,
+      });
+    }
+
+  } catch (error) {
+    console.error("DB Error:", error);
+
+    res.status(500).json({
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
+const getCRMAccount = async (req, res) => {
+  const { id2, organizationId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const request = pool.request();
+
+    request.input("ID2", sql.NVarChar(65), id2 || null);
+    request.input("OrganizationId", sql.NVarChar(65), organizationId || null);
+
+    const result = await request.execute("CRMAccount_Get");
+
+    res.status(200).json({
+      message: "Account data retrieved",
+      data: result.recordset,
+    });
+  } catch (err) {
+    console.error("Error fetching account:", err);
+    res.status(500).json({ message: err.message, data: null });
+  }
+};
+
+
+const crmContactSaveUpdate = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Set DB and user from Redux store or request
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      // Input parameters
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("FirstName", sql.NVarChar(150), formData.firstName);
+      request.input("LastName", sql.NVarChar(150), formData.lastName);
+      request.input("Salutation", sql.NVarChar(50), formData.salutation);
+      request.input("Email", sql.NVarChar(255), formData.email);
+      request.input("Phone", sql.NVarChar(50), formData.phone);
+      request.input("Mobile", sql.NVarChar(50), formData.mobile);
+      request.input("DOB", sql.NVarChar(100), formData.dob || null);
+      request.input("LinkedIn", sql.NVarChar(255), formData.linkedin);
+      request.input("Language", sql.NVarChar(50), formData.language || "en");
+      request.input("JobTitle", sql.NVarChar(150), formData.jobTitle);
+      request.input("Department", sql.NVarChar(150), formData.department);
+      request.input("Account", sql.NVarChar(65), formData.account);
+      request.input("AccountName", sql.NVarChar(255), formData.accountName);
+      request.input("ReportsTo", sql.NVarChar(150), formData.reportsTo);
+      request.input("Assistant", sql.NVarChar(150), formData.assistant);
+      request.input("WorkEmail", sql.NVarChar(255), formData.workEmail);
+      request.input("WorkPhone", sql.NVarChar(50), formData.workPhone);
+      request.input("LeadSource", sql.NVarChar(100), formData.leadSource);
+      request.input("LeadStatus", sql.NVarChar(50), formData.leadStatus || "new");
+      request.input("ContactOwner", sql.NVarChar(150), formData.contactOwner);
+      request.input("Priority", sql.NVarChar(50), formData.priority || "low");
+      request.input("Communication", sql.NVarChar(50), formData.communication || "email");
+      request.input("Tags", sql.NVarChar(sql.MAX), JSON.stringify(formData.tags || []));
+      request.input("TagInput", sql.NVarChar(sql.MAX), formData.tagInput);
+      request.input("Notes", sql.NVarChar(sql.MAX), formData.notes);
+      request.input("AccountType", sql.NVarChar(100), formData.accountType);
+      request.input("OrganizationId", sql.NVarChar(65), formData.organizationId);
+      request.input("StatusId", sql.Int, formData.statusId || 0);
+
+      request.input("User", sql.NVarChar(150), req.authUser.username);
+
+      const result = await request.execute("CRMContact_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Contact saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error("DB error:", error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
+
+const getCRMContact = async (req, res) => {
+  const { id2, organizationId } = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const request = pool.request();
+
+    request.input("ID2", sql.NVarChar(65), id2 || null);
+    request.input("OrganizationId", sql.NVarChar(65), organizationId || null);
+
+    const result = await request.execute("CRMContact_Get");
+
+    res.status(200).json({
+      message: "Contact data retrieved",
+      data: result.recordset,
+    });
+  } catch (err) {
+    console.error("Error fetching Contact:", err);
+    res.status(500).json({ message: err.message, data: null });
+  }
+}; 
+ 
+const saveOrUpdateOpportunityStatusHistory = async (req, res) => {
+  const formData = req.body;
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    const pool = await sql.connect(config);
+    const transaction = new sql.Transaction(pool);
+
+    let transactionBegun = false;
+
+    try {
+      await transaction.begin();
+      transactionBegun = true;
+
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 ?? null);
+      request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID);
+      request.input("FromStatus", sql.Int, formData.fromStatus ?? null);
+      request.input("ToStatus", sql.Int, formData.toStatus ?? null);
+      request.input("ActionType", sql.NVarChar(50), formData.actionType ?? null);
+      request.input("ChangeBy", sql.NVarChar(100), req.authUser.username);
+      request.input("DurationInPreviousStage", sql.Int, formData.durationInPreviousStage ?? null);
+
+      const result = await request.execute("OpportunityStatusHistory_SaveOrUpdate");
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        message: "Opportunity status history saved/updated successfully",
+        data: result.recordset?.[0] || null,
+      });
+
+    } catch (err) {
+
+      // 🛑 Rollback ONLY if transaction actually started
+      if (transactionBegun) {
+        await transaction.rollback();
+      }
+
+      console.error("Transaction rolled back due to error:", err);
+
+      return res.status(400).json({
+        message: err.message,
+        data: null,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
+  
+const CRMEmailSaveOrUpdate = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Example: get DB config dynamically (adjust as per your app)
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+      const request = new sql.Request(transaction);
+
+      request.input("ID2", sql.NVarChar(65), formData.ID2 || null);
+      request.input("LeadId", sql.NVarChar(65), formData.leadId || null);
+      request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
+      request.input("ToRecipients", sql.NVarChar(sql.MAX), JSON.stringify(formData.to || []));
+      request.input("CCRecipients", sql.NVarChar(sql.MAX), JSON.stringify(formData.cc || []));
+      request.input("BCCRecipients", sql.NVarChar(sql.MAX), JSON.stringify(formData.bcc || []));
+      request.input("FromEmail", sql.NVarChar(255), formData.fromEmail || null);
+      request.input("Subject", sql.NVarChar(500), formData.subject || null);
+      request.input("Body", sql.NVarChar(sql.MAX), formData.body || null);
+      request.input("Attachments", sql.NVarChar(sql.MAX), JSON.stringify(formData.attachments || []));
+      request.input("OrganizationId", sql.NVarChar(65), formData.organizationId || null);
+      request.input("StatusId", sql.Int, formData.statusId || 1);
+      request.input("User", sql.NVarChar(150), req.authUser.username);
+
+      const result = await request.execute("CRMEmail_SaveOrUpdate");
+
+      await transaction.commit();
+
+      res.status(200).json({
+        message: "Email saved/updated successfully",
+        data: result.recordset[0] || null,
+      });
+    } catch (err) {
+      await transaction.rollback();
+      console.error("Transaction rolled back:", err);
+      res.status(400).json({ message: err.message, data: null });
+    }
+  } catch (error) {
+    console.error("DB error:", error);
+    res.status(500).json({ message: error.message, data: null });
+  }
+};
 
  
- 
 
 
-module.exports =  {leadMeetingSaveOrUpdate,leadNoteSaveOrUpdate,leadCallLogSaveOrUpdate,saveOrUpdateLeadStatusHistory,crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails,getCRMLeadActivities} ;
+
+module.exports =  {CRMEmailSaveOrUpdate,saveOrUpdateOpportunityStatusHistory,crmContactSaveUpdate,getCRMContact,getCRMAccount,crmAccountSaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,opportunitysaveUpdate,leadMeetingSaveOrUpdate,leadNoteSaveOrUpdate,leadCallLogSaveOrUpdate,saveOrUpdateLeadStatusHistory,crmLeadSaveUpdate,getCRMLeadsList,getCRMLeadDetails,getCRMLeadActivities} ;

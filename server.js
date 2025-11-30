@@ -36,7 +36,7 @@ const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,del
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
-const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,leadCallLogSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
+const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunityStatusHistory,leadCallLogSaveOrUpdate,CRMEmailSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,opportunitysaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,crmAccountSaveUpdate,crmContactSaveUpdate,getCRMAccount,getCRMContact,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
@@ -286,6 +286,29 @@ app.post('/api/crm-lead/change-status',authenticateToken,express.json(),upload,s
 app.post('/api/crm-lead/log-call/save-update',authenticateToken,express.json(),upload,leadCallLogSaveOrUpdate ); 
 app.post('/api/crm-lead/note/save-update',authenticateToken,express.json(),upload,leadNoteSaveOrUpdate ); 
 app.post('/api/crm-lead/schedule-meeting/save-update',authenticateToken,express.json(),upload,leadMeetingSaveOrUpdate ); 
+app.post('/api/crm-lead/email/save-update',authenticateToken,express.json(),upload,CRMEmailSaveOrUpdate ); 
+
+app.post('/api/crm-opportunity/save-update',authenticateToken,express.json(),upload,opportunitysaveUpdate ); 
+
+
+app.post('/api/crm-opportunity',authenticateToken,express.json(),getCRMOpportunityDetails );
+app.post('/api/crm-opportunities',authenticateToken,express.json(),getCRMOpportunity );
+
+
+app.post('/api/crm-opportunity/change-status',authenticateToken,express.json(),upload,saveOrUpdateOpportunityStatusHistory ); 
+
+
+app.post('/api/crm-account/save-update',authenticateToken,express.json(),upload,crmAccountSaveUpdate ); 
+app.post('/api/crm-account',authenticateToken,express.json(),getCRMAccount );
+app.post('/api/crm-accounts',authenticateToken,express.json(),getCRMAccount );
+
+
+app.post('/api/crm-contact/save-update',authenticateToken,express.json(),upload,crmContactSaveUpdate ); 
+app.post('/api/crm-contact',authenticateToken,express.json(),getCRMContact );
+app.post('/api/crm-contacts',authenticateToken,express.json(),getCRMContact );
+
+
+
 
 
 
