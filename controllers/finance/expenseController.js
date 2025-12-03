@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,6 +24,8 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const expenseSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
+
 
     try {
              
@@ -35,18 +38,27 @@ const expenseSaveUpdate = async (req,res)=>{
             // console.log('files');  
             // console.log(files);  
 
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
             
             if (parseBoolean(formData.isPettyCash) ||formData.isPettyCash == 1) {
                 if(formData.expenseItems){ 
                     var newID = 0;
                     // expenseItemSaveUpdate(req,newID)
                     console.log('isPettyCash');
-                    await pettyCashSaveUpdate(req,res);
+                    await pettyCashSaveUpdate(req,res,request);
                 }
             }else{
                 console.log('else conditions');
-                const result = await pool.request()
+                const result = await request
                 .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
                 .input('expenseCode', sql.NVarChar(100), formData.expenseCode || null)
                 .input('vendorId', sql.NVarChar(65), formData.vendorId || null)
@@ -65,10 +77,11 @@ const expenseSaveUpdate = async (req,res)=>{
                 .input('billable', sql.Bit, parseBoolean(formData.billable) || false)
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
                 .input('currency', sql.NVarChar(10), formData.currency || 'AED')
-                .input('createdBy', sql.NVarChar(100), formData.createdBy || null)  
+                .input('createdBy', sql.NVarChar(100), req.authUser.username || null)  
                 .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false)
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                 .input('description', sql.NVarChar(300), formData.description || null)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                 .output('ID', sql.NVarChar(100))
                 .execute('FinExpenses_SaveOrUpdate'); 
@@ -76,6 +89,7 @@ const expenseSaveUpdate = async (req,res)=>{
 
             }
              
+            await transaction.commit();
             
 
             res.status(200).json({
@@ -83,48 +97,49 @@ const expenseSaveUpdate = async (req,res)=>{
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        }  catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of expenseSaveUpdate
 
-async function pettyCashSaveUpdate(req,res){
+async function pettyCashSaveUpdate(req,res,transaction){
     const formData = req.body; 
      
     try {
              
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
             
-            console.log('hare in side pettyCash');
-              
-            const pool = await sql.connect(config);
+             const request = new sql.Request(transaction);
             
             
-                const result = await pool.request()
+                const result = await request
                 .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
                 .input('expenseCode', sql.NVarChar(100), formData.expenseCode || null)
                 .input('expenseDate', sql.Date, formData.expenseDate || new Date())
                 .input('paymentThrough', sql.NVarChar(100), formData.paymentThrough || null)
                 .input('statusId', sql.Int, formData.statusId || 1)
-                .input('createdBy', sql.NVarChar(100), formData.createdBy || null)
+                .input('createdBy', sql.NVarChar(100), req.authUser.username || null)
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null) 
                 .input('branchId', sql.NVarChar(65), formData.branchId || null)  
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                 .input('currency', sql.NVarChar(100), formData.currency || null)
                 .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)  
                 .input('postingDate', sql.NVarChar(100), formData.postingDate != 'null' ? formData.postingDate : null || null)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
              
                 const newID = result.output.ID; 
                 if(formData.expenseItems){  
-                    await expenseItemSaveUpdate(req,newID);
-                    const result = await pool.request() 
+                    await expenseItemSaveUpdate(req,newID,transaction);
+                    // const result = await pool.request() 
                             // .input('PettyCashId', sql.NVarChar(65), newID) 
                             // .execute('PettyCash_Create_JournalEntries');
                 }
@@ -220,7 +235,7 @@ function parseBoolean(value) {
 
 
 
-async function expenseItemSaveUpdate(req, expenseId) {
+async function expenseItemSaveUpdate(req, expenseId,transaction) {
     const formData = req.body;
 
     console.log('expenseItemSaveUpdate inside');
@@ -262,11 +277,7 @@ async function expenseItemSaveUpdate(req, expenseId) {
         console.log('after expenseItems');
         console.log(expenseItems);
 
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser));
-        const config = store.getState().constents.config;
-        const pool = await sql.connect(config);
-
+        
         console.log('req.files');
         console.log(req.files);
 
@@ -315,9 +326,10 @@ async function expenseItemSaveUpdate(req, expenseId) {
 
             }
 
+            const itemRequest = new sql.Request(transaction);
 
             // Save expense row in SQL
-            const result = await pool.request()
+            const result = await itemRequest
                 .input('ID2', sql.NVarChar(65), item.ID2 || '0')
                 .input('expenseCode', sql.NVarChar(100), item.expenseCode || null)
                 .input('vendorId', sql.NVarChar(65), item.vendorId || null)
@@ -336,7 +348,7 @@ async function expenseItemSaveUpdate(req, expenseId) {
                 .input('billable', sql.Bit, item.billable || false)
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
                 .input('currency', sql.NVarChar(10), item.currency || 'AED')
-                .input('createdBy', sql.NVarChar(100), formData.createdBy || null)
+                .input('createdBy', sql.NVarChar(100), req.authUser.username || null)
                 .input('isPettyCash', sql.Bit, parseBoolean(formData.isPettyCash) || false)
                 .input('vat', sql.NVarChar(100), (item.vat || '0').toString().replace(/,/g, ''))
                 .input('vatName', sql.NVarChar(100), (item.vatName || '0').toString())
@@ -350,6 +362,8 @@ async function expenseItemSaveUpdate(req, expenseId) {
                 .input('documentName', sql.NVarChar(250), documentName || null)
                 .input('documentUrl', sql.NVarChar(sql.MAX), documentUrl || null) 
                 .input('billNo', sql.NVarChar(sql.MAX), item.billNo || null)   
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                
                 .output('ID', sql.NVarChar(100))
                 .execute('FinExpenses_SaveOrUpdate');
 
@@ -387,6 +401,7 @@ const getExpenseDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec FinExpenses_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -422,6 +437,7 @@ const getExpensesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec FinExpenses_Get Null,'${organizationId}',Null,${isPettyCash}`;   
           
@@ -451,6 +467,7 @@ const getPettyCashDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec FinPettyCashExpense_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -532,6 +549,7 @@ const getPettyCashExpensesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec FinPettyCashExpense_Get Null,'${organizationId}'`;   
           

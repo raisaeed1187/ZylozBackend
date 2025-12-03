@@ -169,7 +169,6 @@ app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDyna
 //  ----------- public url
 
 
-// POST method API route
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
 app.post('/api/get-table',express.json(),getTableDetailsById );
 app.post('/api/get-table-fields',authenticateToken,express.json(),getSpecificTableField );

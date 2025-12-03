@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -21,7 +22,9 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
   
 const journalEntrySaveUpdate = async (req,res)=>{
-    const formData = req.body; 
+    const formData = req.body;
+    
+    let pool, transaction;
     
 
     try {
@@ -32,9 +35,17 @@ const journalEntrySaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
               
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2)
             .input('JournalEntryCode', sql.NVarChar(100), formData.journalEntryCode)  
             .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo)
@@ -44,49 +55,57 @@ const journalEntrySaveUpdate = async (req,res)=>{
             .input('StatusId', sql.Int, formData.statusId)
             .input('TotalItems', sql.Int, formData.totalItems)
             .input('TotalAmount', sql.NVarChar(100) , formData.totalAmount)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
             .input('currency', sql.NVarChar(65), formData.currency || null)
             .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null) 
             .input('PostingDate', sql.Date, formData.postingDate || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100)) 
             .execute('FinJournalEntry_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.journalEntryItems){ 
-                journalEntryItemSaveUpdate(req,newID)
+                journalEntryItemSaveUpdate(req,newID,transaction)
             }
+
+            await transaction.commit();
+
 
             res.status(200).json({
                 message: 'journalEntry saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of journalEntrySaveUpdate
  
-async function journalEntryItemSaveUpdate(req,journalEntryId){
+async function journalEntryItemSaveUpdate(req,journalEntryId,transaction){
     const formData = req.body; 
     const journalEntryItems = JSON.parse(formData.journalEntryItems); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (journalEntryItems) {
                     for (let item of journalEntryItems) {  
                         console.log('item');
                         console.log(item);
 
-                        if(item.account){ 
-                            await pool.request()
+                        if(item.description){ 
+                            const itemRequest = new sql.Request(transaction);
+                            
+                            await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || '0')  // Use '0' for insert
                             .input('JournalEntryId', sql.NVarChar(65), journalEntryId)
                             .input('Account', sql.NVarChar(100), item.account || null)
@@ -106,6 +125,8 @@ async function journalEntryItemSaveUpdate(req,journalEntryId){
                             .input('branchId', sql.NVarChar(65), item.branch || null)
                             .input('costCenter', sql.NVarChar(65), item.costCenter || null)
                             .input('corporateTax', sql.NVarChar(65), item.corporateTax || null) 
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                            
                             .execute('FinJournalEntryLine_SaveOrUpdate');
                         }
                     } 
@@ -147,6 +168,7 @@ const getJournalEntryDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         query = `exec FinJournalEntry_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -182,6 +204,7 @@ const getJournalEntryItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
@@ -275,6 +298,7 @@ const getJournalLedgers = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec FinJournalLedger_Get Null,Null,Null,'${organizationId}',${account ? `'${account}'` : 'NULL'}`;   
          
@@ -303,6 +327,7 @@ const getTrailBalance = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec GetTrialBalance '${fromDate}','${toDate}','${organizationId}'`;   
           
@@ -330,6 +355,7 @@ const getProfitAndLoss = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec GetProfitAndLoss
         '${fromYear}', 
@@ -363,6 +389,7 @@ const getBalanceSheet = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec GetBalanceSheet
         '${asOnDate}',  
@@ -393,6 +420,8 @@ const getCustomerInvoiceAging = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+        await setTenantContext(pool,req);
+
         let query = '';
         if (Id) {
             query = `exec sp_GetCustomerInvoiceAging '${Id}','${organizationId}'`;   
@@ -426,6 +455,7 @@ const getVatReturns = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec VATReturn_Generate '${fromDate}','${toDate}','${organizationId}'`;   
           
@@ -451,7 +481,9 @@ const getBankTransections = async (req, res) => {
         store.dispatch(setCurrentDatabase(req.authUser.database));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
+        const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
+
         let query = '';
          if (Id) {
              query = `exec BankTransactions_GetById '${Id}','${organizationId}'`;   
@@ -489,6 +521,8 @@ const vatSettingsSaveUpdate = async (req,res)=>{
             console.log(formData); 
               
             const pool = await sql.connect(config);
+            
+            await setTenantContext(pool,req);
               
             const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || null)
@@ -498,7 +532,9 @@ const vatSettingsSaveUpdate = async (req,res)=>{
             .input('FirstTaxReturnFrom', sql.Date, formData.firstTaxReturnFrom)
             .input('InternationalTrade', sql.Bit, formData.internationalTrade ? 1 : 0)
             .input('ReportingPeriod', sql.NVarChar(20), formData.reportingPeriod)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .execute('VATReturnSettings_SaveOrUpdate');
  
 
@@ -524,6 +560,7 @@ const getVatSettingsDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         // query = `exec VATReturnSettings_Get '${Id}','${organizationId}'`;   
         query = `exec VATReturnSettings_Get NULL,'${organizationId}'`;   

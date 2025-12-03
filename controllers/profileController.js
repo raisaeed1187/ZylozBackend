@@ -18,10 +18,12 @@ const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STR
 const CONTAINER_NAME = "documents";
 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+const { runTenantQuery,runTenantProcedure, setTenantContext } = require("../helper/db/sqlTenant");
 
   
 const orgProfileSaveUpdate = async (req,res)=>{
     const formData = req.body;
+    let pool, transaction;
 
     try {
              
@@ -29,8 +31,19 @@ const orgProfileSaveUpdate = async (req,res)=>{
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
-            const pool = await sql.connect(config);
+            // const pool = await sql.connect(config);
+
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+
+            
             try {
+                
                 let logoUrl = null;
                 if(Array.isArray(req.files?.logo)){
                     logoUrl = req.files["logo"] ? (await uploadDocument(req.files["logo"][0])).fileUrl : null;
@@ -46,8 +59,12 @@ const orgProfileSaveUpdate = async (req,res)=>{
 
 
                 // const query = `exec OrganizationProfile_Save_Update '${sanitizedTableName}',${createdTableId},'${module}','${tableName}',${isMainMenu}, '${createdBy}','${currentDate}'`; 
+                      const request = new sql.Request(transaction);
                 
-                let result = await pool.request()
+                      
+                let result = 
+                    // await pool.request()
+                    await request
                     .input('ID2', sql.NVarChar(250), formData.id)   
                     .input('OrganizationName', sql.NVarChar(250), formData.organizationName)
                     .input('Industry', sql.NVarChar(250), formData.industry)
@@ -66,7 +83,7 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     .input('Status', sql.NVarChar(50), "1") 
                     .input('Logo', sql.NVarChar(250), typeof formData.logo === "string" && formData.logo.startsWith("http") ? formData.logo : logoUrl) 
                     .input('Attachments', sql.NVarChar(250), "") 
-                    .input('CreatedBy', sql.NVarChar(250), formData.createdBy || "Admin") 
+                    .input('CreatedBy', sql.NVarChar(250), req.authUser.username) 
                     .input('CreatedAt', sql.DateTime, formData.createdAt || new Date())  
                    
                     .input('bankCode', sql.NVarChar(255), formData.bankCode || "")
@@ -76,8 +93,8 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     .input('bankSwiftCode', sql.NVarChar(255), formData.bankSwiftCode || "")
                     .input('employeePrefixCode', sql.NVarChar(255), formData.employeePrefixCode || "")
                     .input('currency', sql.NVarChar(65), formData.currency || "")
+                    .input('tenantId', sql.NVarChar(65), req.authUser.tenantId)
                     
-
                     .output('NewID', sql.NVarChar(250))
                     .execute('OrganizationProfile_Save_Update'); 
                 // const result = await pool.request().query(query); 
@@ -87,17 +104,16 @@ const orgProfileSaveUpdate = async (req,res)=>{
                 console.log(newId);
                 let encryptedId =  formData.id;
                 if(formData.id == '0'){
-                     encryptedId =  encryptID(newId);
+                     encryptedId = await encryptID(newId);
                     console.log(encryptedId);
     
-                    await pool.request()
-                    .query(`
-                        UPDATE OrganizationProfile 
-                        SET ID2 = '${encryptedId}' 
-                        WHERE ID = ${newId}
-                    `);
-
-                    const coaRequest = pool.request();
+                    const updateReq = new sql.Request(transaction);
+                    await updateReq
+                    .input("ID2", sql.NVarChar, encryptedId)
+                    .input("ID", sql.Int, newId)
+                    .query("UPDATE OrganizationProfile SET ID2 = @ID2 WHERE ID = @ID");
+                    // const itemRequest = new sql.Request(transaction);    
+                    const coaRequest = new sql.Request(transaction); 
                         coaRequest.input("Mode", sql.NVarChar(100), String(formData.mode));
                         coaRequest.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
                         coaRequest.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
@@ -106,16 +122,24 @@ const orgProfileSaveUpdate = async (req,res)=>{
 
                 }
                 if(attachments){
-                    await saveOrgProfileDocuments(pool,attachments,encryptedId,formData);
+                    await saveOrgProfileDocuments(pool,attachments,encryptedId,formData,transaction);
                 }
+
+                await transaction.commit();
+
                 res.status(200).json({
                     message: 'Organization profile saved/updated',
                     data: '' //result
                 });
             } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
-            } 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
              
         } catch (error) { 
             return res.status(400).json({ message: error.message,data:null}); 
@@ -123,7 +147,7 @@ const orgProfileSaveUpdate = async (req,res)=>{
         }
 }
 // end of orgProfileSaveUpdate
-function encryptID(id) {
+async function encryptID(id) {
   
     const secretKey = process.env.ENCRYPT_SECRET_KEY;   
     const iv = crypto.randomBytes(16);  
@@ -173,13 +197,14 @@ async function uploadDocument(file){
 }
 // end of uploadDocument
 
-async function saveOrgProfileDocuments(pool,attachmentUrls,NewID,formData){ 
+async function saveOrgProfileDocuments(pool,attachmentUrls,NewID,formData,transaction){ 
 
     try { 
         if (attachmentUrls.length > 0) {
             for (let url of attachmentUrls) { 
+                const attachmentRequest = new sql.Request(transaction);
                   
-                await pool.request()
+                await attachmentRequest
                     .input("ID2", sql.NVarChar, "0") // Assuming 0 for new entry
                     .input("ProfileId", sql.NVarChar, NewID) // Use the ID from the profile
                     .input("DocumentName", sql.NVarChar, url.fileName) // Extract file name
@@ -206,14 +231,20 @@ const getOrgProfileList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+
+         
+        await setTenantContext(pool,req);
           
         const query = `exec OrganizationProfile_Get`; 
-        const apiResponse = await pool.request().query(query); 
+        const result = await pool.request().query(query); 
+
+        // const result = await runTenantQuery(req, "EXEC OrganizationProfile_Get");
+
          
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
             message: `OrganizationProfile loaded successfully!`,
-            data: apiResponse.recordset
+            data: result.recordset
         });
          
     } catch (error) {
@@ -231,6 +262,8 @@ const getOrgProfileDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+
+        await setTenantContext(pool,req);
           
         const query = `exec GetOrganizationProfile '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -258,6 +291,9 @@ const getOrgProfileDocuments = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+
+        await setTenantContext(pool,req);
+
           
         const query = `exec GetOrganizationProfileDocuments '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -289,6 +325,8 @@ const branchSaveUpdate = async (req,res)=>{
             const pool = await sql.connect(config);
             try {
                   
+                await setTenantContext(pool,req);
+
                 const result = await pool.request()
                 .input('ID2', sql.NVarChar(65), formData.ID2)
                 .input('BranchName', sql.NVarChar(150), formData.branchName)
@@ -296,7 +334,8 @@ const branchSaveUpdate = async (req,res)=>{
                 .input('Phone', sql.NVarChar(50), formData.phone)
                 .input('Address', sql.NVarChar(255), formData.address)
                 .input('TRN', sql.NVarChar(50), formData.trn)
-                .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+                .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId) 
                 .execute('Branch_SaveOrUpdate');
                  
                 res.status(200).json({
@@ -324,7 +363,9 @@ const getBranchDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+        
+        await setTenantContext(pool,req);
+
         const query = `exec Branch_Get '${Id}'`;  
         const apiResponse = await pool.request().query(query); 
         let letResponseData = {};
@@ -351,7 +392,9 @@ const getBranchesList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+        
+        await setTenantContext(pool,req);
+
         const query = `exec Branch_Get Null,'${organizationId}'`;  
         const apiResponse = await pool.request().query(query); 
           

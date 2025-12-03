@@ -11,6 +11,7 @@ const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
 const { helper } = require("../../helper");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -24,6 +25,8 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const invoiceSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
+
 
     try {
              
@@ -33,9 +36,17 @@ const invoiceSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
               
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2)
             .input('InvoiceCode', sql.NVarChar(100), formData.invoiceCode)
             .input('CustomerId', sql.NVarChar(65), formData.customerId)
@@ -51,56 +62,69 @@ const invoiceSaveUpdate = async (req,res)=>{
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('TotalItems', sql.Int, formData.totalItems || 0)
             .input('TotalAmount', sql.NVarChar(100), formData.totalAmount || "0.00")
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username )
             .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
             .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
             .input('Currency', sql.NVarChar(65), formData.currency || '') 
             .input('BaseCurrencyRate', sql.NVarChar(65), formData.baseCurrencyRate || '1') 
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)  
             .input('PostingDate', sql.Date, formData.postingDate || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100)) // output param
             .execute('FinInvoice_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.invoiceItems){ 
-                await invoiceItemSaveUpdate(req,newID)
-                const result = await pool.request() 
+                await invoiceItemSaveUpdate(req,newID,transaction);
+                const journalReq = new sql.Request(transaction);
+                
+                const resultNew = await journalReq
                         .input('InvoiceId', sql.NVarChar(65), newID) 
                         .execute('Invoice_Create_JournalEntries');
 
             }
             if(formData.additionalFields){ 
-                additionalFieldSaveUpdate(req,newID)
+                additionalFieldSaveUpdate(req,newID,transaction)
             }
+
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'invoice saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of invoiceSaveUpdate
  
-async function invoiceItemSaveUpdate(req,invoiceId){
+async function invoiceItemSaveUpdate(req,invoiceId,transaction){
     const formData = req.body; 
     const invoiceItems = JSON.parse(formData.invoiceItems); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
+            // store.dispatch(setCurrentDatabase(req.authUser.database));
+            // store.dispatch(setCurrentUser(req.authUser)); 
+            // const config = store.getState().constents.config;  
 
-            const pool = await sql.connect(config);
+            // const pool = await sql.connect(config);
             try { 
                 if (invoiceItems) {
                     for (let item of invoiceItems) {  
+                        
                         console.log(item);
                         if(item.itemDescription){  
+                            const itemRequest = new sql.Request(transaction);
 
-                            const result = await pool.request()
+                            const result = await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2)
                             .input('InvoiceId', sql.NVarChar(65), invoiceId)
                             .input('ItemDescription', sql.NVarChar(255), item.itemDescription)
@@ -114,6 +138,8 @@ async function invoiceItemSaveUpdate(req,invoiceId){
                             .input('VatAmount', sql.NVarChar(100), (item.vatAmount || '0').toString().replace(/,/g, ''))
                             .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                             .execute('FinInvoiceItem_SaveOrUpdate');
 
                         }
@@ -130,22 +156,24 @@ async function invoiceItemSaveUpdate(req,invoiceId){
 }
 // end of invoiceItemSaveUpdate
 
-async function additionalFieldSaveUpdate(req,invoiceId){
+async function additionalFieldSaveUpdate(req,invoiceId,transaction){
     const formData = req.body; 
     const additionalFields = JSON.parse(formData.additionalFields); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
+            // store.dispatch(setCurrentDatabase(req.authUser.database));
+            // store.dispatch(setCurrentUser(req.authUser)); 
+            // const config = store.getState().constents.config;  
 
-            const pool = await sql.connect(config);
+            // const pool = await sql.connect(config);
             try { 
                 if (additionalFields) {
-                    for (let item of additionalFields) {  
+                    for (let item of additionalFields) {
+                        const fieldRequest = new sql.Request(transaction);
+                          
                         console.log(item);
                         if(item.field){   
 
-                            const result = await pool.request()
+                            const result = await fieldRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || '0')
                             .input('transection', sql.NVarChar(250), 'Invoice')
                             .input('transectionId', sql.NVarChar(65), invoiceId) 
@@ -196,6 +224,10 @@ const getInvoiceDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
+        await setTenantContext(pool,req);
+
+
+
         query = `exec FinInvoice_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
 
@@ -255,6 +287,7 @@ const getCustomerInvoice = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         // if (currency) {
         //     query = `exec FinCustomerInvoices_Get '${customerId}','${organizationId}','${currency}',$vatAble`;    
@@ -308,6 +341,7 @@ const getInvoicesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec FinInvoice_Get Null,'${organizationId}'`;   
           
@@ -335,12 +369,12 @@ const getTaxRate = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         if (transaction) {
             query = `exec TaxRate_Get '${transaction}'`;    
         }else{
             query = `exec TaxRate_Get `;   
-
         }
           
         const apiResponse = await pool.request().query(query); 

@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,6 +24,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const makePaymentSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
 
     try {
              
@@ -32,10 +34,18 @@ const makePaymentSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
               
              
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
             .input('MakePaymentCode', sql.NVarChar(100), formData.makePaymentCode || null)
             .input('VendorId', sql.NVarChar(65), formData.vendorId || null)
@@ -51,9 +61,10 @@ const makePaymentSaveUpdate = async (req,res)=>{
             .input('TotalItems', sql.Int, formData.totalItems || 0)
             .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username )
             .input('BaseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00) 
             .input('PostingDate', sql.Date, formData.postingDate || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
     
             .output('ID', sql.NVarChar(100))
             .execute('FinMakePayment_SaveOrUpdate');
@@ -61,38 +72,44 @@ const makePaymentSaveUpdate = async (req,res)=>{
 
             const newID = result.output.ID;
             if(formData.makePaymentItems){ 
-                makePaymentItemSaveUpdate(req,newID)
+                makePaymentItemSaveUpdate(req,newID,transaction)
             }
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'makePayment saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of makePaymentSaveUpdate
  
-async function makePaymentItemSaveUpdate(req,makePaymentId){
+async function makePaymentItemSaveUpdate(req,makePaymentId,transaction){
     const formData = req.body; 
     const makePaymentItems = JSON.parse(formData.makePaymentItems); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (makePaymentItems) {
                     for (let item of makePaymentItems) {  
+
                         if(item.billId && parseFloat(item.paymentAmount) > 0){ 
+
+                            const itemRequest = new sql.Request(transaction);
+                            
                             console.log('item :',item);
                             // console.log('makePaymentId :',makePaymentId);
 
-                           await pool.request()
+                           await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || null)
                             .input('MakePaymentId', sql.NVarChar(65), makePaymentId || null)
                             .input('BillId', sql.NVarChar(65), item.billId || null)
@@ -104,10 +121,11 @@ async function makePaymentItemSaveUpdate(req,makePaymentId){
                             .input('PaymentMadeOn', sql.Date, item.paymentMadeOn || null)
                             .input('PaymentAmount', sql.Decimal(18, 8), item.paymentAmount != null ?  (item.paymentAmount  || '0').toString().replace(/,/g, '') : 0)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
-                            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')
+                            .input('CreatedBy', sql.NVarChar(100), req.authUser.username || 'system')
                             .input('Currency', sql.NVarChar(100), item.currency || null) 
                             .input('BankCurrencyPayment', sql.Decimal(18, 8), parseFloat( (item.bankCurrencyPayment  || '0').toString().replace(/,/g, '')) || 0.00)
                             .input('BaseCurrencyRate', sql.Decimal(18, 8), parseFloat(item.baseCurrencyRate) || 0.00)
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                             .execute('FinMakePaymentItem_SaveOrUpdate');
 
@@ -151,6 +169,7 @@ const getMakePaymentDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec FinMakePayment_Get '${Id}','${organizationId}'`;   
         const apiResponse = await pool.request().query(query);
@@ -192,6 +211,7 @@ const getMakePaymentItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
@@ -223,6 +243,7 @@ const getMakePaymentsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
         
         if (vendorId) {
             query = `exec finMakePaymentGet Null,'${organizationId}','${vendorId}'`;   

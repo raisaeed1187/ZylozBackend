@@ -154,13 +154,15 @@ const signIn = async (req,res)=>{
             if (!email || !password) {
                 return res.status(400).json({ message: 'Email & Password is required!' });
             }   
-            console.log('database');
-            console.log(client); 
+            // console.log('database');
+            // console.log(client); 
 
             store.dispatch(setCurrentDatabase( client )); 
             const config =  store.getState().constents.config;  
-            console.log('config login');
-            console.log(config);
+            // console.log('config login');
+            // console.log(config);
+            // return [client];
+            // return res.status(400).json({ message: 'Email & Password is required!' });
 
             const pool = await sql.connect(config);
             
@@ -168,17 +170,17 @@ const signIn = async (req,res)=>{
                 .request()
                 .input("email", sql.NVarChar, email)
                 .query("SELECT * FROM Users WHERE email = @email");
-
+            // return result;
                 if (result.recordset.length === 0) {
                     // return res.status(401).json({ message: "Invalid email" });
                   return  res.status(400).json({ message: 'Invalid email',data:null});
                 } 
  
-                const user = result.recordset[0]; 
+                const user = result.recordset[0];  
                 console.log('user');
                 console.log(user); 
-                if(user){ 
-                    console.log('inside user');
+        
+                if(user){  
                     const isMatch = await bcrypt.compare(password, user.Password);
     
                     if (!isMatch) {
@@ -186,10 +188,16 @@ const signIn = async (req,res)=>{
                       return  res.status(400).json({ message: 'Invalid password',data:null});
     
                     }
+                    // return user;
     
-                    const token = jwt.sign({ Id: user.ID,ID2: user.ID2, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName}, SECRET_KEY, {
+                    const token = jwt.sign({ Id: user.ID,ID2: user.ID2, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName, tenantId:user.TenantId}, SECRET_KEY, {
                         expiresIn: "5h",
                     });
+
+                    await pool.request()
+                                    .input("tenantId", sql.NVarChar, user.TenantId)
+                                    .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+                    
                     // constents.methods.setCurrentDatabase(user.databaseName);  
                     store.dispatch(setCurrentDatabase(user.databaseName)); 
                     const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 

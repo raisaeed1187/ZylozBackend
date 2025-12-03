@@ -11,6 +11,7 @@ const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents"); 
 const path = require("path");
+const { setTenantContext } = require("../helper/db/sqlTenant");
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -24,17 +25,30 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const customerSaveUpdate = async (req,res)=>{
     const formData = req.body;
+    let pool, transaction;
 
     try {
              
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+ 
             try { 
 
-                const result = await pool.request()
+                pool = await sql.connect(config);
+                transaction = new sql.Transaction(pool);
+    
+                await setTenantContext(pool,req);
+
+    
+                
+                await transaction.begin();
+                
+                const request = new sql.Request(transaction);
+                
+
+
+                const result = await request
                     .input('ID2', sql.NVarChar(350), formData.id)
                     .input('CustomerType', sql.NVarChar(250), formData.customerType)
                     .input('Salutation', sql.NVarChar(50), formData.salutation)
@@ -46,9 +60,9 @@ const customerSaveUpdate = async (req,res)=>{
                     .input('Address', sql.NVarChar(250), formData.address)
                     .input('TRN', sql.NVarChar(250), formData.trn)
                     .input('PaymentTerms', sql.NVarChar(100), formData.paymentTerms)
-                    .input('CreatedBy', sql.NVarChar(255), formData.createdBy || "Admin")
+                    .input('CreatedBy', sql.NVarChar(255), req.authUser.username )
                     .input('OrganizationId', sql.NVarChar(255), formData.organizationId)
-                     
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                     .output('NewID', sql.NVarChar(355)) // Assuming the output is an integer
                     .execute('Customer_Save_Update'); 
 
@@ -59,12 +73,13 @@ const customerSaveUpdate = async (req,res)=>{
                 if(formData.id == '0'){
                      encryptedId =  encryptID(newId);
                     console.log(encryptedId); 
-                    await pool.request()
-                    .query(`
-                        UPDATE Customers 
-                        SET ID2 = '${encryptedId}' 
-                        WHERE ID = ${newId}
-                    `);
+                     
+
+                    const updateReq = new sql.Request(transaction);
+                        await updateReq
+                        .input("ID2", sql.NVarChar, encryptedId)
+                        .input("ID", sql.Int, newId)
+                        .query("UPDATE Customers SET ID2 = @ID2 WHERE ID = @ID");
                 }
                 let attachments = null;
                 if(Array.isArray(req.files?.attachments)){
@@ -73,18 +88,27 @@ const customerSaveUpdate = async (req,res)=>{
                         : []; 
                 }
                 if(attachments){
-                    await saveCustomerDocuments(pool,attachments,encryptedId,formData);
+                    await saveCustomerDocuments(pool,attachments,encryptedId,formData,transaction);
                 }
                 if(formData.contactFormData){
-                    customerContactSaveUpdate(req,encryptedId);
+                    await customerContactSaveUpdate(req,encryptedId,transaction);
                 }
+
+                await transaction.commit();
+
+
                 res.status(200).json({
                     message: 'Customer saved/updated',
                     data: '' //result
                 });
             } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
             } 
              
         } catch (error) { 
@@ -94,17 +118,17 @@ const customerSaveUpdate = async (req,res)=>{
 }
 // end of customerSaveUpdate
 
-async function customerContactSaveUpdate(req,CustomerId){
+async function customerContactSaveUpdate(req,CustomerId,transaction){
     const formData = req.body; 
     const contactFormData = JSON.parse(formData.contactFormData); 
     try {
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (contactFormData) {
                     for (let contactForm of contactFormData) { 
-                        let result = await pool.request()
+                        const contactRequest = new sql.Request(transaction);
+                        
+                        let result = await contactRequest
                             .input('ID2', sql.NVarChar, contactForm.Id)
                             .input('CustomerId', sql.NVarChar, CustomerId) 
                             .input('Salutation', sql.NVarChar, contactForm.Salutation)
@@ -176,13 +200,14 @@ async function uploadDocument(file){
 }
 // end of uploadDocument
 
-async function saveCustomerDocuments(pool,attachmentUrls,NewID,formData){ 
+async function saveCustomerDocuments(pool,attachmentUrls,NewID,formData,transaction){ 
 
     try { 
         if (attachmentUrls.length > 0) {
             for (let url of attachmentUrls) { 
+                const attachmentRequest = new sql.Request(transaction);
                   
-                await pool.request()
+                await attachmentRequest
                     .input("ID2", sql.NVarChar, "0") // Assuming 0 for new entry
                     .input("CustomerId", sql.NVarChar, NewID) // Use the ID from the profile
                     .input("DocumentName", sql.NVarChar, url.fileName) // Extract file name
@@ -208,7 +233,10 @@ const getCustomerList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+        
+        await setTenantContext(pool,req);
+
+
         const query = `exec GetCustomerList`; 
         const apiResponse = await pool.request().query(query); 
         const formatCreatedAt = (createdAt) => {
@@ -245,6 +273,9 @@ const getCustomerDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
           
+        await setTenantContext(pool,req);
+        
+
         const query = `exec GetCustomerDetails '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
        
@@ -279,7 +310,9 @@ const deleteCustomerContact = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+        
+        await setTenantContext(pool,req);
+
         const query = `exec DeleteCustomerContact '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
        
@@ -306,7 +339,9 @@ const getCustomerDocuments = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+        
+        await setTenantContext(pool,req);
+        
         const query = `exec GetCustomerDocuments '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
         let letResponseData = {};

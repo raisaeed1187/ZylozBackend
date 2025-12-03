@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -22,6 +23,8 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const creditNoteSaveUpdate = async (req,res)=>{
     const formData = req.body; 
+
+    let pool, transaction;
     
 
     try {
@@ -32,10 +35,19 @@ const creditNoteSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
               
              
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
             .input('CreditNoteCode', sql.NVarChar(100), formData.creditNoteCode || null)
             .input('ReferenceNo', sql.NVarChar(100), formData.referenceNo || null)
@@ -49,48 +61,57 @@ const creditNoteSaveUpdate = async (req,res)=>{
             .input('TotalItems', sql.Int, formData.totalItems || 0)
             .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
             .input('baseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00)
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .input('PostingDate', sql.Date, formData.postingDate || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100)) // OUTPUT param from procedure
             .execute('FinCreditNote_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.creditNoteItems){ 
-                await creditNoteItemSaveUpdate(req,newID);
-                const result = await pool.request() 
+                await creditNoteItemSaveUpdate(req,newID,transaction);
+                const journalReq = new sql.Request(transaction);
+                
+                const resultNew = await journalReq 
                     .input('CreditNoteId', sql.NVarChar(65), newID) 
                     .execute('CreditNote_Create_JournalEntries');
 
             }
+
+            await transaction.commit();
+
 
             res.status(200).json({
                 message: 'creditNote saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        }catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of creditNoteSaveUpdate
  
-async function creditNoteItemSaveUpdate(req,creditNoteId){
+async function creditNoteItemSaveUpdate(req,creditNoteId,transaction){
     const formData = req.body; 
     const creditNoteItems = JSON.parse(formData.creditNoteItems); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+         
             try { 
                 if (creditNoteItems) {
                     for (let item of creditNoteItems) {  
-                        if(item.account){ 
-                           await pool.request()
+                        if(item.description){ 
+                            const itemRequest = new sql.Request(transaction); 
+                           await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || '0') // Use '0' for insert
                             .input('CreditNoteId', sql.NVarChar(65), creditNoteId)
                             .input('Account', sql.NVarChar(100), item.account || null)
@@ -106,7 +127,9 @@ async function creditNoteItemSaveUpdate(req,creditNoteId){
                             .input('CostCenter', sql.NVarChar(65), item.costCenter || null)
                             .input('CorporateTax', sql.NVarChar(100), item.corporateTax || null)
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || null)
-                            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')  
+                            .input('CreatedBy', sql.NVarChar(100), req.authUser.username || 'system')  
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                            
                             .execute('FinCreditNoteItem_SaveOrUpdate');
 
                         }
@@ -135,6 +158,10 @@ const applycreditNoteOnInvoice = async (req,res)=>{
             // console.log(formData); 
               
             const pool = await sql.connect(config);
+
+            await setTenantContext(pool,req);
+
+
             const allocations = JSON.parse(formData.allocations); 
               
              
@@ -149,6 +176,8 @@ const applycreditNoteOnInvoice = async (req,res)=>{
                             .input('appliedAmount', sql.Decimal(18, 8), parseFloat(item.appliedAmount) || 0)
                             .input('appliedBy', sql.NVarChar(100), req.authUser.username)  
                             .input('account', sql.NVarChar(100), item.account || '')   
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                            
                             .execute('FinCreditNoteAppliedInvoice_SaveOrUpdate');
                         }
                     } 
@@ -192,6 +221,7 @@ const getCreditNoteDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec FinCreditNote_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -234,6 +264,7 @@ const getCreditNoteItems = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
+            await setTenantContext(pool,req);
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
         console.log('itemsQuery');
@@ -264,6 +295,7 @@ const getCreditNotesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec FinCreditNote_Get Null,'${organizationId}'`;   
           
@@ -292,6 +324,7 @@ const getJournalLedgers = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec FinJournalLedger_Get Null,Null,'${organizationId}'`;   
          
@@ -319,6 +352,7 @@ const getAppliedCreditInvoicesList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
         
           
         const response = await pool
@@ -349,6 +383,7 @@ const deleteAppliedInvoiceFromCreditNote = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
          const response = await pool
                     .request()

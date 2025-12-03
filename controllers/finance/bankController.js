@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -22,6 +23,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const bankSaveUpdate = async (req,res)=>{
     const formData = req.body;  
+    let pool, transaction;
 
     try {
              
@@ -31,9 +33,18 @@ const bankSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
              
-            const result = await pool.request()
+            const result = await request
                 .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
                 .input('accountName', sql.NVarChar(255), formData.accountName || null)
                 .input('accountCode', sql.NVarChar(50), formData.accountCode || null)
@@ -44,24 +55,32 @@ const bankSaveUpdate = async (req,res)=>{
                 .input('description', sql.NVarChar(sql.MAX), formData.description || null)
                 .input('isPrimary', sql.Bit, parseBoolean(formData.isPrimary) || false)
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null)
-                .input('createdBy', sql.NVarChar(100), formData.createdBy || null)
+                .input('createdBy', sql.NVarChar(100), req.authUser.username || null)
                 .input('statusId', sql.Int, formData.statusId || null)
                 .input('iban', sql.NVarChar(250), formData.iban || null)
                 .input('branch', sql.NVarChar(250), formData.branch || null)
                 .input('beneficiaryName', sql.NVarChar(250), formData.beneficiaryName || null)
                 .input('accountType', sql.NVarChar(250), formData.accountType || null)
                 .input('employee', sql.NVarChar(250), formData.employee || null)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                
                 .execute('BankAccount_SaveOrUpdate');
   
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'bank saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        }catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of bankSaveUpdate
@@ -85,6 +104,7 @@ const getBankDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec BankAccount_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -118,6 +138,7 @@ const getBanksList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec BankAccount_Get Null,'${organizationId}'`;   
            

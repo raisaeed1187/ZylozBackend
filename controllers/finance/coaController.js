@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -22,6 +23,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const coaSaveUpdate = async (req,res)=>{
     const formData = req.body;
+    let pool, transaction;
 
     try {
              
@@ -31,9 +33,17 @@ const coaSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData);
 
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+              
             try {  
-                const request = pool.request();
+                const request = new sql.Request(transaction);
                 request.input("AccountCode", sql.NVarChar(100), String(formData.accountCode));
                 request.input("ParentAccountCode", sql.NVarChar(100), String(formData.parentAccountCode));
                 request.input("Name", sql.NVarChar(100), formData.name || formData.category || "");
@@ -43,21 +53,30 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("AccountSubGroup", sql.NVarChar(50), formData.accountSubGroup || "");
                 request.input("Value", sql.Decimal(18, 8), formData.value || 0);
                 request.input("ChangePercentage", sql.Decimal(5, 2), formData.change || 0);
-                request.input("CreatedBy", sql.NVarChar(100), formData.userName || 'Admin'); // replace with real user
+                request.input("CreatedBy", sql.NVarChar(100), req.authUser.username || 'Admin'); // replace with real user
                 request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
                 request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false); 
                 request.input("OrganizationId", sql.NVarChar(100), formData.organizationId || false); 
+                request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);  
 
                 await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
  
+            await transaction.commit();
+
+
                 res.status(200).json({
                     message: 'COA saved/updated',
                     data: '' //result
                 });
-            } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
-            } 
+            }catch (err) { 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
              
         } catch (error) { 
             return res.status(400).json({ message: error.message,data:null}); 
@@ -69,6 +88,7 @@ const coaSaveUpdate = async (req,res)=>{
 const coaSaveUpdateNew = async (req,res)=>{
     const formData = req.body;
     // const accounts = req.body;
+    let pool, transaction;
 
     try {
              
@@ -78,11 +98,16 @@ const coaSaveUpdateNew = async (req,res)=>{
             
             const accounts = JSON.parse(formData.accounts);
 
-            console.log('accounts');
-            console.log(accounts);
- 
+             pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
 
-            const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+              
+             
             try { 
 
                 const saveRecursive = async (
@@ -94,8 +119,9 @@ const coaSaveUpdateNew = async (req,res)=>{
                     ) => {
                         for (const item of items) {
                             const accountCode = item.id || null;
+                            const request = new sql.Request(transaction);
 
-                            const request = pool.request();
+                            // const request = pool.request();
                             request.input("AccountCode", sql.NVarChar(100), String(accountCode));
                             request.input("ParentAccountCode", sql.NVarChar(100), String(parentCode));
                             request.input("Name", sql.NVarChar(100), item.name || item.category || "");
@@ -105,9 +131,10 @@ const coaSaveUpdateNew = async (req,res)=>{
                             request.input("AccountSubGroup", sql.NVarChar(50), accountSubGroup);
                             request.input("Value", sql.Decimal(18, 8), item.value || 0);
                             request.input("ChangePercentage", sql.Decimal(5, 2), item.change || 0);
-                            request.input("CreatedBy", sql.NVarChar(100), "admin"); // replace with real user
+                            request.input("CreatedBy", sql.NVarChar(100), req.authUser.username); // replace with real user
                             request.input("IsActive", sql.Bit, item.active !== false);
                             request.input("OrganizationId", sql.NVarChar(100), formData.organizationId || null); 
+                            request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);  
 
                             await request.execute("ChartOfAccount_SaveOrUpdate_NEW");
 
@@ -124,15 +151,23 @@ const coaSaveUpdateNew = async (req,res)=>{
 
 
                 await saveRecursive(accounts);
-                 
+                
+                await transaction.commit();
+                
+
                 res.status(200).json({
                     message: 'COA saved/updated',
                     data: '' //result
                 });
             } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
-            } 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
              
         } catch (error) { 
             return res.status(400).json({ message: error.message,data:null}); 
@@ -174,6 +209,7 @@ const getCOAList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
         
         if(isDetailsView){
             query = `exec GetChartOfAccountsDetailsView Null,'${organizationId}'`; 
@@ -219,6 +255,7 @@ const getCOAListNew = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     console.log(`ChartOfAccount_GetAll Null,'${organizationId}' `);
     // const result = await pool.request().execute(`ChartOfAccount_GetAll Null,'${organizationId}'`);
@@ -296,6 +333,7 @@ const getCOADetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec ChartOfAccount_GetDetails '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -328,6 +366,7 @@ const deleteCOAAccount = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec ChartOfAccount_Delete '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -354,6 +393,7 @@ const deleteCustomerContact = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec DeleteCustomerContact '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -386,12 +426,15 @@ const createDefaultCOASaveUpdate = async (req,res)=>{
             console.log(formData);
 
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try {  
                 const request = pool.request();
                 request.input("Mode", sql.NVarChar(100), String(formData.mode));
                 request.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
                 request.input("TargetOrganizationId", sql.NVarChar(100), String(formData.organizationId) || null); 
                 request.input("CreatedBy", sql.NVarChar(100), req.authUser.username); 
+                request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);   
                 await request.execute("TransferChartOfAccounts");
  
                 res.status(200).json({
@@ -420,6 +463,7 @@ const getCOAAcountTypes = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec GetCOAAccountTypes`; 
         const apiResponse = await pool.request().query(query); 
@@ -453,6 +497,7 @@ const coaAllocationSaveUpdate = async (req,res)=>{
             try {  
 
                  const pool = await sql.connect(config);
+                 await setTenantContext(pool,req);
 
                 if (formData?.allocations) {
                     const allocations = JSON.parse(formData.allocations); 
@@ -521,6 +566,7 @@ const getCOAAllocations = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         
+            await setTenantContext(pool,req);
          
         query = `exec ChartOFAccountAllocation_Get`; 
         
@@ -551,6 +597,7 @@ const getCOAAllocationDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         
+            await setTenantContext(pool,req);
          
         query = `exec ChartOFAccountAllocation_Get '${Id}'`; 
         

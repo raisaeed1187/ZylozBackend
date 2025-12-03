@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,6 +24,8 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const supplierBillSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
+
 
     try {
              
@@ -32,10 +35,18 @@ const supplierBillSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
-              
+             pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+               
              
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
             .input('SupplierBillCode', sql.NVarChar(50), formData.supplierBillCode || null)
             .input('BillNo', sql.NVarChar(50), formData.billNo || null)
@@ -52,52 +63,61 @@ const supplierBillSaveUpdate = async (req,res)=>{
             .input('TotalItems', sql.Int, formData.totalItems || 0)
             .input('TotalAmount', sql.Decimal(18, 8), formData.totalAmount || 0.00)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
             .input('IsForPO', sql.Bit, formData.isForPO == 'true' ? 1 : 0)
             .input('baseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00) 
             .input('Emirate', sql.NVarChar(65), formData.emirate || null)   
             .input('POId', sql.NVarChar(65), formData.poId || null)   
             .input('CostCenter', sql.NVarChar(65), formData.costCenter || null)    
             .input('PostingDate', sql.Date, formData.postingDate || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100))  
             .execute('SupplierBill_SaveOrUpdate');
 
             const newID = result.output.ID;
             if(formData.supplierBillItems){ 
-                await supplierBillItemSaveUpdate(req,newID)
-                const result = await pool.request() 
+                await supplierBillItemSaveUpdate(req,newID,transaction);
+
+                const journalReq = new sql.Request(transaction);
+                
+                const resultNew = await journalReq 
                     .input('SupplierBillId', sql.NVarChar(65), newID) 
                     .execute('SupplierBill_Create_JournalEntries');
                 
             }
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'supplierBill saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of supplierBillSaveUpdate
  
-async function supplierBillItemSaveUpdate(req,supplierBillId){
+async function supplierBillItemSaveUpdate(req,supplierBillId,transaction){
     const formData = req.body; 
     const supplierBillItems = JSON.parse(formData.supplierBillItems); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (supplierBillItems) {
                     for (let item of supplierBillItems) {  
+                        
                         if(item.description){ 
-                            console.log('item :',item);
-                           await pool.request()
+                            const itemRequest = new sql.Request(transaction);
+                            // console.log('item :',item);
+                           await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || null)           // ID2 nullable
                             .input('supplierBillId', sql.NVarChar(65), supplierBillId || null) // supplierBillId param
                             .input('grnId', sql.NVarChar(100), item.grnId || null)
@@ -115,7 +135,9 @@ async function supplierBillItemSaveUpdate(req,supplierBillId){
                             .input('customerId', sql.NVarChar(65), item.customerId || null)
                             .input('corporateTax', sql.NVarChar(50), item.corporateTax || null)
                             .input('remarks', sql.NVarChar(255), item.remarks || null)
-                            .input('createdBy', sql.NVarChar(100), formData.createdBy || 'system')
+                            .input('createdBy', sql.NVarChar(100), req.authUser.username || 'system')
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                            
                             .execute('FinSupplierBillItem_SaveOrUpdate');
                         }
                     } 
@@ -157,6 +179,7 @@ const getSupplierBillDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         query = `exec finSupplierBillGet '${Id}','${organizationId}'`;   
         const apiResponse = await pool.request().query(query);
@@ -197,7 +220,9 @@ const getSupplierBillItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
- 
+
+        await setTenantContext(pool,req);
+        
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
         console.log('itemsQuery');
@@ -229,6 +254,8 @@ const getSupplierBillsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         
+        await setTenantContext(pool,req);
+
 
         const response = await pool
         .request()

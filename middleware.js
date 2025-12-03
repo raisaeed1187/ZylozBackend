@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 require("dotenv").config(); 
- 
+const store = require('./store'); 
+const { setCurrentDatabase,setCurrentUser } = require('./constents').actions;
+const sql = require("mssql");
+
+
 const bcrypt = require("bcrypt");
 
 const authenticateToken = async (req, res, next) => {
@@ -24,6 +28,8 @@ const authenticateToken = async (req, res, next) => {
      
     req.authUser = decoded; // Attach user information to the request object
     
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));  
 
     next(); // Proceed to the next middleware or route handler
   } catch (err) {

@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -33,11 +34,15 @@ const financeConfigurationSave = async (req, res) => {
         console.log('formData finance');
         console.log(formData);
 
+        await setTenantContext(pool,req);
+
 
         const result = await pool.request()
             .input('ID2', sql.NVarChar(250), formData.ID2)  
             .input("documentPostingDate", sql.NVarChar(255), formData.documentPostingDate) 
             .input('CreatedBy', sql.NVarChar(250), req.authUser.username )  
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .execute('FinanceConfiguration_SaveOrUpdate');    
   
         
@@ -72,6 +77,7 @@ const getFinanceConfiguration = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec Get_FinanceConfiguration `;  
         const apiResponse = await pool.request().query(query);  
@@ -107,6 +113,8 @@ const financialPeriodLockSave = async (req, res) => {
         const config = store.getState().constents.config;
         const pool = await sql.connect(config);
 
+        await setTenantContext(pool,req);
+
         console.log("Financial Period Lock formData:", formData);
  
         const result = await pool.request()
@@ -118,6 +126,7 @@ const financialPeriodLockSave = async (req, res) => {
             .input("Reason", sql.NVarChar(500), formData.reason || null)
             .input("ActionBy", sql.NVarChar(100), req.authUser.username)
             .input("OrganizationId", sql.NVarChar(100), formData.organizationId)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
             .execute("FinancialPeriodLock_SaveOrUpdate");
 
@@ -145,6 +154,7 @@ const getfinancialPeriodLocks = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const response = await pool
             .request()

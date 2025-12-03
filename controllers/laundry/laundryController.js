@@ -341,13 +341,13 @@ const getLaundryOrders = async (req, res) => {
     const { ID2, CustomerId,isWeb, client } = req.body;
 
     try {
-        console.log('client');
-        console.log(client);
+        // console.log('client');
+        // console.log(client);
 
         store.dispatch(setCurrentDatabase(client));
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;
-        console.log(config);
+        // console.log(config);
         const pool = await sql.connect(config);
 
         const result = await pool.request()
@@ -373,7 +373,7 @@ const getLaundryOrderDetails = async (req, res) => {
         store.dispatch(setCurrentDatabase(client));
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;
-        console.log(config);
+        // console.log(config);
         const pool = await sql.connect(config);
 
         const orderResult = await pool.request()

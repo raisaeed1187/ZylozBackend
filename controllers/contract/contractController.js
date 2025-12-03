@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -22,6 +23,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const contractSaveUpdate = async (req,res)=>{
     const formData = req.body; 
+    let pool, transaction;
     
 
     try {
@@ -32,9 +34,18 @@ const contractSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
               
-            const result = await pool.request()
+            const request = new sql.Request(transaction);
+            
+
+            const result = await request
             .input("ID2", sql.NVarChar(65), formData.ID2)
             .input("CustomerId", sql.NVarChar(65), formData.CustomerId)
             .input("ContactPerson", sql.VarChar(100), formData.ContactPerson)
@@ -53,17 +64,19 @@ const contractSaveUpdate = async (req,res)=>{
             .input("createdBy", sql.VarChar(100), formData.createdBy)
             .input("OrganizationId", sql.VarChar(65), formData.organizationId || null) 
             .input("BranchId", sql.VarChar(65), formData.branchId || null) 
-
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
             .output('ID', sql.NVarChar(100)) 
             .execute("dbo.ClientContract_SaveUpdate");
     
             const newID = result.output.ID;
             if(formData.properties){ 
-                contractPropertySaveUpdate(req,newID)
+                contractPropertySaveUpdate(req,newID,transaction)
             }
             if(formData.locations){ 
-                contractLocationSaveUpdate(req,newID,true)
+                contractLocationSaveUpdate(req,newID,true,transaction)
             }
+
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'contract saved/updated',
@@ -71,26 +84,33 @@ const contractSaveUpdate = async (req,res)=>{
             });
            
              
-        } catch (error) { 
-            return res.status(400).json({ message: error.message,data:null}); 
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of contractSaveUpdate
 
-async function contractLocationSaveUpdate(req,contractId,isContract){
+async function contractLocationSaveUpdate(req,contractId,isContract,transaction){
     const formData = req.body; 
     const properties = JSON.parse(formData.locations); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-            const pool = await sql.connect(config);
+            // store.dispatch(setCurrentDatabase(req.authUser.database));
+            // store.dispatch(setCurrentUser(req.authUser)); 
+            // const config = store.getState().constents.config;  
+            // const pool = await sql.connect(config);
             try { 
                 if (properties) {
                     for (let item of properties) {  
+                        const itemRequest = new sql.Request(transaction);
+                        
                         if(item.ID2){
-                            await pool.request()
+                            await itemRequest
                                 .input('ID', sql.Int, item.ID || 0)
                                 .input('ContractID', sql.NVarChar(65), contractId)
                                 .input('LocationID', sql.NVarChar(65), item.ID2)
@@ -109,19 +129,22 @@ async function contractLocationSaveUpdate(req,contractId,isContract){
 // end of contractLocationSaveUpdate
 
 
-async function contractPropertySaveUpdate(req,contractId){
+async function contractPropertySaveUpdate(req,contractId,transaction){
     const formData = req.body; 
     const properties = JSON.parse(formData.properties); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-            const pool = await sql.connect(config);
+            // store.dispatch(setCurrentDatabase(req.authUser.database));
+            // store.dispatch(setCurrentUser(req.authUser)); 
+            // const config = store.getState().constents.config;  
+            // const pool = await sql.connect(config);
+
             try { 
                 if (properties) {
                     for (let item of properties) {  
+                        const itemRequest = new sql.Request(transaction);
+                        
                         if(item.ID2){
-                            await pool.request()
+                            await itemRequest
                                 .input('ID', sql.Int, item.ID || 0)
                                 .input('ContractID', sql.NVarChar(65), contractId)
                                 .input('PropertyID', sql.NVarChar(65), item.ID2)
@@ -142,6 +165,7 @@ async function contractPropertySaveUpdate(req,contractId){
 const projectSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
 
     try {
              
@@ -151,9 +175,18 @@ const projectSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
               
-            const result = await pool.request()
+            const request = new sql.Request(transaction);
+            
+
+            const result = await request
                 .input("ID2", sql.NVarChar(65), formData.ID2 || null)
                 .input("CustomerId", sql.NVarChar(65), formData.CustomerId)
                 .input("ContactPerson", sql.VarChar(100), formData.ContactPerson || null)
@@ -173,14 +206,18 @@ const projectSaveUpdate = async (req,res)=>{
                 .input("CreatedBy", sql.VarChar(100), formData.createdBy || null)
                 .input("OrganizationId", sql.VarChar(65), formData.organizationId || null) 
                 .input("BranchId", sql.VarChar(65), formData.branchId || null) 
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                
                 .output('ID', sql.NVarChar(100))  
                 .execute("dbo.ClientProject_SaveUpdate");
     
             const newID = result.output.ID;
 
             if(formData.locations){ 
-                contractLocationSaveUpdate(req,newID,false)
+                contractLocationSaveUpdate(req,newID,false,transaction)
             }
+
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'project saved/updated',
@@ -188,9 +225,14 @@ const projectSaveUpdate = async (req,res)=>{
             });
            
              
-        } catch (error) { 
-            return res.status(400).json({ message: error.message,data:null}); 
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of projectSaveUpdate
@@ -221,6 +263,7 @@ const getContractDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
         
         if (Id) {
             query = `exec ClientContract_Get '${Id}'`;  
@@ -255,6 +298,7 @@ const getProjectDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
 
         if (Id){
             query = `exec ClientProject_Get '${Id}'`;  
@@ -291,6 +335,7 @@ const getContractsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec ClientContract_GetList '${organizationId}'`;   
          
@@ -318,6 +363,7 @@ const getAttendanceContractsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec Attendance_ClientContract_GetList '${organizationId}'`;   
          
@@ -346,6 +392,7 @@ const getAttendanceContractLocationsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec Attendance_ClientContract_Locations '${contractId}'`;   
          
@@ -375,6 +422,7 @@ const propertySaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
             console.log('formData');
             console.log(formData); 
+            await setTenantContext(pool,req);
               
             const pool = await sql.connect(config);
                
@@ -438,6 +486,7 @@ const getPropertyDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
 
         if (Id){
             query = `exec Property_Get '${Id}'`;   
@@ -476,6 +525,7 @@ const locationSaveUpdate = async (req,res)=>{
             console.log(formData); 
               
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
                
             const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
@@ -520,6 +570,7 @@ const getLocationDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
 
         if (Id){
             query = `exec Location_Get '${Id}'`;   
@@ -554,6 +605,7 @@ const getContractLocations = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         const locationsQuery = `exec ContractLocation_Get '${Id}',${IsForContract ? 1 : 0}`;   
         const locationsApiResponse = await pool.request().query(locationsQuery); 
