@@ -41,7 +41,7 @@ const invoiceSaveUpdate = async (req,res)=>{
 
             await setTenantContext(pool,req);
 
-            
+           
             await transaction.begin();
             
             const request = new sql.Request(transaction);
@@ -180,7 +180,8 @@ async function additionalFieldSaveUpdate(req,invoiceId,transaction){
                             .input('fieldName', sql.NVarChar(255), item.field)
                             .input('fieldValue', sql.NVarChar(255), item.value) 
                             .input('organizationId', sql.NVarChar(65), formData.organizationId || '')
-                            .input('createdBy', sql.NVarChar(100), formData.createdBy)
+                            .input('createdBy', sql.NVarChar(100), req.authUser.username)
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                             .execute('FinTransactionAddtionalFieldValue_SaveOrUpdate');
 
                         }

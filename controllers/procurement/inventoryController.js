@@ -12,6 +12,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const constentsSlice = require("../../constents");
 const { sendEmail } = require("../../services/mailer");
 const { getPOSentTemplate } = require("../../utils/poSentTemplate");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -255,6 +256,8 @@ const getInventoryGRNItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+
+        await setTenantContext(pool,req);
  
        
         const response = await pool.request() 

@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -33,6 +34,7 @@ const vendorSaveUpdate = async (req,res)=>{
             console.log(formData); 
               
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
               
             await pool.request()
             .input("ID2", sql.NVarChar(65), formData.ID2)
@@ -53,7 +55,11 @@ const vendorSaveUpdate = async (req,res)=>{
             .input("IBAN", sql.NVarChar(100), formData.iban)
             .input("SWIFTCode", sql.NVarChar(100), formData.swiftCode)
             .input("StatusId", sql.Int, formData.statusId === 'null' ? null : formData.statusId || null)
-            .input("CreatedBy", sql.NVarChar(100), formData.createdBy)
+            .input("CreatedBy", sql.NVarChar(100), req.authUser.username)
+            .input("OrganizationId", sql.NVarChar(100), formData.organizationId || null)
+            .input("BranchId", sql.NVarChar(100), formData.branchId || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .execute("dbo.Vendor_SaveUpdate");
 
     
@@ -98,6 +104,7 @@ const getVendorDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
 
         if (Id){
             query = `exec Vendor_GetDetails '${Id}'`;  
@@ -135,6 +142,7 @@ const getVendorsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec Vendor_GetDetails `;   
          

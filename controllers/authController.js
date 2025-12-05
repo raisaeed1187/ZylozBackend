@@ -8,6 +8,7 @@ const { setCurrentDatabase } = require('../constents').actions;
 const { sendEmail } = require('../services/mailer');
 const { generateOtp } = require('../utils/generateOTP');
 const { getOtpTemplate } = require('../utils/otpEmailTemplates');
+const { setTenantContext } = require("../helper/db/sqlTenant");
 
 
 
@@ -28,6 +29,7 @@ const userCreation = async (req,res)=>{
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
             
             // const existingUser = await pool
             // .request()
@@ -73,6 +75,7 @@ const userCreation = async (req,res)=>{
             request.input("password", sql.NVarChar(255), hashedPassword);
             request.input("client", sql.NVarChar(50), req.authUser.database);
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
+            request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
             await request.execute("User_Registeration");
  
@@ -281,6 +284,7 @@ const sendOTP = async (req, res) => {
         const config = store.getState().constents.config;
 
         const pool = await sql.connect(config);
+        // await setTenantContext(pool,req);
 
         // Get Vendor Details
         const vendorResponse = await pool
@@ -317,7 +321,7 @@ const sendOTP = async (req, res) => {
             .input("Purpose", sql.NVarChar, "VendorVerification")             // Purpose
             .input("SentTo", sql.NVarChar, email)                             // Email
             .input("SentChannel", sql.NVarChar, "Email")                      // Email/SMS
-            .input("ExpiryDateTime", sql.DateTime, expiresAt)                 // Expiry
+            .input("ExpiryDateTime", sql.DateTime, expiresAt)    // Expiry 
             .execute("UserOTPVerification_Save");
 
         return res.status(200).json({

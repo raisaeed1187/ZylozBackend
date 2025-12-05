@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,6 +24,8 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const transactionAccessSaveOrUpdate = async (req, res) => {
   const formData = req.body;
 
+    let pool, transaction;
+
   try {
     // Set DB connection & user context
     store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -31,15 +34,22 @@ const transactionAccessSaveOrUpdate = async (req, res) => {
 
     console.log("formData:", formData);
 
-    const pool = await sql.connect(config);
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
 
+    await setTenantContext(pool,req);
+
+    
+    await transaction.begin();
+    
+    const request = new sql.Request(transaction);
+              
     const mainPermissions = JSON.parse(formData.mainPermissions); 
 
     console.log('mainPermissions');
     console.log(mainPermissions);
 
-    const result = await pool
-      .request()
+    const result = await request
       .input("ID2", sql.NVarChar(65), formData.ID2 || null)
       .input("TransactionId", sql.NVarChar(65), formData.transactionId || null)
       .input("TransactionName", sql.NVarChar(100), formData.transactionName || null)
@@ -51,50 +61,55 @@ const transactionAccessSaveOrUpdate = async (req, res) => {
       .input("Delete", sql.Bit, parseBoolean(mainPermissions.delete) ?? false)
       .input("Export", sql.Bit, parseBoolean(mainPermissions.export) ?? false)
       .input("Print", sql.Bit, parseBoolean(mainPermissions.print) ?? false)
-      .input("CreatedBy", sql.NVarChar(100), formData.createdBy || req.authUser?.userName || "System")
+      .input("CreatedBy", sql.NVarChar(100), req.authUser?.username )
+      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+      
       .output("ID", sql.NVarChar(100)) // OUTPUT parameter
       .execute("TransactionAccess_SaveOrUpdate");
 
     const newID = result.output.ID;
 
     if(formData.extraPermissions){ 
-        transectionExtraPermissionSaveUpdate(req,newID)
+        await transectionExtraPermissionSaveUpdate(req,newID,transaction)
     }
+
+    await transaction.commit();
+
 
     res.status(200).json({
       message: "Transaction Access saved/updated successfully",
       id: newID,
     });
-  } catch (error) {
-    console.error("Error saving TransactionAccess:", error);
-    res.status(400).json({
-      message: error.message,
-      data: null,
-    });
-  }
+  }  catch (err) { 
+        console.error("SQL ERROR DETAILS:", err);
+        if (transaction) try { await transaction.rollback(); } catch(e) {}
+
+        return res.status(400).json({ 
+            message: err.message,
+            // sql: err.originalError?.info || err
+        }); 
+    }
 };
 
-async function transectionExtraPermissionSaveUpdate(req,transectionId){
+async function transectionExtraPermissionSaveUpdate(req,transectionId,transaction){
     const formData = req.body; 
     const extraPermissions = JSON.parse(formData.extraPermissions); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (extraPermissions) {
                     for (let item of extraPermissions) {  
                         console.log(item);
                         if(item.PermissionName){  
-
-                            const result = await pool.request()
+                            const itemRequest = new sql.Request(transaction);
+                                
+                            const result = await itemRequest
                             .input('ID2', sql.NVarChar(65), item.ID2 || null)
                             .input('TransactionAccessId', sql.NVarChar(65), transectionId || null)
                             .input('PermissionCode', sql.NVarChar(100), item.PermissionCode)
                             .input('PermissionName', sql.NVarChar(250), item.PermissionName || null) 
                             .input('IsActive', sql.Bit, parseBoolean(item.IsActive) || false ) 
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )   
                             .execute('TransactionExtraPermissions_SaveOrUpdate');
                         }
                     } 
@@ -129,6 +144,7 @@ const getTransectionAccessDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         query = `exec TransactionAccess_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -169,36 +185,31 @@ const getTransectionAccessDetails = async (req, res) => {
  
 const getAllTransectionAccessWithPermissions = async (req, res) => {  
     try {
-
-        // 🔧 Setup configuration
+ 
         store.dispatch(setCurrentDatabase(req.authUser.database));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);
-
-        // 🧩 Step 1: Get all transaction access records
+        await setTenantContext(pool,req);
+ 
         const transectionAccessResult = await pool.request().query(`EXEC TransactionAccessForRole_Get`);
-
-        // 🧩 Step 2: Get all extra permissions
+ 
         const extraPermissionsResult = await pool.request().query(`EXEC TransactionExtraPermissionsForRole_Get`);
 
         const transectionAccessList = transectionAccessResult.recordset || [];
         const extraPermissionsList = extraPermissionsResult.recordset || [];
-
-        // 🧠 Step 3: Group extra permissions by TransactionAccessId
+ 
         const groupedPermissions = extraPermissionsList.reduce((acc, perm) => {
             if (!acc[perm.TransactionAccessId]) acc[perm.TransactionAccessId] = [];
             acc[perm.TransactionAccessId].push(perm);
             return acc;
         }, {});
-
-        // 🧱 Step 4: Merge main transaction access with their respective extra permissions
+ 
         const combinedData = transectionAccessList.map(access => ({
             ...access,
             extraPermissions: groupedPermissions[access.transactionAccessId] || []
         }));
-
-        // ✅ Return final structured response
+ 
         res.status(200).json({
             message: "All Transaction Access with respective permissions loaded successfully!",
             data: combinedData
@@ -213,7 +224,7 @@ const getAllTransectionAccessWithPermissions = async (req, res) => {
 
 
 const getTransectionAccesssList = async (req, res) => {  
-    const {organizationId,Id} = req.body; // user data sent from client
+    const {organizationId,Id} = req.body;  
      
     try {
          
@@ -222,6 +233,8 @@ const getTransectionAccesssList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        
+        await setTenantContext(pool,req);
          
         query = `exec TransactionAccess_Get `;   
           

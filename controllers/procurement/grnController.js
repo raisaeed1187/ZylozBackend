@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -36,6 +37,7 @@ const grnSaveUpdate = async (req,res)=>{
               
             pool = await sql.connect(config);
             transaction = new sql.Transaction(pool);
+            await setTenantContext(pool,req);
 
             await transaction.begin();
 
@@ -55,7 +57,9 @@ const grnSaveUpdate = async (req,res)=>{
             .input('statusId', sql.Int, formData.statusId || 1)
             .input('totalItems', sql.Int, formData.totalItems || 0)
             .input('totalAmount', sql.Decimal(18, 8), formData.totalAmount || 0)
-            .input('createdBy', sql.NVarChar(100), formData.createdBy)
+            .input('createdBy', sql.NVarChar(100), req.authUser.username )
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100))
             .execute('GRN_SaveUpdate');
 
@@ -121,6 +125,7 @@ async function grnItemSaveUpdate(req,grnId,transaction){
                                 .input('currentReceivingQty', sql.NVarChar(100), String(item.currentReceivingQty))
                                 .input('remarks', sql.NVarChar(sql.MAX), item.remarks) 
                                 .input('statusId', sql.Int, formData.statusId || 1) 
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                                 .execute('GRNItem_SaveOrUpdate');
                         }
                     }
@@ -162,6 +167,7 @@ const getGRNDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec GRN_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -197,6 +203,7 @@ const getGRNItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         if (poId) {
             query = `exec GRNItem_Get null,null,'${poId}'`; 
@@ -229,7 +236,9 @@ const getGRNsList = async (req, res) => {
         store.dispatch(setCurrentDatabase(req.authUser.database));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
+        const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
+
         let query = '';
         if (IsForPO){
             query = `exec PurchaseRequest_Get Null, ${IsForPO}`;   
@@ -260,6 +269,8 @@ const getPOPreviousGRns = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
+
         let query = ''; 
         query = `exec PO_Previous_GRNs_Get  ${poID}`;   
           

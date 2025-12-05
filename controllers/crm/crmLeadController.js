@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -31,6 +32,9 @@ const crmLeadSaveUpdate = async (req, res) => {
         console.log('formData:', formData);
 
         const pool = await sql.connect(config);
+
+        await setTenantContext(pool,req);
+
 
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || null)
@@ -61,6 +65,7 @@ const crmLeadSaveUpdate = async (req, res) => {
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId || null)
             .input('CreatedBy', sql.NVarChar(100), req.authUser.username || null)
             .input('ChangedBy', sql.NVarChar(100), req.authUser.username || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )   
             .execute('CRMLead_SaveOrUpdate');
 
         res.status(200).json({
@@ -95,6 +100,7 @@ const getCRMLeadDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
            const result = await pool.request()
             .input('ID2', sql.NVarChar(65), Id ||  null) 
@@ -133,6 +139,7 @@ const getCRMLeadActivities = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let result = null;
+            await setTenantContext(pool,req);
 
           if (isOpportunity) {
             result = await pool.request()
@@ -143,13 +150,7 @@ const getCRMLeadActivities = async (req, res) => {
             .input('LeadID', sql.NVarChar(65), Id ||  null)  
             .execute('CRMLeadActivities_Get');
           }
-
-           
-
-            
  
-       
-         
         res.status(200).json({
             message: `CRMLead details loaded successfully!`,
             data: result.recordset
@@ -173,6 +174,7 @@ const getCRMLeadsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65),  null) 
@@ -202,6 +204,7 @@ const saveOrUpdateLeadStatusHistory = async (req, res) => {
 
     const pool = await sql.connect(config);
     const transaction = new sql.Transaction(pool);
+    await setTenantContext(pool,req);
 
     let transactionBegun = false;
 
@@ -218,6 +221,7 @@ const saveOrUpdateLeadStatusHistory = async (req, res) => {
       request.input("ActionType", sql.NVarChar(50), formData.actionType ?? null);
       request.input("ChangeBy", sql.NVarChar(100), req.authUser.username);
       request.input("DurationInPreviousStage", sql.Int, formData.durationInPreviousStage ?? null);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId); 
 
       const result = await request.execute("LeadStatusHistory_SaveOrUpdate");
 
@@ -229,8 +233,7 @@ const saveOrUpdateLeadStatusHistory = async (req, res) => {
       });
 
     } catch (err) {
-
-      // 🛑 Rollback ONLY if transaction actually started
+ 
       if (transactionBegun) {
         await transaction.rollback();
       }
@@ -263,6 +266,7 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
 
     const pool = await sql.connect(config);
     const transaction = new sql.Transaction(pool);
+    await setTenantContext(pool,req);
 
     await transaction.begin();
 
@@ -288,7 +292,8 @@ const leadCallLogSaveOrUpdate = async (req, res) => {
       request.input("CreatedBy", sql.NVarChar(100), req.authUser.username);
       request.input("UpdatedBy", sql.NVarChar(100), req.authUser.username || null);
       request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
-
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
+ 
       const result = await request.execute("LeadCallLog_SaveOrUpdate");
 
       await transaction.commit();
@@ -320,6 +325,7 @@ const leadNoteSaveOrUpdate = async (req, res) => {
 
     const pool = await sql.connect(config);
     const transaction = new sql.Transaction(pool);
+    await setTenantContext(pool,req);
 
     await transaction.begin();
 
@@ -335,6 +341,7 @@ const leadNoteSaveOrUpdate = async (req, res) => {
       request.input("Tags", sql.NVarChar(sql.MAX), formData.tags || null);
       request.input("UserName", sql.NVarChar(100), currentUser);
       request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMLeadNotes_SaveOrUpdate");
 
@@ -370,6 +377,7 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
 
     pool = await sql.connect(config);
     transaction = new sql.Transaction(pool);
+    await setTenantContext(pool,req);
 
     await transaction.begin();
 
@@ -389,7 +397,6 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
       request.input("Platform", sql.NVarChar(100), formData.platform);
       request.input("Agenda", sql.NVarChar(sql.MAX), formData.agenda);
       request.input("Notes", sql.NVarChar(sql.MAX), formData.notes);
-
       // Attendees as JSON string
       request.input(
         "Attendees",
@@ -399,6 +406,7 @@ const leadMeetingSaveOrUpdate = async (req, res) => {
 
       request.input("UserName", sql.NVarChar(100), req.authUser.username);
       request.input("OpportunityID", sql.NVarChar(65), formData.opportunityID || null);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMLeadMeetings_SaveOrUpdate");
 
@@ -434,6 +442,7 @@ const opportunitysaveUpdate = async (req, res) => {
 
     pool = await sql.connect(config);
     transaction = new sql.Transaction(pool);
+    await setTenantContext(pool,req);
 
     await transaction.begin();
 
@@ -461,6 +470,7 @@ const opportunitysaveUpdate = async (req, res) => {
       request.input("StatusId", sql.Int, formData.statusId);
 
       request.input("UserName", sql.NVarChar(100), req.authUser.username);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMOpportunity_SaveOrUpdate");
 
@@ -491,6 +501,7 @@ const getCRMOpportunity = async (req, res) => {
 
     const pool = await sql.connect(config);
     const request = pool.request();
+            await setTenantContext(pool,req);
 
     request.input("ID2", sql.NVarChar(65), id2 || null);
     request.input("OrganizationId", sql.NVarChar(65), organizationId || null);
@@ -516,6 +527,7 @@ const getCRMOpportunityDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
            const result = await pool.request()
             .input('ID2', sql.NVarChar(65), Id ||  null) 
@@ -558,6 +570,8 @@ const crmAccountSaveUpdate = async (req, res) => {
     const config = store.getState().constents.config;
 
     pool = await sql.connect(config);
+    await setTenantContext(pool,req);
+
     transaction = new sql.Transaction(pool);
     await transaction.begin();
 
@@ -595,6 +609,7 @@ const crmAccountSaveUpdate = async (req, res) => {
       request.input("OrganizationId", sql.NVarChar(65), formData.organizationId);
 
       request.input("User", sql.NVarChar(150), req.authUser.username);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMAccount_SaveOrUpdate");
 
@@ -634,6 +649,8 @@ const getCRMAccount = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
+
     const request = pool.request();
 
     request.input("ID2", sql.NVarChar(65), id2 || null);
@@ -704,6 +721,7 @@ const crmContactSaveUpdate = async (req, res) => {
       request.input("StatusId", sql.Int, formData.statusId || 0);
 
       request.input("User", sql.NVarChar(150), req.authUser.username);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMContact_SaveOrUpdate");
 
@@ -733,6 +751,8 @@ const getCRMContact = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
+
     const request = pool.request();
 
     request.input("ID2", sql.NVarChar(65), id2 || null);
@@ -759,6 +779,8 @@ const saveOrUpdateOpportunityStatusHistory = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
+
     const transaction = new sql.Transaction(pool);
 
     let transactionBegun = false;
@@ -776,6 +798,7 @@ const saveOrUpdateOpportunityStatusHistory = async (req, res) => {
       request.input("ActionType", sql.NVarChar(50), formData.actionType ?? null);
       request.input("ChangeBy", sql.NVarChar(100), req.authUser.username);
       request.input("DurationInPreviousStage", sql.Int, formData.durationInPreviousStage ?? null);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("OpportunityStatusHistory_SaveOrUpdate");
 
@@ -787,8 +810,7 @@ const saveOrUpdateOpportunityStatusHistory = async (req, res) => {
       });
 
     } catch (err) {
-
-      // 🛑 Rollback ONLY if transaction actually started
+ 
       if (transactionBegun) {
         await transaction.rollback();
       }
@@ -820,6 +842,9 @@ const CRMEmailSaveOrUpdate = async (req, res) => {
     const config = store.getState().constents.config;
 
     pool = await sql.connect(config);
+    await setTenantContext(pool,req);
+
+
     transaction = new sql.Transaction(pool);
 
     await transaction.begin();
@@ -840,6 +865,7 @@ const CRMEmailSaveOrUpdate = async (req, res) => {
       request.input("OrganizationId", sql.NVarChar(65), formData.organizationId || null);
       request.input("StatusId", sql.Int, formData.statusId || 1);
       request.input("User", sql.NVarChar(150), req.authUser.username);
+      request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
 
       const result = await request.execute("CRMEmail_SaveOrUpdate");
 

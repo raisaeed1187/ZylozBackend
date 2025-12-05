@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,6 +24,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const itemSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
+    let pool, transaction;
 
     try {
              
@@ -32,9 +34,18 @@ const itemSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+                
               
-            const result = await pool.request()
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2)
             .input('itemType', sql.NVarChar(65), formData.itemType)
             .input('itemCode', sql.NVarChar(100), formData.itemCode)
@@ -48,15 +59,18 @@ const itemSaveUpdate = async (req,res)=>{
             .input("statusId", sql.Int, formData.statusId === 'null' ? null : formData.statusId || null) 
             .input('sellingPrice', sql.NVarChar(100), formData.sellingPrice || '0')
             .input('costPrice', sql.NVarChar(100), formData.costPrice || '0')
-            .input('createdBy', sql.NVarChar(100), formData.createdBy)
+            .input('createdBy', sql.NVarChar(100), req.authUser.username)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100)) // output param 
             .execute('dbo.MaterialItem_SaveUpdate');
 
             const newID = result.output.ID; 
             if(formData.itemVariations){ 
-                itemVariationSaveUpdate(req,newID)
+                await itemVariationSaveUpdate(req,newID,transaction)
             }
     
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'item saved/updated',
@@ -64,30 +78,32 @@ const itemSaveUpdate = async (req,res)=>{
             });
            
              
-        } catch (error) { 
-            return res.status(400).json({ message: error.message,data:null}); 
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of itemSaveUpdate
  
 
-async function itemVariationSaveUpdate(req, itemId) {
+async function itemVariationSaveUpdate(req, itemId,transaction) {
     const formData = req.body;
     const itemVariations = JSON.parse(formData.itemVariations);  
 
     try {
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser));
-        const config = store.getState().constents.config;
-
-        const pool = await sql.connect(config);
-
+        
         try {
             for (let item of itemVariations) {
                 console.log(item);
                 if (item.variationName) {
-                    const result = await pool.request()
+                    const itemRequest = new sql.Request(transaction);
+                    
+                    const result = await itemRequest
                         .input('ID2', sql.NVarChar(65), item.ID2 || null)
                         .input('ItemId', sql.NVarChar(65), itemId)
                         .input('VariationName', sql.NVarChar(250), item.variationName)
@@ -95,14 +111,17 @@ async function itemVariationSaveUpdate(req, itemId) {
                         .input('AdditionalPrice', sql.Decimal(18, 2), item.price || 0)
                         .input('AreaId', sql.NVarChar(65), item.areaId || null)
                         .input('AreaName', sql.NVarChar(65), item.areaName || null) 
-                        .input('CreatedBy', sql.NVarChar(100), formData.createdBy || 'system')
+                        .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
+                        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                        
                         .execute('ItemVariation_SaveOrUpdate'); 
                 }
  
             }
 
         } catch (err) {
-            throw new Error("SQL Error: " + err.message);
+            throw new Error(err.message);
+
         }
 
     } catch (error) {
@@ -137,6 +156,7 @@ const getItemDetails = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         let itemQuery = '';
+            await setTenantContext(pool,req);
 
         if (Id){
             query = `exec MaterialItem_Get '${Id}'`;  
@@ -180,6 +200,7 @@ const getItemsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec MaterialItem_GetList `;   
          
@@ -207,6 +228,7 @@ const getItemVariationsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec ItemVariation_Get  ${itemId}`;   
          
@@ -233,6 +255,7 @@ const getItemsWithVariations = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
 
         // Fetch all items
         // const apiResponse = await pool.request().query(`exec MaterialItem_Get`);

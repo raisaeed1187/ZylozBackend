@@ -6,10 +6,13 @@ const { setCurrentDatabase, setCurrentUser } = require("../../constents").action
 
 // const { io } = require("../../socket/socketServer");
 const { getIO } = require("../../socket/socket"); 
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const roleSaveOrUpdate = async (req, res) => {
   const formData = req.body;
+
+  let pool, transaction;
 
   try {
     // Set DB connection & user context
@@ -17,18 +20,27 @@ const roleSaveOrUpdate = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
 
-    const pool = await sql.connect(config);
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
 
+    await setTenantContext(pool,req);
+
+    
+    await transaction.begin();
+    
+    const request = new sql.Request(transaction);
+      
     const mainPermissions = JSON.parse(formData.mainPermissions); 
     const extraPermissions = JSON.parse(formData.extraPermissions); 
     
     // Save/Update Role
-    const roleResult = await pool
-      .request()
+    const roleResult = await request
       .input("ID2", sql.NVarChar(65), formData.ID2 || null)
       .input("RoleName", sql.NVarChar(100), formData.roleName)
       .input("Description", sql.NVarChar(500), formData.description || null)
-      .input("CreatedBy", sql.NVarChar(100), formData.createdBy || req.authUser?.userName || "System") 
+      .input("CreatedBy", sql.NVarChar(100), req.authUser?.username) 
+      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+      
       .output("ID", sql.NVarChar(65))
       .execute("ApplicationRole_SaveOrUpdate");
 
@@ -36,11 +48,13 @@ const roleSaveOrUpdate = async (req, res) => {
 
     // Save/Update Role Permissions
     if (formData.mainPermissions?.length) { 
-       await applicationRolePermissionsSaveUpdate(req,newRoleID); 
+       await applicationRolePermissionsSaveUpdate(req,newRoleID,transaction); 
     }
     
     // console.log('before emmit');
     
+
+
     const io = getIO();
 
     if (io) {
@@ -51,36 +65,37 @@ const roleSaveOrUpdate = async (req, res) => {
       }); 
     }
 
+    await transaction.commit();
+
 
     res.status(200).json({
       message: "Role and permissions saved/updated successfully",
       roleID: '',
     });
-  } catch (error) {
-    console.error("Error saving role:", error);
-    res.status(400).json({
-      message: error.message,
-      data: null,
-    });
+  } catch (err) { 
+      console.error("SQL ERROR DETAILS:", err);
+      if (transaction) try { await transaction.rollback(); } catch(e) {}
+      
+      return res.status(400).json({ 
+          message: err.message,
+          // sql: err.originalError?.info || err
+      }); 
   }
 };
 
-async function applicationRolePermissionsSaveUpdate(req,roleId){
+async function applicationRolePermissionsSaveUpdate(req,roleId,transaction){
     const formData = req.body; 
     const mainPermissions = JSON.parse(formData.mainPermissions); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+            
             try { 
                 if (mainPermissions) {
                     for (let item of mainPermissions) {  
                         console.log(item);
                         if(item.transactionName){  
-                            const rolePermissionResult = await pool
-                            .request()
+                            const itemRequest = new sql.Request(transaction);
+                          
+                            const rolePermissionResult = await itemRequest
                             .input("ID2", sql.NVarChar(65), item.ID2 || null)
                             .input("RoleID", sql.NVarChar(65), roleId)
                             .input("TransactionID", sql.NVarChar(65), item.transactionAccessId)
@@ -92,7 +107,8 @@ async function applicationRolePermissionsSaveUpdate(req,roleId){
                             .input("DeleteAccess", sql.Bit, parseBoolean(item.delete) ?? false)
                             .input("ExportAccess", sql.Bit, parseBoolean(item.export) ?? false)
                             .input("PrintAccess", sql.Bit, parseBoolean(item.print) ?? false)
-                            .input("CreatedBy", sql.NVarChar(100), req.authUser?.userName || "System") 
+                            .input("CreatedBy", sql.NVarChar(100), req.authUser?.username) 
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                             .output("ID", sql.NVarChar(65))
                             .execute("ApplicationRolePermissions_SaveOrUpdate");
 
@@ -100,7 +116,7 @@ async function applicationRolePermissionsSaveUpdate(req,roleId){
 
                             // Save Extra Permissions if any
                             if (item.extraPermissions?.length) {
-                               await applicationRoleExtraPermissionsSaveUpdate(req,roleId,newRolePermissionID,item)
+                               await applicationRoleExtraPermissionsSaveUpdate(req,roleId,newRolePermissionID,item,transaction)
                             }
 
                         }
@@ -117,29 +133,28 @@ async function applicationRolePermissionsSaveUpdate(req,roleId){
 }
 // end of applicationRolePermissionsSaveUpdate
 
-async function applicationRoleExtraPermissionsSaveUpdate(req,roleId,rolePermissionID,transection){
+async function applicationRoleExtraPermissionsSaveUpdate(req,roleId,rolePermissionID,itemData,transaction){
     const formData = req.body; 
-    const extraPermissions = transection.extraPermissions; 
+    const extraPermissions = itemData.extraPermissions; 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+            
             try { 
                 if (extraPermissions) {
                     for (let item of extraPermissions) {  
                         console.log(item);
                         if(item.PermissionName){  
-                            await pool
-                            .request()
+                            const extraRequest = new sql.Request(transaction);
+                          
+                            await extraRequest
                             .input("ID2", sql.NVarChar(65), item.ID2 || null)
                             .input("RolePermissionID", sql.NVarChar(65), rolePermissionID) // from permissions 
                             .input("RoleID", sql.NVarChar(65), roleId) // from permissions 
                             .input("PermissionCode", sql.NVarChar(50), item.PermissionCode)
                             .input("PermissionName", sql.NVarChar(100), item.PermissionName)
                             .input("IsActive", sql.Bit, parseBoolean(item.IsActive) ?? false)
-                            .input("CreatedBy", sql.NVarChar(100), req.authUser?.userName || "System") 
+                            .input("CreatedBy", sql.NVarChar(100), req.authUser?.username) 
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                             .execute("RoleTransectionExtraPermissions_SaveOrUpdate");
                         }
                     } 
@@ -174,9 +189,8 @@ const assignRoleToUser = async (req, res) => {
 
     const pool = await sql.connect(config);
 
-    console.log(formData);
- 
-    console.log(req.authUser);
+    await setTenantContext(pool,req);
+     
 
 
     // const roleResult = await pool
@@ -195,6 +209,8 @@ const assignRoleToUser = async (req, res) => {
       .input("BranchIDs", sql.NVarChar(sql.MAX), formData.BranchIDs)
       .input("IsActive", sql.Bit, parseBoolean(formData.IsActive) ? 1 : 0)
       .input("CreatedBy", sql.NVarChar(100), req.authUser.username) 
+      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+      
       .execute("UserApplicationRole_SaveOrUpdate_Multi");
 
       
@@ -230,6 +246,9 @@ const getRolesList = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config); 
+    await setTenantContext(pool,req);
+
+
     const result = await pool.request().query(`EXEC ApplicationRole_Get`);
 
     console.log("UsersRoles result:");
@@ -254,6 +273,7 @@ const getUsersRolesList = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     // const result = await pool.request().query(`EXEC UsersRoles_Get`);
 
@@ -304,6 +324,7 @@ const getUserPermissions = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
  
     const result = await pool
                         .request()
@@ -347,6 +368,7 @@ const getRoleDetails = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     const roleResult = await pool.request().input("ID2", sql.NVarChar(65), ID2).query(`EXEC ApplicationRole_Get @ID2='${ID2}'`);
 

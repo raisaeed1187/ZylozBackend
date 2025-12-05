@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -32,6 +33,7 @@ const warehouseSaveUpdate = async (req,res)=>{
             console.log(formData); 
               
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
              
             const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || null) // use null for new warehouse
@@ -56,6 +58,8 @@ const warehouseSaveUpdate = async (req,res)=>{
             .input('CreatedBy', sql.NVarChar(100), req.authUser.username || null)
             .input('UpdatedBy', sql.NVarChar(100), req.authUser.username || null)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+           
             .execute('Warehouse_SaveOrUpdate');
   
 
@@ -90,6 +94,7 @@ const getWarehouseDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
            const result = await pool.request()
             .input('ID2', sql.NVarChar(65), Id ||  null)
@@ -128,6 +133,7 @@ const getWarehousesList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65),  null)

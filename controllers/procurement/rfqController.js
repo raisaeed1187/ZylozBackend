@@ -16,6 +16,7 @@ const { sendEmail } = require('../../services/mailer');
 const { getRfqTemplate,getRfqTemplateNew } = require('../../utils/rfqEmailTemplate');
 const { getRfqSubmittedTemplate } = require('../../utils/rfqSubmittedTemplate');
 const { helper } = require("../../helper");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
  
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -38,6 +39,7 @@ const rfqSaveUpdate = async (req, res) => {
 
         pool = await sql.connect(config);
         transaction = new sql.Transaction(pool);
+        await setTenantContext(pool,req);
 
         console.log("Starting SQL Transaction...");
         await transaction.begin();
@@ -61,6 +63,7 @@ const rfqSaveUpdate = async (req, res) => {
             .input('DeliveryDate', sql.NVarChar(100), formData.deliveryDate || null) 
             .input('DeliveryLocation', sql.NVarChar(100), formData.deliveryLocation || null) 
             .input('OrderNo', sql.NVarChar(100), formData.orderNo || null) 
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
             
             .output('ID', sql.NVarChar(100))
             .execute('RFQ_SaveOrUpdate');
@@ -85,6 +88,8 @@ const rfqSaveUpdate = async (req, res) => {
                 .input('VatID', sql.NVarChar(65), String(item.taxId))
                 .input('Vat', sql.NVarChar(65), String(item.tax))
                 .input('Total', sql.NVarChar(100), String(item.amount))
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                
                 .output('ID', sql.NVarChar(100))
                 .execute('RFQItem_SaveOrUpdate');
 
@@ -103,6 +108,8 @@ const rfqSaveUpdate = async (req, res) => {
                         .input('VendorId', sql.NVarChar(65), vendor.id)
                         .input('UnitPrice', sql.Decimal(18, 5), vendor.value)
                         .input('IsSelected', sql.Bit, vendor.id === item.selectedVendorId ? 1 : 0)
+                        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                        
                         .output('ID2', sql.NVarChar(65))
                         .execute('RFQItemVendor_SaveOrUpdate');
  
@@ -269,6 +276,7 @@ async function createPOFromRFQ(req, res, rfqID2, transaction) {
             .input('DeliveryDate', sql.NVarChar(100), formData.deliveryDate || null) 
             .input('DeliveryLocation', sql.NVarChar(100), formData.deliveryLocation || null) 
             .input('OrderNo', sql.NVarChar(100), formData.orderNo || null) 
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
             .output('ID', sql.NVarChar(100))
             .execute('PurchaseOrder_SaveOrUpdate');
@@ -302,6 +310,8 @@ async function createPOFromRFQ(req, res, rfqID2, transaction) {
                 .input('Total', sql.NVarChar(100), String(item.amount))
                 .input('DeliveryLocation', sql.NVarChar(200), "")
                 .input('DeliveryDate', sql.NVarChar(200), null)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                 .execute('PurchaseOrderItem_SaveOrUpdate');
         }
     }
@@ -333,6 +343,7 @@ const getRFQDetails = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
     
      const rfqResponse = await pool.request()
         .input('ID2', sql.NVarChar(65), Id)
@@ -412,6 +423,7 @@ const getPOItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
@@ -443,6 +455,7 @@ const deletePOItem = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec PurchaseOrderItem_Delete  '${Id}','${poId}','${prId}','${itemId}'`;   
         const apiResponse = await pool.request().query(query); 
@@ -469,6 +482,7 @@ const rfqChangeStatus = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     const request = pool.request();
 
@@ -498,6 +512,7 @@ const getRFQsList = async (req, res) => {
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
     const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
 
     const request = pool.request();
 
@@ -529,6 +544,7 @@ const getRFQPOsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         const logoCache = {};
+            await setTenantContext(pool,req);
 
         const result = await pool.request()
             .input('RFQID', sql.NVarChar(65), rfqId)
@@ -604,6 +620,7 @@ const deleteRFQItem = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         const request = pool.request();
 

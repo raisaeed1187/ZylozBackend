@@ -170,8 +170,8 @@ app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDyna
 
 
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
-app.post('/api/get-table',express.json(),getTableDetailsById );
-app.post('/api/get-table-fields',authenticateToken,express.json(),getSpecificTableField );
+app.post('/api/get-reference',express.json(),getTableDetailsById );
+app.post('/api/get-reference-fields',authenticateToken,express.json(),getSpecificTableField );
 
 app.post('/api/save-dynamic-table-data',authenticateToken,express.json(),dynamicFileUpload.single("file"),saveDynamicTableData );
 

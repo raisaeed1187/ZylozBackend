@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
+const { setTenantContext } = require("../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -22,6 +23,7 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
   
 const approvalWorkFlowSaveUpdate = async (req,res)=>{
     const formData = req.body;  
+    let pool, transaction;
 
     try {
              
@@ -31,9 +33,17 @@ const approvalWorkFlowSaveUpdate = async (req,res)=>{
             console.log('formData');
             console.log(formData); 
               
-            const pool = await sql.connect(config);
-             
-            const result = await pool.request()
+             pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
+            const result = await request
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
             .input('ApprovalName', sql.NVarChar(250), formData.approvalName || null)
             .input('Transaction', sql.NVarChar(100), formData.transaction || null)
@@ -41,48 +51,54 @@ const approvalWorkFlowSaveUpdate = async (req,res)=>{
             .input('IsLimitApplicable', sql.Bit, parseBoolean(formData.isLimitApplicable) || false)
             .input('LimitPrice', sql.Decimal(18, 8), formData.limitPrice || null)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId || null)
-            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || null)
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username  )
             .input('ApprovalFor', sql.NVarChar(100), formData.approvalFor || null)
             .input('Classification', sql.NVarChar(100), formData.classification || null)
             .input('Department', sql.NVarChar(100), formData.department || null)
             .input('Contract', sql.NVarChar(100), formData.contract || null)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('ID', sql.NVarChar(100))   
             .execute('ApprovalWorkflow_SaveOrUpdate');
 
             const newID = result.output.ID;
 
             if(formData.approvalLevels){ 
-                approvalLevelSaveUpdate(req,newID)
+               await approvalLevelSaveUpdate(req,newID,transaction)
             }
+
+            await transaction.commit();
 
             res.status(200).json({
                 message: 'approvalWorkFlow saved/updated',
                 data: '' //result
             });
 
-        } catch (error) {
-            return res.status(400).json({ message: error.message,data:null});
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of approvalWorkFlowSaveUpdate
 
-async function approvalLevelSaveUpdate(req,approvalId){
+async function approvalLevelSaveUpdate(req,approvalId,transaction){
     const formData = req.body; 
     const approvalLevels = JSON.parse(formData.approvalLevels); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (approvalLevels) {
                     for (let level of approvalLevels) {  
                         console.log(level);
                         if(level.approver){  
-
-                            const result = await pool.request()
+                            const levelRequest = new sql.Request(transaction);
+                            
+                            const result = await levelRequest
                             .input('ID2', sql.NVarChar(65), level.ID2 || '0')
                             .input('ApprovalWorkFlowId', sql.NVarChar(65), approvalId || null)
                             .input('LevelNumber', sql.Int, level.levelNumber)
@@ -90,9 +106,11 @@ async function approvalLevelSaveUpdate(req,approvalId){
                             .input('Approver', sql.NVarChar(65), level.approver || null)
                             .input('Delegate', sql.NVarChar(65), level.delegate || null)
                             .input('IsFinal', sql.Bit, parseBoolean(level.isFinal) || false )
-                            .input('CreatedBy', sql.NVarChar(100), formData.createdBy || null)
+                            .input('CreatedBy', sql.NVarChar(100), req.authUser.username || null)
                             .input('PriceFrom', sql.Decimal(18, 8), level.priceFrom || null)
                             .input('PriceTo', sql.Decimal(18, 8), level.priceTo || null)
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                             
                             .execute('ApprovalWorkflowLevels_SaveOrUpdate');
                         }
                     } 
@@ -127,6 +145,7 @@ const getApprovalWorkFlowDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
  
         query = `exec ApprovalWorkflow_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -164,6 +183,7 @@ const getApprovalWorkFlowsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+        await setTenantContext(pool,req);
          
         query = `exec ApprovalWorkflow_Get Null,'${organizationId}'`;   
           

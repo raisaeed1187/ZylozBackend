@@ -12,6 +12,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const constentsSlice = require("../../constents");
 const { sendEmail } = require("../../services/mailer");
 const { getPOSentTemplate } = require("../../utils/poSentTemplate");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -39,6 +40,9 @@ const poSaveUpdate = async (req,res)=>{
             pool = await sql.connect(config);
             transaction = new sql.Transaction(pool);
 
+            await setTenantContext(pool,req);
+
+
             await transaction.begin();
 
             const request = new sql.Request(transaction);
@@ -61,6 +65,8 @@ const poSaveUpdate = async (req,res)=>{
             .input('TermsConditions', sql.NVarChar(sql.MAX), formData.termsConditions) 
             .input('DeliveryDate', sql.NVarChar(100), formData.deliveryDate) 
             .input('DeliveryLocation', sql.NVarChar(100), formData.deliveryLocation) 
+            .input('OrderNo', sql.NVarChar(100), formData.orderNo || null)  
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
             .output('ID', sql.NVarChar(100))  
             .execute('PurchaseOrder_SaveOrUpdate');
@@ -176,6 +182,7 @@ async function poItemSaveUpdate(req,poId,transaction){
                                 .input('Total', sql.NVarChar(100), String(item.total))
                                 .input('DeliveryLocation', sql.NVarChar(500), item.deliveryLocation)
                                 .input('DeliveryDate', sql.NVarChar(100), item.deliveryDate)
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                                 .execute('PurchaseOrderItem_SaveOrUpdate');
                         }
@@ -219,6 +226,7 @@ const getPODetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec PurchaseOrder_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query); 
@@ -255,6 +263,7 @@ const getPOItems = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
        
         const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
@@ -286,6 +295,7 @@ const getGRNPOItems = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
  
+            await setTenantContext(pool,req);
        
         const itemsQuery = `exec GRNPurchaseOrderItem_Get '${poID}'`;   
         console.log('itemsQuery');
@@ -315,6 +325,7 @@ const deletePOItem = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec PurchaseOrderItem_Delete  '${Id}','${poId}','${prId}','${itemId}'`;   
         const apiResponse = await pool.request().query(query); 
@@ -342,6 +353,8 @@ const getPOsList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
+
         let query = '';
         if (grn) {
             query = `exec PurchaseOrder_FOR_GRN_Get  '${organizationId}' `;   
@@ -375,7 +388,10 @@ const getPurchaseReport = async (req, res) => {
         store.dispatch(setCurrentDatabase(req.authUser.database));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
+        const pool = await sql.connect(config); 
+
+            await setTenantContext(pool,req);
+ 
         let query = '';
         if (vendorId) {
             query = `exec PurchaseReport_Get '${organizationId}','${vendorId}' `;   
