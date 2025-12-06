@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -32,6 +33,7 @@ const shiftSaveUpdate = async (req,res)=>{
             console.log(formData); 
               
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
              
             const result = await pool.request()
             .input('ID2', sql.NVarChar(65), formData.ID2 || '0') 
@@ -39,7 +41,9 @@ const shiftSaveUpdate = async (req,res)=>{
             .input('startTime', sql.NVarChar(100), formData.startTime || null) 
             .input('endTime', sql.NVarChar(100), formData.endTime || null)  
             .input('organizationId', sql.NVarChar(65), formData.organizationId || null) 
-            .input('createdBy', sql.NVarChar(100), formData.createdBy || null)  
+            .input('createdBy', sql.NVarChar(100), req.authUser.username)  
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .execute('ShiftMaster_SaveOrUpdate');   
 
             res.status(200).json({
@@ -73,6 +77,7 @@ const getShiftDetails = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
  
         query = `exec ShiftMaster_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -106,6 +111,7 @@ const getShiftsList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
          
         query = `exec ShiftMaster_Get Null,'${organizationId}'`;   
           

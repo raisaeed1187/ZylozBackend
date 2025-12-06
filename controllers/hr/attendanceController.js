@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
+const { setTenantContext } = require("../../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -40,6 +41,8 @@ const attendanceSaveUpdate = async (req,res)=>{
             };
 
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try { 
                 for (const record of attendanceData) {
                     // console.log(record);
@@ -67,9 +70,10 @@ const attendanceSaveUpdate = async (req,res)=>{
 
                       .input("totalWorkingHours", sql.NVarChar(100), record.totalWorkingHours)
                       .input("absentType", sql.NVarChar(100), record.absentType) 
-                      .input("changedBy", sql.NVarChar(100), changedBy)
+                      .input("changedBy", sql.NVarChar(100), req.authUser.username)
                       .input("projectId", sql.NVarChar(65), record.projectID)
                       .input("locationId", sql.NVarChar(65), record.locationId)
+                      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                       .execute("dbo.StaffAttendance_SaveOrUpdate");
                 }
@@ -109,6 +113,8 @@ const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
                 return time.length === 5 ? `${time}:00` : time; // Convert "08:00" to "08:00:00"
             };
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try { 
                 for (const record of attendanceData) {
                     // console.log(record);
@@ -125,6 +131,8 @@ const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
 
                       .input("changedBy", sql.NVarChar(100), changedBy)
                       .input("locationId", sql.NVarChar(65), record.locationId) 
+                      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                       .execute("dbo.StaffAttendanceMaster_SaveOrUpdate");
                 }
   
@@ -168,6 +176,8 @@ const getAttendanceList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
+
         let query = '';
 
         if(isMonthly){ 
@@ -217,6 +227,7 @@ const getAttendanceReport = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
 
+            await setTenantContext(pool,req);
          
         // query = `exec StaffAttendance_Get_Report '${fromDate}','${toDate}','${organizationId}'`;  
          query = `
@@ -267,6 +278,7 @@ const getEmployeeProjectWiseReport = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
         let query = '';
+            await setTenantContext(pool,req);
 
          if (projectId) {
             query = `
@@ -311,6 +323,7 @@ const getAttendanceMasterList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
 
+            await setTenantContext(pool,req);
          
         query = `exec StaffAttendanceMaster_Get Null,'${organizationId}'`;  
          
@@ -337,6 +350,7 @@ const getAttendanceDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec GetChartOfAccountsDetailsView '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -358,60 +372,7 @@ const getAttendanceDetails = async (req, res) => {
     }
 };
 // end of getAttendanceDetails
-const deleteCustomerContact = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
-      
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config); 
-          
-        const query = `exec DeleteCustomerContact '${Id}'`; 
-        const apiResponse = await pool.request().query(query); 
-       
-        // const contactsQuery = `exec GetCustomerContactsList '${Id}'`; 
-        // const contactsQueryResponse = await pool.request().query(contactsQuery); 
-         
-        res.status(200).json({
-            message: `Customer Contact Deleted successfully!`,
-            data: null
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of deleteCustomerContact
-const getAttendanceAcountTypes = async (req, res) => {  
-    
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config); 
-          
-        const query = `exec GetAttendanceAccountTypes`; 
-        const apiResponse = await pool.request().query(query); 
-        let letResponseData = {};
-        if(apiResponse.recordset){
-            letResponseData = apiResponse.recordset;
-        }  
-        res.status(200).json({
-            message: `Attendance Account types loaded successfully!`,
-            data: letResponseData
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of getAttendanceAcountTypes
+ 
 
 
-
-module.exports =  {getEmployeeProjectWiseReport,getAttendanceReport,getAttendanceAcountTypes, deleteCustomerContact,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;
+module.exports =  {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;

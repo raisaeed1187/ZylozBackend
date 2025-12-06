@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents"); 
+const { setTenantContext } = require("../helper/db/sqlTenant");
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -22,13 +23,25 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const employeeSaveUpdate = async (req,res)=>{
     const formData = req.body;
 
+    let pool, transaction;
+
     try {
              
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+           
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
+
             try { 
                   
                 let imgUrl = null;
@@ -42,15 +55,11 @@ const employeeSaveUpdate = async (req,res)=>{
                 }else{
                     imgUrl =  formData.img;
                 } 
-
-                console.log('formData');
-                console.log(formData);
-                console.log('imgUrl');
-                console.log(imgUrl);
+ 
 
 
   
-                const result = await pool.request()
+                const result = await request
                     .input('ID2', sql.NVarChar(250), formData.ID2)  
                     .input("name", sql.NVarChar(255), formData.name)
                     .input("employeeId", sql.NVarChar(50), formData.employeeId)
@@ -68,8 +77,10 @@ const employeeSaveUpdate = async (req,res)=>{
                     .input("originCountry", sql.NVarChar(100), formData.originCountry) 
                     .input("contractType", sql.NVarChar(100), formData.contractType)  
                     .input("IsSubmit", sql.Int, formData.isSubmit == '1' ? 1 : 0)   
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin") 
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username || "Admin") 
                     .input('branchId', sql.NVarChar(65), formData.BranchId || null)  
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .output('NewID', sql.NVarChar(255))  
                     .execute('Employee_Save_Update');    
 
@@ -78,26 +89,27 @@ const employeeSaveUpdate = async (req,res)=>{
                 if(formData.ID2 == '0'){
                      encryptedId =  encryptID(newId);
                     console.log(encryptedId); 
-                    await pool.request()
-                    .query(`
-                        UPDATE Employee 
-                        SET ID2 = '${encryptedId}' 
-                        WHERE Id = ${newId}
-                    `);
+                    
+                    const updateReq = new sql.Request(transaction);
+                    await updateReq
+                    .input("ID2", sql.NVarChar, encryptedId)
+                    .input("ID", sql.Int, newId)
+                    .query("UPDATE Employee SET ID2 = @ID2 WHERE ID = @ID");
+                    
                 }
                  
                  
                 if(formData.employeePersonalInfo){
-                   await employeePersonalInfoSaveUpdate(req,encryptedId);
+                   await employeePersonalInfoSaveUpdate(req,encryptedId,transaction);
                 }
                 if(formData.employeeSalaryDetails){
-                   await employeeSalaryDetailsSaveUpdate(req,encryptedId);
+                   await employeeSalaryDetailsSaveUpdate(req,encryptedId,transaction);
                 }
                 if(formData.employeeBenefits){
-                    await employeeBenefitSaveUpdate(req,encryptedId);
+                    await employeeBenefitSaveUpdate(req,encryptedId, transaction);
                 }
                 if(formData.employeeDocuments){
-                    employeeDocumentSaveUpdate(req,encryptedId);
+                    employeeDocumentSaveUpdate(req,encryptedId, transaction);
                 }
 
                 
@@ -114,14 +126,22 @@ const employeeSaveUpdate = async (req,res)=>{
                 //     await saveEmployeeDocuments(pool,attachments,encryptedId,formData);
                 // }
 
+                await transaction.commit();
+
+
                 res.status(200).json({
                     message: 'Employee saved/updated',
                     data: '' //result
                 });
-            } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
-            } 
+            }  catch (err) { 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
              
         } catch (error) { 
             return res.status(400).json({ message: error.message,data:null}); 
@@ -130,15 +150,15 @@ const employeeSaveUpdate = async (req,res)=>{
 }
 // end of employeeSaveUpdate
 
-async function employeePersonalInfoSaveUpdate(req,EmployeeId){
+async function employeePersonalInfoSaveUpdate(req,EmployeeId, transaction){
     const formData = req.body; 
     const employeeData = JSON.parse(formData.employeePersonalInfo); 
     try {
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+            
             try {    
-                    let result = await pool.request()
+                    const subRequest = new sql.Request(transaction);
+                
+                    let result = await subRequest
                     .input('ID2', sql.NVarChar(350), employeeData.ID2)
                     .input('employeeId', sql.NVarChar(355), EmployeeId) 
                     .input('eID', sql.NVarChar, employeeData.eID)
@@ -179,7 +199,9 @@ async function employeePersonalInfoSaveUpdate(req,EmployeeId){
                     .input('bankIbanNo', sql.NVarChar, employeeData.bankIbanNo)  
                     .input('bankSwiftCode', sql.NVarChar, employeeData.bankSwiftCode)  
                     .input('isOTapplicable', sql.BIT, employeeData.isOTapplicable == true ? 1 : 0)   
-                    .input('createdBy', sql.NVarChar(250), employeeData.createdBy || "Admin") 
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username ) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .output('NewID', sql.NVarChar(255)) 
                     .execute('EmployeePersonalInfo_Save_Update');
                   
@@ -193,37 +215,40 @@ async function employeePersonalInfoSaveUpdate(req,EmployeeId){
         }
 }
 // end of employeePersonalInfoSaveUpdate
-async function employeeSalaryDetailsSaveUpdate(req,EmployeeId){
+async function employeeSalaryDetailsSaveUpdate(req,EmployeeId, transaction){
     const formData = req.body; 
     const employeeSalaryDetailsFormData = JSON.parse(formData.employeeSalaryDetails); 
     try {
-            store.dispatch(setCurrentDatabase(req.authUser.database));
-            store.dispatch(setCurrentUser(req.authUser)); 
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+            
             try { 
+
                 if (employeeSalaryDetailsFormData) {
                     for (let employeeSalary of employeeSalaryDetailsFormData) {  
                         if(employeeSalary.name){
-                            let result = await pool.request()
+                             const subRequest = new sql.Request(transaction);
+
+                            let result = await subRequest
                                 .input('ID2', sql.NVarChar(350), employeeSalary.ID2)
                                 .input('EmployeeID', sql.NVarChar(355), EmployeeId) 
                                 .input('Name', sql.NVarChar(250), employeeSalary.name)
                                 .input('CalculationType', sql.NVarChar(255), employeeSalary.calculationType)
                                 .input('Monthly', sql.Decimal(10, 2), employeeSalary.monthly)
                                 .input('AnnuallyAmount', sql.Decimal(10, 2), employeeSalary.annual)
-                                .input('CreatedBy', sql.NVarChar(50), formData.createdBy) 
+                                .input('CreatedBy', sql.NVarChar(50), req.authUser.username) 
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('EmployeeSalaryDetails_Save_Update');
                         }
                     }  
                 } 
+
                 const now = new Date(); 
                 const formattedDate = getStartOfMonth(now); 
-                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}'`; 
+                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${req.organizationId || null},'${req.authUser.tenantId}'`; 
+                const runPayrollReq = new sql.Request(transaction);
                  
-                const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
+                const apiRunPayrollResponse = await runPayrollReq.query(runPayrollQuery);  
                 
 
                 return true;
@@ -236,18 +261,17 @@ async function employeeSalaryDetailsSaveUpdate(req,EmployeeId){
         }
 }
 // end of employeeSalaryDetailsSaveUpdate
-async function employeeBenefitSaveUpdate(req,EmployeeId){
+async function employeeBenefitSaveUpdate(req,EmployeeId,transaction){
     const formData = req.body; 
     const employeeBenefitsFormData = JSON.parse(formData.employeeBenefits); 
-    try {
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+    try { 
             try { 
                 if (employeeBenefitsFormData) {
                     for (let employeeBenefit of employeeBenefitsFormData) {  
                         if(employeeBenefit.name){
-                            let result = await pool.request()
+                            const subRequest = new sql.Request(transaction);
+
+                            let result = await subRequest
                                 .input('ID2', sql.NVarChar(350), employeeBenefit.ID2)
                                 .input('EmployeeID', sql.NVarChar(355), EmployeeId) 
                                 .input('BenefitId', sql.NVarChar(355), employeeBenefit.benefitId)  
@@ -255,16 +279,21 @@ async function employeeBenefitSaveUpdate(req,EmployeeId){
                                 .input('Monthly', sql.Decimal(10, 2), employeeBenefit.monthly)
                                 .input('AnnuallyAmount', sql.Decimal(10, 2), employeeBenefit.annual) 
                                 .input('EffectedPeriod', sql.Int, employeeBenefit.effectedPeriod)  
-                                .input('CreatedBy', sql.NVarChar(50), formData.createdBy) 
+                                .input('CreatedBy', sql.NVarChar(50), req.authUser.username) 
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                                
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('EmployeeBenefit_Save_Update');
                         }
                     } 
                     const now = new Date(); 
                     const formattedDate = getStartOfMonth(now); 
-                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}'`; 
-                    const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
-                    
+                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${req.organizationId || null},'${req.authUser.tenantId}'`; 
+
+                    const runPayrollReq = new sql.Request(transaction);
+                 
+                    const apiRunPayrollResponse = await runPayrollReq.query(runPayrollQuery);  
+                
                 } 
                 return true;
                 
@@ -278,24 +307,37 @@ async function employeeBenefitSaveUpdate(req,EmployeeId){
 
 const employeeDeductionSaveUpdate = async (req,res)=>{ 
     const formData = req.body;  
+    let pool, transaction;
+
     try {
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
+ 
 
-            const pool = await sql.connect(config);
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+           
+            await transaction.begin();
+            
+            const request = new sql.Request(transaction);
+              
+
             try { 
                 const frequencyCount = parseInt(formData.deductionFrequency) || 1;
                 let currentPayrollDate = new Date(formData.effectiveFrom + '-01'); // Convert 'YYYY-MM' to a full date string (e.g., '2025-03-01')
  
                 for (let i = 0; i < frequencyCount; i++) {  
                     if(i > 0)
-                        currentPayrollDate.setMonth(currentPayrollDate.getMonth() + 1);
+                    currentPayrollDate.setMonth(currentPayrollDate.getMonth() + 1);
                     
                     const updatedPayrollDate = currentPayrollDate.toISOString().split('T')[0]; // Format to 'YYYY-MM-DD'
 
-             
-                    let result = await pool.request()
+                
+                    let result = await request
                         .input('EmployeeId', sql.NVarChar, formData.employeeId)
                         .input('DeductionType', sql.NVarChar, formData.deductionType)
                         .input('DeductionTypeId', sql.NVarChar, formData.deductionTypeId)
@@ -305,24 +347,36 @@ const employeeDeductionSaveUpdate = async (req,res)=>{
                         .input('EffectiveFrom', sql.Date, formData.effectiveFrom)
                         .input('PayrollDate', sql.Date, updatedPayrollDate)
                         .input('Remarks', sql.NVarChar, formData.remarks)
-                        .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                        .input('CreatedBy', sql.NVarChar, req.authUser.username)
                         .input('IsEOS', sql.Bit, parseBoolean(formData.isEOS) || false)
+                        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                        
                         .output('NewID', sql.NVarChar(255)) 
                         .execute('EmployeeDeduction_Save_Update');
                 
                 }   
                   
                 const runPayrollQuery = `exec Get_PayrollOutput '${formData.payrollDate ? formData.payrollDate : currentPayrollDate}'`; 
-                const apiRunPayrollResponse = await pool.request().query(runPayrollQuery);  
                 
+                const runPayrollReq = new sql.Request(transaction);
+                 
+                const apiRunPayrollResponse = await runPayrollReq.query(runPayrollQuery);  
+                 
                 res.status(200).json({
                     message: 'Employee deduction saved/updated',
                     data: '' //result
                 });
-            } catch (err) {  
-                return res.status(400).json({ message: err.message,data:null}); 
+                
+            }  catch (err) { 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
 
-            }  
         } catch (error) {  
             return res.status(400).json({ message: error.message,data:null}); 
 
@@ -357,6 +411,8 @@ const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
 
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try { 
                
                 let currentPayrollDate = new Date(formData.effectiveFrom + '-01'); 
@@ -371,8 +427,10 @@ const employeeOneTimeAllowanceSaveUpdate = async (req,res)=>{
                     .input('EffectiveFrom', sql.Date, formData.effectiveFrom)
                     .input('PayrollDate', sql.Date, currentPayrollDate)
                     .input('Remarks', sql.NVarChar, formData.remarks)
-                    .input('CreatedBy', sql.NVarChar, formData.createdBy)
+                    .input('CreatedBy', sql.NVarChar, req.authUser.username)
                     .input('IsEOS', sql.Bit, parseBoolean(formData.isEOS) || false)
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                     .output('NewID', sql.NVarChar(255)) 
                     .execute('EmployeeOneTimeAllowance_Save_Update');
 
@@ -407,6 +465,8 @@ const employeeSalaryAdjustmentSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
 
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try { 
                  
                 const employees = JSON.parse(formData.employeesData);  
@@ -438,6 +498,7 @@ const employeeSalaryAdjustmentSaveUpdate = async (req,res)=>{
                                 .input('Remarks', sql.NVarChar, formData.description)
                                 .input('CreatedBy', sql.NVarChar, formData.createdBy)
                                 .input('IsEOS', sql.Bit,  false)
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('EmployeeOneTimeAllowance_Save_Update');
                             }else{
@@ -453,6 +514,7 @@ const employeeSalaryAdjustmentSaveUpdate = async (req,res)=>{
                                     .input('Remarks', sql.NVarChar, formData.description)
                                     .input('CreatedBy', sql.NVarChar, formData.createdBy)
                                     .input('IsEOS', sql.Bit, false)
+                                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                                     .output('NewID', sql.NVarChar(255)) 
                                     .execute('EmployeeDeduction_Save_Update'); 
 
@@ -488,6 +550,7 @@ const getSalaryAdjustments = async (req,res)=>{
             try { 
             //   console.log('formData');   
             //   console.log(formData);   
+            await setTenantContext(pool,req);
  
             const  query = `exec EmployeesSalaryAdjustments Null,'${organizationId}'`;  
 
@@ -518,6 +581,7 @@ const getSalaryAdjustmentSchedule = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     try {
       // Execute stored procedure with parameters
@@ -566,6 +630,7 @@ const salaryAdjustmentChangeStatus = async (req, res) => {
     const config = store.getState().constents.config;
 
     const pool = await sql.connect(config);
+    await setTenantContext(pool,req);
 
     try {
       // Execute stored procedure with parameters
@@ -607,6 +672,7 @@ const employeeRevisionSaveUpdate = async (req,res)=>{
             try { 
             //   console.log('formData');   
             //   console.log(formData);   
+            await setTenantContext(pool,req);
 
             let result = await pool.request()
                 .input('ID2', sql.NVarChar(65), formData.ID2)
@@ -614,7 +680,9 @@ const employeeRevisionSaveUpdate = async (req,res)=>{
                 .input('EffectiveDate', sql.NVarChar, formData.effectiveDate)
                 .input('RevisionReason', sql.NVarChar(250), formData.revisionReason)
                 .input('RevisionRemarks', sql.NVarChar(350), formData.revisionRemarks)
-                .input('CreatedBy', sql.NVarChar(350), formData.createdBy) 
+                .input('CreatedBy', sql.NVarChar(350), req.authUser.username)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                 
                 .execute('EmployeeRevisions_SaveOrUpdate');
 
                  
@@ -644,6 +712,7 @@ const getEmployeeRevisions = async (req,res)=>{
             try { 
             //   console.log('formData');   
             //   console.log(formData);   
+            await setTenantContext(pool,req);
  
             const  query = `exec EmployeeRevisions_Get '${Id}'`;  
 
@@ -665,14 +734,11 @@ const getEmployeeRevisions = async (req,res)=>{
 }
 // getEmployeeRevisions
 
-async function employeeDocumentSaveUpdate(req,EmployeeId){
+async function employeeDocumentSaveUpdate(req,EmployeeId,transaction){
     const formData = req.body; 
     const employeeData = JSON.parse(formData.employeeDocuments); 
     console.log(employeeData);
-    try {
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+    try { 
             try {    
                    
                 const documents = employeeData || [];
@@ -694,7 +760,10 @@ async function employeeDocumentSaveUpdate(req,EmployeeId){
                     console.log('fileUrl New');
                     console.log(fileUrl);
 
-                    await pool.request()
+                    const subRequest = new sql.Request(transaction);
+
+
+                    await subRequest
                     .input("ID2", sql.NVarChar, doc?.Id || 0)  
                     .input("EmployeeId", sql.NVarChar(360), EmployeeId)  
                     .input("DocumentType", sql.NVarChar, doc.DocumentType)  
@@ -704,7 +773,9 @@ async function employeeDocumentSaveUpdate(req,EmployeeId){
                     .input("Remarks", sql.NVarChar, doc.Remarks)   
                     .input("DocumentName", sql.NVarChar, fileName)  
                     .input("DocumentUrl", sql.NVarChar, fileUrl)  
-                    .input("CreatedBy", sql.NVarChar,formData.createdBy ) 
+                    .input("CreatedBy", sql.NVarChar,req.authUser.username ) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .execute("EmployeeDocument_SaveOrUpdate");
 
                 });
@@ -808,6 +879,7 @@ const getEmployeeList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         let query = ``; 
         var apiResponse = null;
@@ -859,6 +931,7 @@ const getEmployeeDetails = async (req, res) => {
         let employeeDeductionQuery  = null;
         let employeeOneTimeAllowanceQuery  = null; 
         let newRevisionNo = null;
+        await setTenantContext(pool,req);
         
         let employeeOneTimeAllowance = null;
 	     
@@ -946,6 +1019,7 @@ const deleteEmployeeItem = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec DeleteEmployeeItem '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -973,6 +1047,7 @@ const getEmployeeDocuments = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec getEmployeeDocuments '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -1000,6 +1075,7 @@ const getEmployeeStatus = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec CustomerEmployeeStatus_Get `; 
         const apiResponse = await pool.request().query(query); 
@@ -1024,6 +1100,7 @@ const employeeChangeStatus = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec ChangeStatus_CustomerEmployee '${Id}', '${StatusId}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -1049,6 +1126,7 @@ const employeeDeleteDocument = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null; 
         if(deleteType == 'employeeBenefit'){
@@ -1080,10 +1158,11 @@ const employeeDeleteDeductionOrAllowance = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null;  
 
-        query = `exec EmployeeDeductionOrAllowance_Delete '${Id}','${component}','${componentName}','${payrollDate}'`;  
+        query = `exec EmployeeDeductionOrAllowance_Delete '${Id}','${component}','${componentName}','${payrollDate}',${req.authUser.username}`;  
          
            
         const apiResponse = await pool.request().query(query);  
@@ -1109,6 +1188,7 @@ const employeePayslips = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null;  
         query = `exec Get_EmployeePaySlips '${Id}'`; 
@@ -1137,6 +1217,7 @@ const employeeDeductions = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null;   
         query = `exec GetEmployeeDeductions '${Id}'`; 
@@ -1165,6 +1246,7 @@ const employeeOneTimeAllowances = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null;   
         query = `exec GetEmployeeOneTimeAllowances '${Id}'`; 
@@ -1198,6 +1280,8 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;   
             const pool = await sql.connect(config);
             try {  
+                await setTenantContext(pool,req);
+
                 let result = null;
                 if(formData.resumeDate){  
                      result = await pool.request()
@@ -1205,7 +1289,9 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                     .input("isResumed", sql.Bit, 1)
                     .input("resumptionDate", sql.Date, formData.resumeDate) 
                     .input("remarks", sql.NVarChar(500), formData.reason) 
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin") 
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username || "Admin") 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .execute('EmployeeLeave_Resumption');    
                 }else if(formData.isDelete && formData.isDelete == 'true'){  
                     result = await pool.request()
@@ -1215,6 +1301,7 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                     .input("endDate", sql.Date, formData.endDate) 
                     .input("leaveType", sql.NVarChar(255), formData.leaveType)
                     .input("IsAttendanceAbsent", sql.NVarChar(255), 0)
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
  
                     .execute('EmployeeLeave_Delete');  
 
@@ -1228,7 +1315,9 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                         .input("noOfDays", sql.NVarChar(255), formData.noOfDays)
                         .input("reason", sql.NVarChar(500), formData.reason) 
                         .input("IsAttendanceAbsent", sql.Bit, 0)  
-                        .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+                        .input('createdBy', sql.NVarChar(250), req.authUser.username )  
+                        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                         .output('NewID', sql.NVarChar(255))  
                         .execute('EmployeeLeave_Save_Update');    
                 } 
@@ -1260,6 +1349,7 @@ const getEmployeeLeavesList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         // const query = `exec GetEmployeeLeaves null,'${EmployeeId}'`; 
         const query = `exec GetEmployeeLeaves `; 
@@ -1297,6 +1387,7 @@ const getEmployeeLeaveDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
         const query = `exec GetEmployeeLeaves null,'${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -1328,6 +1419,7 @@ const getEmployeeLeaveTypes = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
         
         let query = null;
         if(leaveCode){
@@ -1364,6 +1456,7 @@ const employeeExitClearanceSaveUpdate = async (req,res)=>{
             try {   
                     // console.log('formData');
                     // console.log(formData);
+                    await setTenantContext(pool,req);
 
                     const result = await pool.request()
                     .input('ID2', sql.NVarChar, formData.ID2)
@@ -1386,7 +1479,9 @@ const employeeExitClearanceSaveUpdate = async (req,res)=>{
                     .input('exitInterviewDone', sql.Bit, toBit(formData.exitInterviewDone))
                     .input('finalSettlement', sql.Bit, toBit(formData.finalSettlement))
                     .input('hrComments', sql.NVarChar, formData.hrComments)
-                    .input('createdBy', sql.NVarChar, formData.createdBy)
+                    .input('createdBy', sql.NVarChar, req.authUser.username)
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .output('NewID', sql.NVarChar(250))
                     .execute('EmployeeExitForm_SaveOrUpdate');
                 
@@ -1449,7 +1544,9 @@ async function saveEmployeeExitClearanceDocuments(pool,attachmentUrls,NewID,form
                     .input("ExitClearanceId", sql.NVarChar(360), NewID)   
                     .input("DocumentName", sql.NVarChar, url.fileName)  
                     .input("DocumentUrl", sql.NVarChar, url.fileUrl)  
-                    .input("CreatedBy", sql.NVarChar,formData.createdBy ) 
+                    .input("CreatedBy", sql.NVarChar, req.authUser.username ) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .execute("EmployeeExitClearanceDocument_SaveOrUpdate");
             }
         } 
@@ -1470,6 +1567,7 @@ const getEmployeeExitClearanceList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec EmployeeExitClearance_Get `; 
         const apiResponse = await pool.request().query(query); 
@@ -1494,6 +1592,7 @@ const getEmployeeExitClearanceDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec EmployeeExitClearance_Get '${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -1532,6 +1631,7 @@ const employeeReportAbscondingSaveUpdate = async (req,res)=>{
             try {   
                     // console.log('formData');
                     // console.log(formData);
+                    await setTenantContext(pool,req);
 
                     const result = await pool.request()
                     .input('ID2', sql.NVarChar, formData.ID2)
@@ -1543,7 +1643,9 @@ const employeeReportAbscondingSaveUpdate = async (req,res)=>{
                     .input('caseReferenceNumber', sql.NVarChar, formData.caseReferenceNumber)
                     .input('reason', sql.NVarChar, formData.reason)
                     .input('statusId', sql.Int, formData.statusId || 1)
-                    .input('createdBy', sql.NVarChar, formData.createdBy) 
+                    .input('createdBy', sql.NVarChar, req.authUser.username) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .output('ID', sql.NVarChar(250))
 
                     .execute('AbscondingEmployee_SaveOrUpdate');
@@ -1598,7 +1700,9 @@ async function saveEmployeeReportAbscondingDocuments(pool,attachmentUrls,NewID,f
                     .input("AbscondingEmployeeId", sql.NVarChar(360), NewID)   
                     .input("DocumentName", sql.NVarChar, url.fileName)  
                     .input("DocumentUrl", sql.NVarChar, url.fileUrl)  
-                    .input("CreatedBy", sql.NVarChar,formData.createdBy ) 
+                    .input("CreatedBy", sql.NVarChar,req.authUser.username) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .execute("AbscondingEmployeeDocument_SaveOrUpdate");
             }
         } 
@@ -1620,6 +1724,7 @@ const getEmployeeReportAbscondingList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec AbscondingEmployee_Get `; 
         const apiResponse = await pool.request().query(query); 
@@ -1645,6 +1750,7 @@ const getEmployeeReportAbscondingDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec AbscondingEmployee_Get '${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -1676,6 +1782,7 @@ const getEmployeeReportAbscondingDocuments = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec GetAbscondingEmployeeDocumentDocuments '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
@@ -1706,6 +1813,8 @@ const getPaySlip = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+            await setTenantContext(pool,req);
+
         let query = ''; 
         query = `exec Get_PaySlip '${Id2}','${payMonth}'`;   
         const apiResponse = await pool.request().query(query); 
@@ -1759,6 +1868,7 @@ const outsourcedEmployeeSaveUpdate = async (req,res)=>{
 
             const pool = await sql.connect(config);
             try { 
+                await setTenantContext(pool,req);
                  
                 const employees = JSON.parse(formData.employees); 
 
@@ -1789,11 +1899,12 @@ const outsourcedEmployeeSaveUpdate = async (req,res)=>{
                             .input('totalCost', sql.NVarChar(100), String(employee.totalCost ?? ''))
 
                             .input('status', sql.NVarChar(20), employee.status || 'Active')
-                            .input('createdBy', sql.NVarChar(100), employee.createdBy || 'Admin')
+                            .input('createdBy', sql.NVarChar(100), req.authUser.username  )
                             .input('permitDetails', sql.NVarChar(50), employee.permitDetails || '')
                             .input('permitExpiry', sql.NVarChar(100), employee.permitExpiry || null) 
                             .input('organizationId', sql.NVarChar(65), employee.organizationId || null) 
                             .input('branchId', sql.NVarChar(65), employee.branchId || null) 
+                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                             .execute('SaveOrUpdateOutsourcedEmployee');                      
                         }
@@ -1826,8 +1937,9 @@ const getOutsourcedEmployees = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
-         var apiResponse = null;
+        var apiResponse = null;
         apiResponse = await pool.request()
         .input('OrganizationId', sql.NVarChar(65), organizationId)
         .execute('Get_OutsourcedEmployees'); 

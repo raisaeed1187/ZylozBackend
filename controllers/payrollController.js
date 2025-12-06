@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
+const { setTenantContext } = require("../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -30,6 +31,8 @@ const salaryComponentSaveUpdate = async (req,res)=>{
             const config = store.getState().constents.config;  
 
             const pool = await sql.connect(config);
+            await setTenantContext(pool,req);
+
             try { 
                   
                 
@@ -43,7 +46,9 @@ const salaryComponentSaveUpdate = async (req,res)=>{
                     .input('Percentage', sql.Decimal(5, 2), formData.percentage||0)
                     .input('ProRata', sql.Bit, formData.proRata ? 1 : 0)
                     .input('IsActive', sql.Bit, formData.isActive ? 1: 0)
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username )  
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .output('NewID', sql.NVarChar(255))  
                     .execute('PayRollEarnings_Save_Update');    
  
@@ -120,6 +125,7 @@ const getSalaryComponentList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec PayRollEarnings_Get`; 
         const apiResponse = await pool.request().query(query); 
@@ -156,6 +162,7 @@ const getSalaryComponentDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec PayRollEarnings_Get '${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -188,6 +195,7 @@ const salaryComponentBenefitSaveUpdate = async (req,res)=>{
 
             const pool = await sql.connect(config);
             try { 
+                await setTenantContext(pool,req);
                    
                 const result = await pool.request()
                     .input('ID2', sql.NVarChar(250), formData.ID2)
@@ -198,7 +206,9 @@ const salaryComponentBenefitSaveUpdate = async (req,res)=>{
                     .input('percentage', sql.Decimal(18, 3), formData.percentage||0)  
                     .input('effectedPeriod', sql.Int, formData.effectedPeriod)   
                     .input('IsActive', sql.Bit, formData.isActive ? 1: 0)
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username)
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                      
                     .output('NewID', sql.NVarChar(255))  
                     .execute('PayRollBenefit_Save_Update');    
  
@@ -226,6 +236,7 @@ const getSalaryComponentBenefitsList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         const query = `exec PayRollBenefits_Get`; 
         const apiResponse = await pool.request().query(query); 
@@ -262,6 +273,7 @@ const getSalaryComponentBenefitDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         const query = `exec PayRollBenefits_Get '${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -294,13 +306,16 @@ const salaryComponentDeductionSaveUpdate = async (req,res)=>{
 
             const pool = await sql.connect(config);
             try { 
+                await setTenantContext(pool,req);
                    
                 const result = await pool.request()
                     .input('ID2', sql.NVarChar(250), formData.ID2)
                     .input('frequency', sql.NVarChar(250), formData.frequency)
                     .input('nameInPayslip', sql.NVarChar(255), formData.nameInPayslip)  
                     .input('IsActive', sql.Bit, formData.isActive ? 1: 0)
-                    .input('createdBy', sql.NVarChar(250), formData.createdBy || "Admin")  
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                     
                     .output('NewID', sql.NVarChar(255))  
                     .execute('PayRollDeduction_Save_Update');    
  
@@ -328,6 +343,7 @@ const getSalaryComponentDeductionsList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         const query = `exec PayRollDeductions_Get`; 
         const apiResponse = await pool.request().query(query); 
@@ -364,6 +380,7 @@ const getSalaryComponentDeductionDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         const query = `exec PayRollDeductions_Get '${Id}'`; 
         const apiResponse = await pool.request().query(query);  
@@ -394,6 +411,7 @@ const getPayrollHistory = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         let query = ``; 
 
@@ -432,15 +450,27 @@ const payrollSave = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
+
         const now = new Date(); 
         const formattedDate = getStartOfMonth(now); 
         // const query = `exec Save_PayrollOutput '${formattedDate}'`;
         
-        const query = `exec PayrollMaster_ChangeStatus '${Id}',${status},'${organizationId}','${createdBy}'`; 
+        // const query = `exec PayrollMaster_ChangeStatus '${Id}',${status},'${organizationId}','${createdBy}'`; 
+        // const apiResponse = await pool.request().query(query);  
+        
         // console.log('query');
         // console.log(query);
 
-        const apiResponse = await pool.request().query(query);  
+        const apiResponse = await pool
+                    .request()
+                    .input("payrollMasterId", sql.NVarChar(100), Id)
+                    .input("StatusId", sql.Int, status || null)
+                    .input("OrganizationId", sql.NVarChar(100), organizationId || null) 
+                    .input("userName", sql.NVarChar(100), req.authUser.username)  
+                    .execute("PayrollMaster_ChangeStatus");
+        
+
         
         let letResponseData = {}; 
         res.status(200).json({
@@ -464,6 +494,7 @@ const payrollConfigurationSave = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
 
         console.log('formData');
         console.log(formData);
@@ -473,13 +504,15 @@ const payrollConfigurationSave = async (req, res) => {
             .input('ID2', sql.NVarChar(250), formData.ID2)  
             .input("PayrollStartDate", sql.NVarChar(255), formData.payrollStartDate)
             .input("PayFrequency", sql.NVarChar(255), formData.payFrequency)  
-            .input('CreatedBy', sql.NVarChar(250), formData.createdBy || formData.CreatedBy || "Admin")  
+            .input('CreatedBy', sql.NVarChar(250), req.authUser.username)  
             .input("workingHours", sql.NVarChar(255), formData.workingHours) 
             .input("payMonthStartDate", sql.NVarChar(255), formData.payMonthStartDate) 
             .input("payMonthEndDate", sql.NVarChar(255), formData.payMonthEndDate) 
             .input("totalPayDays", sql.NVarChar(255), formData.totalPayDays) 
             .input("isFullCalendar", sql.BIT, formData.isFullCalendar == 'true' ? 1 : 0) 
             .input("OTSalary", sql.NVarChar(255), formData.otSalary)  
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            
             .output('NewID', sql.NVarChar(255))  
             .execute('PayrollConfiguration_SaveOrUpdate');    
  
@@ -523,10 +556,7 @@ async function payrollWorkingDaysSaveUpdate (payrollId, req,pool){
              
             const workingDaysData = JSON.parse(workingDays); 
             console.log('workingDays');
-            console.log(workingDays);
-            console.log('payrollId');
-            console.log(payrollId);
-
+            console.log(workingDays); 
 
             
 
@@ -543,7 +573,9 @@ async function payrollWorkingDaysSaveUpdate (payrollId, req,pool){
                       .input("StartTime", sql.NVarChar(50), formatTime(record.start))
                       .input("EndTime", sql.NVarChar(100), formatTime(record.end))
                       .input("IsWeeklyOff", sql.Bit, record.off ? 1 : 0)
-                      .input("CreatedBy", sql.NVarChar(100), createdBy)
+                      .input("CreatedBy", sql.NVarChar(100), req.authUser.username )
+                      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                      
                       .execute("PayrollWorkingDays_SaveOrUpdate");
                 }
   
@@ -578,7 +610,9 @@ async function payrollPublicHolidaySaveUpdate (payrollId, req,pool){
                       .input("StartDate", sql.NVarChar(255), record.startDate)
                       .input("EndDate", sql.NVarChar(255), record.endDate) 
                       .input("NumberOfDays", sql.Int, record.numberOfDays)
-                      .input("CreatedBy", sql.NVarChar(100), createdBy)
+                      .input("CreatedBy", sql.NVarChar(100), req.authUser.username)
+                      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
                       .execute("PublicHoliday_SaveOrUpdate");
                 } 
     
@@ -602,6 +636,7 @@ const getPayrollConfiguration = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
           
         const query = `exec Get_PayrollConfiguration `;  
         const apiResponse = await pool.request().query(query);  
@@ -642,6 +677,7 @@ const getPayrollSummary = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
            
 
         const query = `exec GetPayrollMasterSummary Null,'${organizationId}'`; 
@@ -678,6 +714,8 @@ const getPayrollPreview = async (req, res) => {
 
 
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
+
         let query = null;
         let payrollRollStatus =  'Draft';
         let payrollRollStatusId =  1; 
@@ -718,7 +756,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec Get_PayrollOutputHistory '${Id}',${payrollStatusId},'${organizationId}'`;  
                     
                 }else{
-                    query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}'`;  
+                    query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}',${req.authUser.tenantId}`;  
                 }
                  
                 console.log('query : ',query); 
@@ -847,6 +885,8 @@ const getPayrollEmployeeDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
+                await setTenantContext(pool,req);
+
         let query = ''; 
         // const currentDate =  new Date();
         const today = new Date();
@@ -963,6 +1003,8 @@ const holdEmployeeSalary = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
+
         console.log('formData');
         console.log(formData);
 
@@ -1008,6 +1050,8 @@ const releaseEmployeeSalary = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
+
         console.log('formData');
         console.log(formData);
 
@@ -1023,6 +1067,8 @@ const releaseEmployeeSalary = async (req, res) => {
         .input('PayrollTotalAmount', sql.NVarChar, formData.payrollTotalAmount)
         .input('TotalPaidEmployees', sql.Int, formData.totalEmployees)
         .input('CreatedBy', sql.NVarChar, req.authUser.username)
+        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+        
         .output('SalaryReleaseId', sql.NVarChar(100))
         .execute('PayrollMasterSalaryReleases_SaveOrUpdate');
 
@@ -1039,6 +1085,8 @@ const releaseEmployeeSalary = async (req, res) => {
                     .input('SalaryReleaseId', sql.NVarChar, salaryReleaseId)
                     .input('EmployeeId', sql.NVarChar, employee.ID2)  
                     .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                    
                     .execute('PayrollSalaryReleaseEmployees_SaveOrUpdate');
             
             } catch (error) { 
@@ -1069,6 +1117,8 @@ const releaseEmployeeEOS = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+                await setTenantContext(pool,req);
+
         console.log('formData');
         console.log(formData);
 
@@ -1084,6 +1134,8 @@ const releaseEmployeeEOS = async (req, res) => {
         .input('PayrollTotalAmount', sql.NVarChar, formData.payrollTotalAmount)
         .input('TotalPaidEmployees', sql.Int, formData.totalEmployees)
         .input('CreatedBy', sql.NVarChar, req.authUser.username)
+        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+        
         .output('EOSReleaseId', sql.NVarChar(100))
         .execute('PayrollMasterEOSReleases_SaveOrUpdate');
 
@@ -1100,6 +1152,7 @@ const releaseEmployeeEOS = async (req, res) => {
                     .input('EOSReleaseId', sql.NVarChar, eOSReleaseId)
                     .input('EmployeeId', sql.NVarChar, employee.ID2)  
                     .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                     .execute('PayrollEOSReleaseEmployees_SaveOrUpdate');
             
             } catch (error) { 
@@ -1141,6 +1194,7 @@ const getPayrollAccrualPreview = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+            await setTenantContext(pool,req);
           
         const query = `exec Get_Accrual_PayrollOutput '${Id}', 1`; 
         const apiResponse = await pool.request().query(query);  
@@ -1198,6 +1252,7 @@ const saveEmployeeEOS = async (req, res) => {
         const pool = await sql.connect(config); 
         console.log('formData');
         console.log(formData);
+                await setTenantContext(pool,req);
 
         // return formData;
         const newEmployees = JSON.parse(formData.employees);   
@@ -1212,6 +1267,8 @@ const saveEmployeeEOS = async (req, res) => {
                         .input('OrganizationId', sql.NVarChar, formData.organizationId)
                         .input('employeeId', sql.NVarChar, employee.ID2)
                         .input('CreatedBy', sql.NVarChar, req.authUser.username) 
+                        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+                        
                         .execute('Save_EOS_PayrollOutput');
                     
                 }else{
