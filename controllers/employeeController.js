@@ -245,7 +245,7 @@ async function employeeSalaryDetailsSaveUpdate(req,EmployeeId, transaction){
 
                 const now = new Date(); 
                 const formattedDate = getStartOfMonth(now); 
-                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${req.organizationId || null},'${req.authUser.tenantId}'`; 
+                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${formData.organizationId || null},'${req.authUser.tenantId}'`; 
                 const runPayrollReq = new sql.Request(transaction);
                  
                 const apiRunPayrollResponse = await runPayrollReq.query(runPayrollQuery);  
@@ -288,7 +288,7 @@ async function employeeBenefitSaveUpdate(req,EmployeeId,transaction){
                     } 
                     const now = new Date(); 
                     const formattedDate = getStartOfMonth(now); 
-                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${req.organizationId || null},'${req.authUser.tenantId}'`; 
+                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${formData.organizationId || null},'${req.authUser.tenantId}'`; 
 
                     const runPayrollReq = new sql.Request(transaction);
                  
