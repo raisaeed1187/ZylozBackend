@@ -11,7 +11,7 @@ const { initSocketServer } = require("./socket/socketServer");
 
 
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
-const {signUp,userCreation,sendOTP,varifyOTP,signIn} = require('./controllers/authController'); 
+const {signUp, tenantCreation,userCreation,sendOTP,varifyOTP,signIn} = require('./controllers/authController'); 
 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
@@ -69,6 +69,8 @@ const {getProfitAndLossDashboard,getAgingDashboard} = require('./controllers/das
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
     getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
 } = require('./controllers/laundry/laundryController'); 
+
+const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
 
 
  
@@ -148,9 +150,18 @@ app.use('/api', router);
 app.post('/api/signup',express.json(),signUp );
 app.post('/api/signin',express.json(),signIn );
 
+app.post('/api/tenant/account-creation',express.json(),tenantCreation );
+app.post('/api/all-apps',authenticateToken,express.json(),getAppsList);
+app.post('/api/tenant/app-subscription',authenticateToken,express.json(),tenantModuleSubscription);
+
+
+
+
+
 app.post('/api/send-otp',express.json(),upload,sendOTP );
 
 app.post('/api/varify-otp',express.json(),varifyOTP );
+ 
 
 
 

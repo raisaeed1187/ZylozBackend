@@ -130,7 +130,7 @@ async function pettyCashSaveUpdate(req,res,transaction){
                 .input('emirate', sql.NVarChar(100), formData.emirate || null)
                 .input('currency', sql.NVarChar(100), formData.currency || null)
                 .input('baseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null)  
-                .input('postingDate', sql.NVarChar(100), formData.postingDate != 'null' ? formData.postingDate : null || null)
+                .input('postingDate', sql.NVarChar(100), (formData.postingDate && formData.postingDate != 'null') ? formData.postingDate : null || null)
                 .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
 
                 .output('ID', sql.NVarChar(65))

@@ -15,8 +15,7 @@ const { setTenantContext } = require("../helper/db/sqlTenant");
 const SECRET_KEY = process.env.SECRET_KEY;
  
  
-const userCreation = async (req,res)=>{
-    // const { username,email, password,client } = req.body;
+const userCreation = async (req,res)=>{ 
     const formData = req.body;  
 
     try {
@@ -30,37 +29,13 @@ const userCreation = async (req,res)=>{
            
             const pool = await sql.connect(config);
             await setTenantContext(pool,req);
-            
-            // const existingUser = await pool
-            // .request()
-            // .input("email", sql.NVarChar, formData.email)
-            // .query("SELECT * FROM Users WHERE email = @email");
-
-            // if (existingUser.recordset.length > 0) {
-            //      return res.status(400).json({ message: "Email already exists",data:null});
-            // } 
-            // Hash the password
+             
             const hashedPassword = await bcrypt.hash(formData.password, 10);
-
-            // Insert new user into the database
-            // await pool
-            // .request()
-            // .input("username", sql.NVarChar, username)
-            // .input("email", sql.NVarChar, email)
-            // .input("password", sql.NVarChar, hashedPassword)
-            // .input("client", sql.NVarChar, client) 
-            // .query("INSERT INTO Users (username,email, password) VALUES (@username,@email, @password)");
-            
+ 
             const { otp, expiresAt } = generateOtp(6, 10); // 6 digits, expires in 10 mins
             const otpHtml = getOtpTemplate(otp, formData.fullName);
             const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
-
-            // await sendEmail(
-            // formData.email,
-            // 'Test Email',
-            // 'This is a test email sent from Allbiz.'
-            // );
-
+ 
             await sendEmail(
                 formData.email,
                 "Your AllBiz OTP Code",
@@ -92,6 +67,126 @@ const userCreation = async (req,res)=>{
         }
 }
 // end userCreation
+
+const tenantCreation = async (req,res)=>{ 
+    const formData = req.body;  
+
+    let pool, transaction;
+
+
+    try {
+            if (!formData.email || !formData.password || !formData.fullName) {
+                return res.status(400).json({ message: 'Enter required fields!' });
+            } 
+            console.log(formData.client); 
+            store.dispatch(setCurrentDatabase(formData.client || 'VPSZyloz')); 
+            const config =  store.getState().constents.config;  
+           
+ 
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+            
+            await transaction.begin();
+             
+            const hashedPassword = await bcrypt.hash(formData.password, 10);
+ 
+            const { otp, expiresAt } = generateOtp(6, 10); // 6 digits, expires in 10 mins
+            const otpHtml = getOtpTemplate(otp, formData.fullName);
+            const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
+ 
+           
+
+            const tenantRequest = new sql.Request(transaction);
+                
+            const result = await tenantRequest
+                .input("ID2", sql.NVarChar, formData.ID2 || null)
+                .input("TenantCode", sql.NVarChar, formData.TenantCode || null)
+                .input("TenantName", sql.NVarChar, formData.company)
+                .input("FullName", sql.NVarChar, formData.fullName || null)
+                .input("DomainName", sql.NVarChar, formData.domainPrefix || null) 
+                .input("IsActive", sql.Bit, formData.isActive ?? 1)
+                .input("Email", sql.NVarChar, formData.email || null)
+                .input("Phone", sql.NVarChar, formData.phone || null)
+                .input("Country", sql.NVarChar, formData.country || null)
+                .input("City", sql.NVarChar, formData.city || null)
+                .input("LogoUrl", sql.NVarChar, formData.logoUrl || null)
+                .input("ThemeConfig", sql.NVarChar(sql.MAX), formData.themeConfig || null)
+                .input("UserId", sql.NVarChar, formData.userName || 'System')
+                .output('ID', sql.NVarChar(100)) // output param 
+                .execute("Tenants_SaveOrUpdate");
+
+            const tenantId = result.output.ID;
+ 
+            
+
+            const organizationRequest = new sql.Request(transaction); 
+
+            await organizationRequest
+            .input("ID2", sql.NVarChar(250), null)
+            .input("OrganizationName", sql.NVarChar(250), formData.company)
+            .input("ContactNo", sql.NVarChar(250), formData.phone)
+            .input("Email", sql.NVarChar(250), formData.email)
+            .input("Country", sql.NVarChar(250), formData.country)
+            .input("LicensesNumber", sql.NVarChar(250), formData.licensesNumber || null)
+            .input("TRNNumber", sql.NVarChar(250), formData.trn)
+            .input("Logo", sql.NVarChar(250), formData.logo || null)
+            .input("CreatedBy", sql.NVarChar(250), formData.username)
+            .input("tenantId", sql.NVarChar(65), tenantId || null)
+            .execute("Tenant_OrganizationProfile_Save_Update");
+
+           
+
+            const otpRequest = new sql.Request(transaction); 
+            await otpRequest
+                .input("UserId", sql.NVarChar, tenantId)                        // Vendor ID
+                .input("UserEmail", sql.NVarChar, formData.email)                          // User Email
+                .input("OTPCode", sql.NVarChar, otp)                              // OTP
+                .input("Purpose", sql.NVarChar, "TenantVerification")             // Purpose
+                .input("SentTo", sql.NVarChar, formData.email)                             // Email
+                .input("SentChannel", sql.NVarChar, "Email")                      // Email/SMS
+                .input("ExpiryDateTime", sql.DateTime, expiresAt)    // Expiry 
+                .execute("UserOTPVerification_Save");
+
+            const userRequest = new sql.Request(transaction);
+ 
+            userRequest.input("ID2", sql.NVarChar(100), formData.ID2 || null);
+            userRequest.input("username", sql.NVarChar(100), formData.username);
+            userRequest.input("email", sql.NVarChar(100), formData.email);
+            userRequest.input("password", sql.NVarChar(255), hashedPassword);
+            userRequest.input("client", sql.NVarChar(50), formData.client);
+            userRequest.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
+            userRequest.input("TenantId", sql.NVarChar(100), tenantId);
+            userRequest.input("fullName", sql.NVarChar(100), formData.fullName);
+            userRequest.input("isAdmin", sql.Bit, 1);
+
+            await userRequest.execute("User_Registeration");
+ 
+            await sendEmail(
+                formData.email,
+                "Your AllBiz OTP Code",
+                text,
+                otpHtml
+            );
+
+            await transaction.commit();
+
+
+            res.status(200).json({
+                message: 'Tenant registered successfully',
+                data: 'Tenant registered'
+            });
+             
+        }  catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
+        }
+}
+// end tenantCreation
 
 const signUp = async (req,res)=>{
     const { username,email, password,client } = req.body;
@@ -151,10 +246,10 @@ const signUp = async (req,res)=>{
 // end signUp
 
 const signIn = async (req,res)=>{
-    const { email, password,client } = req.body;
+    const { email, password,client,otp,purpose } = req.body;
 
     try {
-            if (!email || !password) {
+            if (!email) {
                 return res.status(400).json({ message: 'Email & Password is required!' });
             }   
             // console.log('database');
@@ -169,10 +264,12 @@ const signIn = async (req,res)=>{
 
             const pool = await sql.connect(config);
             
-            const result = await pool
-                .request()
-                .input("email", sql.NVarChar, email)
-                .query("SELECT * FROM Users WHERE email = @email");
+            
+                const result = await pool
+                    .request()
+                    .input("email", sql.NVarChar, email)
+                    .execute("User_login");
+
             // return result;
                 if (result.recordset.length === 0) {
                     // return res.status(401).json({ message: "Invalid email" });
@@ -180,22 +277,64 @@ const signIn = async (req,res)=>{
                 } 
  
                 const user = result.recordset[0];  
-                console.log('user');
-                console.log(user); 
+                 
+                if (otp) {
+                    const otpResult = await pool.request()
+                    .input("SentTo", sql.NVarChar, email)
+                    .input("OTPCode", sql.NVarChar, otp)
+                    .input("Purpose", sql.NVarChar, purpose)
+                    .execute("UserOTPVerification_Verify");
+    
+                    const otpRecord = otpResult.recordset[0];
+                    console.error("this is otpRecord", otpRecord);
+    
+                    if (!otpRecord) {
+                        return res.status(400).json({ message: "Invalid or expired OTP!" });
+                    }
+                    
+                }
         
                 if(user){  
-                    const isMatch = await bcrypt.compare(password, user.Password);
-    
-                    if (!isMatch) {
-                        // return res.status(401).json({ message: "Invalid password" });
-                      return  res.status(400).json({ message: 'Invalid password',data:null});
-    
+                    if (!otp) {
+                        const isMatch = await bcrypt.compare(password, user.Password);
+        
+                        if (!isMatch) {
+                            // return res.status(401).json({ message: "Invalid password" });
+                        return  res.status(400).json({ message: 'Invalid password',data:null});
+        
+                        }
                     }
                     // return user;
+
+                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2,
+                        fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
+                        email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
+                        tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
+                        isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
+                        hasActiveApp: user.HasActiveModules
+                    };
     
-                    const token = jwt.sign({ Id: user.ID,ID2: user.ID2, username: user.UserName,staffId: user.StaffId,email:user.Email,database:user.databaseName, tenantId:user.TenantId}, SECRET_KEY, {
+                    const token = jwt.sign(userDetails, SECRET_KEY, {
                         expiresIn: "5h",
                     });
+
+                    const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
+                   
+                    if (user.HasActiveModules == 0)
+                    {
+                        const data = {
+                            userDetails,
+                            token: token,
+                            websitePrefix: user.DomainName, 
+                            redirectUrl: redirectUrl,
+                            hasActiveApp: user.HasActiveModules
+                        }
+                        return res.status(200).json({
+                                message: "Login successful",
+                                data:data, 
+                            }); 
+                    }
+
 
                     await pool.request()
                                     .input("tenantId", sql.NVarChar, user.TenantId)
@@ -203,10 +342,12 @@ const signIn = async (req,res)=>{
                     
                     // constents.methods.setCurrentDatabase(user.databaseName);  
                     store.dispatch(setCurrentDatabase(user.databaseName)); 
-                    const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
-                    const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
+                    // const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
+                    // const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
                     // const organizations = organizationsQueryResponse.recordset;
                     
+                    
+
                     const modules = await pool
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
@@ -222,6 +363,7 @@ const signIn = async (req,res)=>{
 
                     // const userInfo = usersAccess.recordsets[0][0];
                     // const roles = usersAccess.recordsets[1];
+
                     const organizations = usersAccess.recordsets[2];
                     const branches = usersAccess.recordsets[3];
                     
@@ -238,8 +380,12 @@ const signIn = async (req,res)=>{
                                 permissions:user.Access, 
                                 roleName:modules.recordset[0].RoleName,
                                 roleCode:modules.recordset[0].RoleCode, 
+                                
                             },
                             token:token,
+                            websitePrefix: user.DomainName, 
+                            hasActiveApp: user.HasActiveModules,
+                            redirectUrl: redirectUrl,
                             organizations:organizations,
                             branches:branches, 
                             modules: modules.recordset,
@@ -286,27 +432,44 @@ const sendOTP = async (req, res) => {
         const pool = await sql.connect(config);
         // await setTenantContext(pool,req);
 
-        // Get Vendor Details
-        const vendorResponse = await pool
-            .request()
-            .input("ID2", sql.NVarChar, formData.ID2)
-            .execute("Vendor_GetDetails");
+        var userId, email = formData.email, name = formData.name;
+       
+        if (formData.purpose == 'VendorVerification') {
+             // Get Vendor Details
+            const vendorResponse = await pool
+                .request()
+                .input("ID2", sql.NVarChar, formData.ID2)
+                .execute("Vendor_GetDetails");
+    
+            if (vendorResponse.recordset.length === 0) {
+                return res.status(400).json({ message: "Vendor not registered!" });
+            } 
+            const vendor = vendorResponse.recordset[0];
 
-        if (vendorResponse.recordset.length === 0) {
-            return res.status(400).json({ message: "Vendor not registered!" });
+            email = vendor.email;
+            name = vendor.vendorName; 
+            userId = vendor.ID2;
+        }else{
+            const result = await pool
+                    .request()
+                    .input("email", sql.NVarChar, email)
+                    .execute("User_login");
+            if (result.recordset.length === 0) {
+                return  res.status(400).json({ message: 'Invalid email',data:null});
+            } 
+ 
+            const user = result.recordset[0];
+            userId = user.ID2;
+
         }
-
-        const vendor = vendorResponse.recordset[0];
 
         // Generate OTP (6 digits, 5 min expiry)
         const { otp, expiresAt } = generateOtp(6, 5);
 
-        const otpHtml = getOtpTemplate(otp, vendor.vendorName || formData.name);
+        const otpHtml = getOtpTemplate(otp, name);
         const text = `Your AllBiz OTP is ${otp}. It will expire in 5 minutes.`;
 
-        const email = vendor.email || formData.email;
-
-        // Send Email
+         
         await sendEmail(
             email,
             "Your AllBiz OTP Code",
@@ -315,10 +478,10 @@ const sendOTP = async (req, res) => {
         );
  
         await pool.request()
-            .input("UserId", sql.NVarChar, vendor.ID2)                        // Vendor ID
+            .input("UserId", sql.NVarChar, userId)                        // Vendor ID
             .input("UserEmail", sql.NVarChar, email)                          // User Email
             .input("OTPCode", sql.NVarChar, otp)                              // OTP
-            .input("Purpose", sql.NVarChar, "VendorVerification")             // Purpose
+            .input("Purpose", sql.NVarChar, formData.purpose)             // Purpose
             .input("SentTo", sql.NVarChar, email)                             // Email
             .input("SentChannel", sql.NVarChar, "Email")                      // Email/SMS
             .input("ExpiryDateTime", sql.DateTime, expiresAt)    // Expiry 
@@ -341,7 +504,7 @@ const sendOTP = async (req, res) => {
 
 
 const varifyOTP = async (req,res)=>{
-    const { ID2,rfqID,from,email,client,otp } = req.body;
+    const { ID2,rfqID,from,email,client,otp,purpose,isAccountVerify } = req.body;
 
     try {
             if (!email || !otp) {
@@ -358,7 +521,7 @@ const varifyOTP = async (req,res)=>{
             const otpResult = await pool.request()
             .input("SentTo", sql.NVarChar, email)
             .input("OTPCode", sql.NVarChar, otp)
-            .input("Purpose", sql.NVarChar, "VendorVerification")
+            .input("Purpose", sql.NVarChar, purpose || "VendorVerification")
             .execute("UserOTPVerification_Verify");
 
             const otpRecord = otpResult.recordset[0];
@@ -372,8 +535,17 @@ const varifyOTP = async (req,res)=>{
             //     return res.status(400).json({ message: otpRecord.StatusMessage || "OTP verification failed!" });
             // }
 
+            if (purpose = 'TenantVerification') {
+                 return res.status(200).json({
+                    message: "OTP Verified successfull",
+                    data: otp
+                }); 
+            }
 
-            let result = await await pool.request()
+
+
+
+            let result = await pool.request()
                         .input('ID2', sql.NVarChar(65), rfqID)
                         .input('OrganizationId', sql.NVarChar(65), null)
                         .input('VendorId', sql.NVarChar(65), ID2) 
@@ -429,4 +601,6 @@ const varifyOTP = async (req,res)=>{
 }
 // end of signIn
 
-module.exports =  {signUp,varifyOTP,userCreation,signIn,sendOTP} ;
+ 
+
+module.exports =  {tenantCreation,signUp,varifyOTP,userCreation,signIn,sendOTP} ;
