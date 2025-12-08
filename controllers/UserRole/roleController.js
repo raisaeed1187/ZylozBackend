@@ -238,6 +238,70 @@ const assignRoleToUser = async (req, res) => {
   }
 };
 
+const setUserModuleMenuConfig = async (req, res) => {
+  const formData = req.body;
+
+  let pool, transaction;
+
+  try {
+    // Set DB connection & user context
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await setTenantContext(pool,req);
+
+    
+    await transaction.begin();
+    
+    const modeleRequest = new sql.Request(transaction);
+    
+    // Save/Update Role
+    const modeleResult = await modeleRequest
+      .input("UserID", sql.NVarChar(65), req.authUser?.ID2 || null)
+      .input("JsonData", sql.NVarChar(sql.MAX), formData.modules) 
+      .execute("UserModuleConfig_SaveUpdate");
+
+  
+    const menuRequest = new sql.Request(transaction);
+
+    const menuResult = await menuRequest
+      .input("UserID", sql.NVarChar(65), req.authUser?.ID2 || null)
+      .input("JsonData", sql.NVarChar(sql.MAX), formData.menus) 
+      .execute("UserSubMenuConfig_SaveUpdate");
+
+     
+
+    const io = getIO();
+
+    if (io) {
+        // console.log('inside before emmit'); 
+      io.emit("permissionsUpdated", {
+        roleId: req.authUser?.ID2,
+        message: `Permissions updated for role ${req.authUser?.ID2}`,
+      }); 
+    }
+
+    await transaction.commit();
+
+
+    res.status(200).json({
+      message: "User Module Menu setup saved/updated successfully",
+      roleID: '',
+    });
+  } catch (err) { 
+      console.error("SQL ERROR DETAILS:", err);
+      if (transaction) try { await transaction.rollback(); } catch(e) {}
+      
+      return res.status(400).json({ 
+          message: err.message, 
+      }); 
+  }
+};
+
 // GET all roles
 const getRolesList = async (req, res) => {
   try {
@@ -407,6 +471,7 @@ const getRoleDetails = async (req, res) => {
 module.exports = {
   roleSaveOrUpdate,
   assignRoleToUser,
+  setUserModuleMenuConfig,
   getRolesList,
   getUsersRolesList,
   getUserPermissions,

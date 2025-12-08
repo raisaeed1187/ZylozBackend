@@ -61,7 +61,7 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
 
 const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionAccesssList,getAllTransectionAccessWithPermissions} = require('./controllers/UserRole/transectionAccessSetupController'); 
 
-const {roleSaveOrUpdate,assignRoleToUser,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
+const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
 
 const {getProfitAndLossDashboard,getAgingDashboard} = require('./controllers/dashboardController'); 
 
@@ -601,6 +601,9 @@ app.post('/api/role/transection-accesses',authenticateToken,express.json(),getAl
 
 app.post('/api/role/save-update',authenticateToken,express.json(),upload,roleSaveOrUpdate );
 app.post('/api/role/assign-to-user',authenticateToken,express.json(),upload,assignRoleToUser );
+app.post('/api/user/config-module-menu',authenticateToken,express.json(),upload,setUserModuleMenuConfig );
+
+
 app.post('/api/role',authenticateToken,express.json(),getRoleDetails );
 app.post('/api/roles',authenticateToken,express.json(),getRolesList );
 app.post('/api/role/users-roles',authenticateToken,express.json(),getUsersRolesList );
