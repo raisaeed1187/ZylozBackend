@@ -315,9 +315,9 @@ const getRolesList = async (req, res) => {
 
     const result = await pool.request().query(`EXEC ApplicationRole_Get`);
 
-    console.log("UsersRoles result:");
+    // console.log("UsersRoles result:");
 
-    console.log("UsersRoles result:", result.recordset.length);
+    // console.log("UsersRoles result:", result.recordset.length);
 
 
     res.status(200).json({

@@ -12,6 +12,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const constentsSlice = require("../../constents");
 const { helper } = require("../../helper");
 const { setTenantContext } = require("../../helper/db/sqlTenant");
+const auditLog = require("../../helper/auditLogger");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -43,7 +44,7 @@ const invoiceSaveUpdate = async (req,res)=>{
 
            
             await transaction.begin();
-            
+ 
             const request = new sql.Request(transaction);
               
             const result = await request
@@ -74,7 +75,10 @@ const invoiceSaveUpdate = async (req,res)=>{
             .output('ID', sql.NVarChar(100)) // output param
             .execute('FinInvoice_SaveOrUpdate');
 
+             
+
             const newID = result.output.ID;
+
             if(formData.invoiceItems){ 
                 await invoiceItemSaveUpdate(req,newID,transaction);
                 const journalReq = new sql.Request(transaction);
@@ -87,6 +91,8 @@ const invoiceSaveUpdate = async (req,res)=>{
             if(formData.additionalFields){ 
                 additionalFieldSaveUpdate(req,newID,transaction)
             }
+
+ 
 
             await transaction.commit();
 
@@ -122,6 +128,7 @@ async function invoiceItemSaveUpdate(req,invoiceId,transaction){
                         
                         console.log(item);
                         if(item.itemDescription){  
+                             
                             const itemRequest = new sql.Request(transaction);
 
                             const result = await itemRequest
@@ -139,9 +146,9 @@ async function invoiceItemSaveUpdate(req,invoiceId,transaction){
                             .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
                             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
-
                             .execute('FinInvoiceItem_SaveOrUpdate');
 
+                             
                         }
                     } 
                 }
@@ -227,7 +234,7 @@ const getInvoiceDetails = async (req, res) => {
  
         await setTenantContext(pool,req);
 
-
+ 
 
         query = `exec FinInvoice_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
@@ -240,7 +247,7 @@ const getInvoiceDetails = async (req, res) => {
 
         const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Sales Invoice'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
-
+     
 
         if (apiResponse.recordset.length > 0) {
             const invoiceDetails = apiResponse.recordset[0];

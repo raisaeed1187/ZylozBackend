@@ -54,7 +54,7 @@ const expenseSaveUpdate = async (req,res)=>{
                     var newID = 0;
                     // expenseItemSaveUpdate(req,newID)
                     console.log('isPettyCash');
-                    await pettyCashSaveUpdate(req,res,request);
+                    await pettyCashSaveUpdate(req,res,transaction);
                 }
             }else{
                 console.log('else conditions');
@@ -111,12 +111,13 @@ const expenseSaveUpdate = async (req,res)=>{
 
 async function pettyCashSaveUpdate(req,res,transaction){
     const formData = req.body; 
-     
+     if (!transaction) throw new Error('Transaction is undefined');
     try {
              
             
              const request = new sql.Request(transaction);
-            
+
+                console.log('before FinPettyCashExpense_SaveOrUpdate calling this');
             
                 const result = await request
                 .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
@@ -135,6 +136,8 @@ async function pettyCashSaveUpdate(req,res,transaction){
 
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
+
+                console.log('after FinPettyCashExpense_SaveOrUpdate save this');
              
                 const newID = result.output.ID; 
                 if(formData.expenseItems){  
@@ -311,8 +314,10 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
                 //     blobHTTPHeaders: { blobContentType: file.mimetype }
                 // });
                 // documentUrl = blockBlobClient.url;
+
                 documentUrl = file ? (await uploadDocument(file)).fileUrl : null;
                 documentName = file.originalname;
+                
                 console.log(documentUrl);
                 console.log(documentName);
 

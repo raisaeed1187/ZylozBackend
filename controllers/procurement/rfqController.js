@@ -627,6 +627,8 @@ const deleteRFQItem = async (req, res) => {
         request.input("ID2", sql.NVarChar(65), Id || null);  
         request.input("RFQId", sql.NVarChar(65), rfqId || null);
         request.input("VendorId", sql.NVarChar(65), vendorId || null); 
+        request.input("deletedBy", sql.NVarChar(100), req.authUser.username); 
+         
         const apiResponse = await request.execute("RFQItem_Delete");
  
          

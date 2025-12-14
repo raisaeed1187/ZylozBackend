@@ -39,26 +39,105 @@ const tenantModuleSubscription = async (req, res) => {
         await setTenantContext(pool, req);
 
         transaction = new sql.Transaction(pool);
-        await transaction.begin();
+        await transaction.begin(); 
+        
+        const request = new sql.Request(transaction); 
 
-        for (const moduleId of moduleIds) {
-            const request = new sql.Request(transaction); 
-            await request
-                .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
-                .input("ModuleID", sql.NVarChar(65), moduleId)
-                .input("IsTrial", sql.Bit,  parseBoolean(isTrail) ? 1 : 0)
-                .input("Price", sql.Decimal(18, 2), price ?? null)
-                .input("SubscriptionStatus", sql.NVarChar(50), "Active")
-                .input("User", sql.NVarChar(65), req.authUser.username)
-                .execute("TenantModules_SaveOrUpdate");
-        }
 
-        await transaction.commit();
+        // for (const moduleId of moduleIds) {
+        //     const request = new sql.Request(transaction); 
+        //     console.log(moduleId);
+        //     console.log('before TenantModules_SaveOrUpdate');
 
-        return res.status(200).json({
-            message: "Tenant module subscription saved successfully",
-            modulesProcessed: moduleIds.length,
-        });
+        //     await request
+        //         .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+        //         .input("ModuleID", sql.NVarChar(65), moduleId)
+        //         .input("IsTrial", sql.Bit,  parseBoolean(isTrail) ? 1 : 0)
+        //         .input("Price", sql.Decimal(18, 2), price ?? null)
+        //         .input("SubscriptionStatus", sql.NVarChar(50), "Active")
+        //         .input("User", sql.NVarChar(65), req.authUser.username)
+        //         .execute("TenantModules_SaveOrUpdate");
+        //     console.log('after TenantModules_SaveOrUpdate');
+
+        // }
+            // console.log('before TenantModules_SaveOrUpdate_JSON');
+
+        await request
+            .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+            .input("ModulesJson", sql.NVarChar(sql.MAX), apps)  
+            .input("IsTrial", sql.Bit, parseBoolean(isTrail) ? 1 : 0)
+            .input("Price", sql.Decimal(18, 2), price ?? null)
+            .input("SubscriptionStatus", sql.NVarChar(50), "Active")
+            .input("User", sql.NVarChar(100), req.authUser.username)
+            .execute("TenantModules_SaveOrUpdate_JSON");
+
+            // console.log('after TenantModules_SaveOrUpdate_JSON');
+
+        const userRequest = new sql.Request(transaction); 
+ 
+        const result = await userRequest
+                            .input("email", sql.NVarChar, req.authUser.email)
+                            .execute("User_login");
+        const user = result.recordset[0];  
+
+        const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2,
+                        fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
+                        email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
+                        tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
+                        isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
+                        hasActiveApp: user.HasActiveModules
+                    };  
+
+        const moduleRequest = new sql.Request(transaction); 
+        
+        const modules = await moduleRequest
+        .input("UserID", sql.NVarChar, user.ID2)
+        .execute("GetUserModulesMenus");
+
+        const usersAccessRequest = new sql.Request(transaction); 
+
+        const usersAccess = await usersAccessRequest
+        .input("UserID", sql.NVarChar, user.ID2)
+        .execute("UsersAccessInfo_Get");
+ 
+        // const userInfo = usersAccess.recordsets[0][0];
+        // const roles = usersAccess.recordsets[1];
+
+        const organizations = usersAccess.recordsets[2];
+        const branches = usersAccess.recordsets[3];
+        const redirectUrl = `https://${user.DomainName}.allbiz.ae`;
+        
+        if (modules.recordset.length > 0) {
+            // console.log(modules.recordset);
+            const data = {
+                userDetails, 
+                websitePrefix: user.DomainName, 
+                hasActiveApp: user.HasActiveModules,
+                redirectUrl: redirectUrl,
+                organizations:organizations,
+                branches:branches, 
+                modules: modules.recordset,
+            }  
+            
+            await transaction.commit();
+
+            return res.status(200).json({
+                message: "Tenant module subscription saved successfully",
+                data: data,
+            });
+
+            
+            
+        }else{
+            return  res.status(400).json({ message: 'Un Authenticated User',data:null});
+        }      
+
+        // await transaction.commit(); 
+        // return res.status(200).json({
+        //     message: "Tenant module subscription saved successfully",
+        //     data: '',
+        // });
+        
 
     } catch (err) {
         console.error("SUBSCRIPTION ERROR:", err);
@@ -72,6 +151,10 @@ const tenantModuleSubscription = async (req, res) => {
         });
     }
 };
+
+ 
+
+ 
 
 // end of tenantModuleSubscription
 

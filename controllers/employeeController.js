@@ -1130,9 +1130,9 @@ const employeeDeleteDocument = async (req, res) => {
         
         let query = null; 
         if(deleteType == 'employeeBenefit'){
-            query = `exec EmployeeBenefit_Delete '${Id}'`;  
+            query = `exec EmployeeBenefit_Delete '${Id}','${req.authUser.username}'`;  
         }else{
-            query = `exec EmployeeDocument_Delete '${Id}'`; 
+            query = `exec EmployeeDocument_Delete '${Id}','${req.authUser.username}'`; 
         }
            
         const apiResponse = await pool.request().query(query);  

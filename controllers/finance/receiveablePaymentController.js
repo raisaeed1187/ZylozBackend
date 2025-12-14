@@ -81,12 +81,14 @@ const paymentSaveUpdate = async (req,res)=>{
             });
 
         } catch (err) { 
-            console.error("SQL ERROR DETAILS:", err);
+            console.error("SQL ERROR:", err);
+            console.error("SQL ERROR DETAILS:", err.originalError?.info || err);
+
             if (transaction) try { await transaction.rollback(); } catch(e) {}
             
             return res.status(400).json({ 
                 message: err.message,
-                // sql: err.originalError?.info || err
+                sql: err.originalError?.info || err
             }); 
         }
 }

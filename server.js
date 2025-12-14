@@ -11,7 +11,7 @@ const { initSocketServer } = require("./socket/socketServer");
 
 
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
-const {signUp, tenantCreation,userCreation,sendOTP,varifyOTP,signIn} = require('./controllers/authController'); 
+const {signUp, tenantCreation,userCreation,sendOTP,varifyOTP,getAuditLog,signIn,tenantSignIn} = require('./controllers/authController'); 
 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
@@ -40,7 +40,7 @@ const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunitySt
 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -149,6 +149,10 @@ app.use('/api', router);
 // auth routes
 app.post('/api/signup',express.json(),signUp );
 app.post('/api/signin',express.json(),signIn );
+app.post('/api/tenant-signin',express.json(),tenantSignIn );
+
+
+
 
 app.post('/api/tenant/account-creation',express.json(),tenantCreation );
 app.post('/api/all-apps',authenticateToken,express.json(),getAppsList);
@@ -162,6 +166,7 @@ app.post('/api/send-otp',express.json(),upload,sendOTP );
 
 app.post('/api/varify-otp',express.json(),varifyOTP );
  
+app.post('/api/audit-logs',authenticateToken,express.json(),upload,getAuditLog );
 
 
 
@@ -490,10 +495,11 @@ app.post('/api/finance/balance-sheet',authenticateToken,express.json(),getBalanc
 app.post('/api/finance/aging',authenticateToken,express.json(),getCustomerInvoiceAging );
 
 
-app.post('/api/finance/vat-returns',authenticateToken,express.json(),getVatReturns );
+app.post('/api/finance/vat-returns/details',authenticateToken,express.json(),getVatReturnsDetails );
 app.post('/api/finance/bank-transections',authenticateToken,express.json(),getBankTransections );
 app.post('/api/finance/vat-settings/save-update',authenticateToken,express.json(),upload,vatSettingsSaveUpdate );
 app.post('/api/finance/vat-settings',authenticateToken,express.json(),upload,getVatSettingsDetails );
+app.post('/api/finance/vat-returns',authenticateToken,express.json(),upload,getVatReturns );
 
 
 

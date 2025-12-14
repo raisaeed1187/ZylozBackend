@@ -68,7 +68,7 @@ const journalEntrySaveUpdate = async (req,res)=>{
 
             const newID = result.output.ID;
             if(formData.journalEntryItems){ 
-                journalEntryItemSaveUpdate(req,newID,transaction)
+                await journalEntryItemSaveUpdate(req,newID,transaction)
             }
 
             await transaction.commit();
@@ -289,7 +289,7 @@ const getJournalEntrysList = async (req, res) => {
 // end of getJournalEntrysList
 
 const getJournalLedgers = async (req, res) => {  
-    const {organizationId,account,Id} = req.body; // user data sent from client
+    const {organizationId,journalEntryId,source,account,startDate,endDate,Id} = req.body; // user data sent from client
      
     try {
          
@@ -300,14 +300,21 @@ const getJournalLedgers = async (req, res) => {
         let query = '';
         await setTenantContext(pool,req);
          
-        query = `exec FinJournalLedger_Get Null,Null,Null,'${organizationId}',${account ? `'${account}'` : 'NULL'}`;   
+        const response = await pool
+        .request()
+        .input("ID2", sql.NVarChar(65), Id || null)
+        .input("JournalEntryId", sql.NVarChar(65), journalEntryId || null)
+        .input("Source", sql.NVarChar(100), source || null)
+        .input("OrganizationId", sql.NVarChar(100), organizationId || null)
+        .input("Account", sql.NVarChar(100), account || null)
+        .input("StartDate", sql.Date, startDate || null)
+        .input("EndDate", sql.Date, endDate || null)
+        .execute("FinJournalLedger_Get");
          
-         
-        const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
             message: `Journal Ledger loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  response.recordset
         });
          
     } catch (error) {
@@ -412,7 +419,7 @@ const getBalanceSheet = async (req, res) => {
 
 
 const getCustomerInvoiceAging = async (req, res) => {  
-    const {organizationId,Id} = req.body; // user data sent from client
+    const {organizationId,type,Id} = req.body; // user data sent from client
      
     try {
          
@@ -424,10 +431,20 @@ const getCustomerInvoiceAging = async (req, res) => {
 
         let query = '';
         if (Id) {
-            query = `exec sp_GetCustomerInvoiceAging '${Id}','${organizationId}'`;   
-        }else{
-            query = `exec GetCustomerInvoiceAgingSummary '${organizationId}'`;   
+            if (type=='customer') {
+                query = `exec sp_GetCustomerInvoiceAging '${Id}','${organizationId}'`; 
+            }else{
+                query = `exec sp_GetSupplierInvoiceAging '${Id}','${organizationId}'`;   
+            }
 
+        }else{
+            if (type=='customer') {
+                query = `exec GetCustomerInvoiceAgingSummary '${organizationId}'`;   
+            }else{
+                query = `exec GetVendorInvoiceAgingSummary '${organizationId}'`;   
+            }
+
+            
         } 
           
         const apiResponse = await pool.request().query(query); 
@@ -445,7 +462,7 @@ const getCustomerInvoiceAging = async (req, res) => {
 // end of getCustomerInvoiceAging
 
 
-const getVatReturns = async (req, res) => {  
+const getVatReturnsDetails = async (req, res) => {  
     const {organizationId,fromDate,toDate,Id} = req.body; // user data sent from client
      
     try {
@@ -456,14 +473,17 @@ const getVatReturns = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         await setTenantContext(pool,req);
+
+         const results = await pool
+                .request()
+                .input("VatEntryID", sql.NVarChar, Id)
+                .input("OrganizationID", sql.NVarChar, organizationId)
+                .execute("VATReturn_Generate");
          
-        query = `exec VATReturn_Generate '${fromDate}','${toDate}','${organizationId}'`;   
-          
-        const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
             message: `Vat Return loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  results.recordset
         });
          
     } catch (error) {
@@ -471,7 +491,7 @@ const getVatReturns = async (req, res) => {
         
     }
 };
-// end of getVatReturns
+// end of getVatReturnsDetails
 
 const getBankTransections = async (req, res) => {  
     const {organizationId,fromDate,toDate,Id} = req.body;  
@@ -584,6 +604,38 @@ const getVatSettingsDetails = async (req, res) => {
 };
 // end of getVatSettingsDetails
  
+const getVatReturns = async (req, res) => {
+    const {organizationId} = req.body;
+
+    try {
+        
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        await setTenantContext(pool,req);
+
+         
+        const results = await pool
+                .request()
+                .input("OrganizationID", sql.NVarChar, organizationId)
+                .execute("VATReturnEntrySummary_AllPeriods");
+            
+        return res.status(200).json({
+            message: "Vat Returns Data",
+            data: results.recordset, 
+        });
+
+    } catch (error) {
+        console.error("sendOTP Error:", error.message);
+        return res.status(500).json({
+            message: "Failed to send OTP",
+            error: error.message
+        });
+    }
+};
 
 
-module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+
+module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getVatReturnsDetails,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

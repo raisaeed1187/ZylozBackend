@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 require("dotenv").config(); 
 const store = require('../store'); 
-const { setCurrentDatabase } = require('../constents').actions;
+const { setCurrentDatabase,setCurrentUser } = require('../constents').actions;
 const { sendEmail } = require('../services/mailer');
 const { generateOtp } = require('../utils/generateOTP');
 const { getOtpTemplate } = require('../utils/otpEmailTemplates');
@@ -51,6 +51,7 @@ const userCreation = async (req,res)=>{
             request.input("client", sql.NVarChar(50), req.authUser.database);
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
             request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
+            request.output('ID', sql.NVarChar(100))  
 
             await request.execute("User_Registeration");
  
@@ -117,25 +118,7 @@ const tenantCreation = async (req,res)=>{
 
             const tenantId = result.output.ID;
  
-            
-
-            const organizationRequest = new sql.Request(transaction); 
-
-            await organizationRequest
-            .input("ID2", sql.NVarChar(250), null)
-            .input("OrganizationName", sql.NVarChar(250), formData.company)
-            .input("ContactNo", sql.NVarChar(250), formData.phone)
-            .input("Email", sql.NVarChar(250), formData.email)
-            .input("Country", sql.NVarChar(250), formData.country)
-            .input("LicensesNumber", sql.NVarChar(250), formData.licensesNumber || null)
-            .input("TRNNumber", sql.NVarChar(250), formData.trn)
-            .input("Logo", sql.NVarChar(250), formData.logo || null)
-            .input("CreatedBy", sql.NVarChar(250), formData.username)
-            .input("tenantId", sql.NVarChar(65), tenantId || null)
-            .execute("Tenant_OrganizationProfile_Save_Update");
-
-           
-
+             
             const otpRequest = new sql.Request(transaction); 
             await otpRequest
                 .input("UserId", sql.NVarChar, tenantId)                        // Vendor ID
@@ -158,8 +141,24 @@ const tenantCreation = async (req,res)=>{
             userRequest.input("TenantId", sql.NVarChar(100), tenantId);
             userRequest.input("fullName", sql.NVarChar(100), formData.fullName);
             userRequest.input("isAdmin", sql.Bit, 1);
+            userRequest.output('ID', sql.NVarChar(100));   
+            const userResult = await userRequest.execute("User_Registeration");
+            const userId = userResult.output.ID;
 
-            await userRequest.execute("User_Registeration");
+            const organizationRequest = new sql.Request(transaction); 
+
+            await organizationRequest
+            .input("ID2", sql.NVarChar(250), null)
+            .input("OrganizationName", sql.NVarChar(250), formData.company)
+            .input("ContactNo", sql.NVarChar(250), formData.phone)
+            .input("Email", sql.NVarChar(250), formData.email)
+            .input("Country", sql.NVarChar(250), formData.country)
+            .input("LicensesNumber", sql.NVarChar(250), formData.licensesNumber || null)
+            .input("TRNNumber", sql.NVarChar(250), formData.trn)
+            .input("Logo", sql.NVarChar(250), formData.logo || null)
+            .input("CreatedBy", sql.NVarChar(250), formData.username)
+            .input("tenantId", sql.NVarChar(65), tenantId || null)
+            .execute("Tenant_OrganizationProfile_Save_Update");
  
             await sendEmail(
                 formData.email,
@@ -319,7 +318,9 @@ const signIn = async (req,res)=>{
                     });
 
                     const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
-                   
+                    console.log('user');
+                    console.log(user);
+
                     if (user.HasActiveModules == 0)
                     {
                         const data = {
@@ -352,7 +353,7 @@ const signIn = async (req,res)=>{
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
                     .execute("GetUserModulesMenus");
-
+                    console.log(modules);
                     const usersAccess = await pool
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
@@ -414,6 +415,147 @@ const signIn = async (req,res)=>{
         }
 }
 // end of signIn
+
+const tenantSignIn = async (req,res)=>{
+    const { tempToken, client } = req.body;
+    if (!tempToken) return res.status(400).json({ message: 'Token missing' });
+
+    try {
+            const decoded = jwt.verify(tempToken, SECRET_KEY);
+             if (!decoded) return res.status(401).json({ message: 'Invalid token' });
+            // console.log('database');
+            // console.log(client); 
+
+            store.dispatch(setCurrentDatabase( client )); 
+            const config =  store.getState().constents.config;  
+             
+            const email = decoded.email;
+
+            const pool = await sql.connect(config);
+             
+                const result = await pool
+                    .request()
+                    .input("email", sql.NVarChar, email)
+                    .execute("User_login");
+
+                // return result;
+                if (result.recordset.length === 0) {
+                    // return res.status(401).json({ message: "Invalid email" });
+                  return  res.status(400).json({ message: 'Invalid email',data:null});
+                } 
+ 
+                const user = result.recordset[0];  
+                 
+                
+        
+                if(user){  
+                      
+                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2,
+                        fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
+                        email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
+                        tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
+                        isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
+                        hasActiveApp: user.HasActiveModules
+                    };
+    
+                    const token = jwt.sign(userDetails, SECRET_KEY, {
+                        expiresIn: "5h",
+                    });
+
+                    const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
+                   
+                    if (user.HasActiveModules == 0)
+                    {
+                        const data = {
+                            userDetails,
+                            token: token,
+                            websitePrefix: user.DomainName, 
+                            redirectUrl: redirectUrl,
+                            hasActiveApp: user.HasActiveModules
+                        }
+                        return res.status(200).json({
+                                message: "Login successful",
+                                data:data, 
+                            }); 
+                    }
+
+
+                    await pool.request()
+                                    .input("tenantId", sql.NVarChar, user.TenantId)
+                                    .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+                    
+                    // constents.methods.setCurrentDatabase(user.databaseName);  
+                    store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    // const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
+                    // const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
+                    // const organizations = organizationsQueryResponse.recordset;
+                    
+                    
+
+                    const modules = await pool
+                    .request()
+                    .input("UserID", sql.NVarChar, user.ID2)
+                    .execute("GetUserModulesMenus");
+
+                    const usersAccess = await pool
+                    .request()
+                    .input("UserID", sql.NVarChar, user.ID2)
+                    .execute("UsersAccessInfo_Get");
+
+                  
+                    // const userInfo = usersAccess.recordsets[0][0];
+                    // const roles = usersAccess.recordsets[1];
+
+                    const organizations = usersAccess.recordsets[2];
+                    const branches = usersAccess.recordsets[3];
+                    
+                    if (modules.recordset.length > 0) {
+                        // console.log(modules.recordset);
+                        const data = {
+                            userDetails:{
+                                id: user.ID2,
+                                email:user.Email,
+                                userName:user.UserName,
+                                isAdmin: user.IsAdmin,
+                                // client:user.databaseName,
+                                client:'aa', 
+                                permissions:user.Access, 
+                                roleName:modules.recordset[0].RoleName,
+                                roleCode:modules.recordset[0].RoleCode, 
+                                
+                            },
+                            token:token,
+                            websitePrefix: user.DomainName, 
+                            hasActiveApp: user.HasActiveModules,
+                            redirectUrl: redirectUrl,
+                            organizations:organizations,
+                            branches:branches, 
+                            modules: modules.recordset,
+                        }  
+                        return res.status(200).json({
+                            message: "Login successful",
+                            data: data
+                        }); 
+                        
+                    }else{
+                      return  res.status(400).json({ message: 'Un Authenticated User',data:null});
+                    }
+
+
+                    pool.close();
+                }else{
+                    console.log('in else condition');
+                   return  res.status(400).json({ message: 'User not found',data:null});
+                }
+                pool.close();
+            
+        } catch (error) {
+            console.log(error);
+           return res.status(400).json({ message: error.message,data:null});
+
+        }
+}
+// end of tenantSignIn
 
 const sendOTP = async (req, res) => {
     const formData = req.body;
@@ -601,6 +743,45 @@ const varifyOTP = async (req,res)=>{
 }
 // end of signIn
 
+const getAuditLog = async (req,res)=>{
+    const { tableName,actionType,startDate,endDate,page,pageSize} = req.body;
+
+    try { 
+            // store.dispatch(setCurrentDatabase( from )); 
+            // console.log(req.authUser);
+            
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            
+            const pool = await sql.connect(config);
+             
+            const result = await pool.request()
+                .input('TableName', sql.NVarChar, tableName || null)
+                .input('Username', sql.NVarChar, req.authUser.username || null)
+                .input('ActionType', sql.NVarChar, actionType || null)
+                .input('StartDate', sql.Date, startDate || null)
+                .input('EndDate', sql.Date, endDate || null)
+                .input('Page', sql.Int, parseInt(page))
+                .input('PageSize', sql.Int, parseInt(pageSize))
+                .execute('AuditLog_GetAll');
+                 
+
+            return res.status(200).json({
+                message: "audit log details",
+                data: result.recordset
+            }); 
+            
+        }  catch (error) {
+            console.error("verifyOTP Error:", error);
+            return res.status(400).json({
+                message: error.message || "OTP verification failed",
+                data: null
+            });
+        }
+}
+// end of getAuditLog
+
  
 
-module.exports =  {tenantCreation,signUp,varifyOTP,userCreation,signIn,sendOTP} ;
+module.exports =  {getAuditLog,tenantCreation,signUp,varifyOTP,userCreation,tenantSignIn,signIn,sendOTP} ;
