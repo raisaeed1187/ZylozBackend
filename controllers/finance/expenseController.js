@@ -117,8 +117,7 @@ async function pettyCashSaveUpdate(req,res,transaction){
             
              const request = new sql.Request(transaction);
 
-                console.log('before FinPettyCashExpense_SaveOrUpdate calling this');
-            
+              
                 const result = await request
                 .input('ID2', sql.NVarChar(65), formData.ID2 || '0')
                 .input('expenseCode', sql.NVarChar(100), formData.expenseCode || null)
@@ -137,8 +136,7 @@ async function pettyCashSaveUpdate(req,res,transaction){
                 .output('ID', sql.NVarChar(65))
                 .execute('FinPettyCashExpense_SaveOrUpdate');
 
-                console.log('after FinPettyCashExpense_SaveOrUpdate save this');
-             
+                
                 const newID = result.output.ID; 
                 if(formData.expenseItems){  
                     await expenseItemSaveUpdate(req,newID,transaction);

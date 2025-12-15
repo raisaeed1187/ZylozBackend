@@ -755,8 +755,19 @@ const getAuditLog = async (req,res)=>{
             const config = store.getState().constents.config;  
             
             const pool = await sql.connect(config);
-             
-            const result = await pool.request()
+            let result = null
+            if (tableName) {
+                result = await pool.request()
+                .input('TableName', sql.NVarChar, tableName || null)
+                .input('Username', sql.NVarChar, req.authUser.username || null)
+                .input('ActionType', sql.NVarChar, actionType || null)
+                .input('StartDate', sql.Date, startDate || null)
+                .input('EndDate', sql.Date, endDate || null)
+                .input('Page', sql.Int, parseInt(page))
+                .input('PageSize', sql.Int, parseInt(pageSize))
+                .execute('Get_AuditTrail_Finance');
+            }else{
+                result = await pool.request()
                 .input('TableName', sql.NVarChar, tableName || null)
                 .input('Username', sql.NVarChar, req.authUser.username || null)
                 .input('ActionType', sql.NVarChar, actionType || null)
@@ -765,6 +776,9 @@ const getAuditLog = async (req,res)=>{
                 .input('Page', sql.Int, parseInt(page))
                 .input('PageSize', sql.Int, parseInt(pageSize))
                 .execute('AuditLog_GetAll');
+            }
+
+             
                  
 
             return res.status(200).json({
