@@ -110,7 +110,20 @@ const tenantModuleSubscription = async (req, res) => {
         if (modules.recordset.length > 0) {
             // console.log(modules.recordset);
             const data = {
-                userDetails, 
+                userDetails:{
+                    id: user.ID2,
+                    email:user.Email,
+                    userName:user.UserName,
+                    isAdmin: user.IsAdmin,
+                    fullName:user?.FullName,
+                    phone:user?.Phone,  
+                    // client:user.databaseName,
+                    client:'aa', 
+                    permissions:user.Access, 
+                    roleName:modules.recordset[0].RoleName,
+                    roleCode:modules.recordset[0].RoleCode, 
+                    
+                },
                 websitePrefix: user.DomainName, 
                 hasActiveApp: user.HasActiveModules,
                 redirectUrl: redirectUrl,

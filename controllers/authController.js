@@ -376,6 +376,9 @@ const signIn = async (req,res)=>{
                                 email:user.Email,
                                 userName:user.UserName,
                                 isAdmin: user.IsAdmin,
+                                fullName:user?.FullName,
+                                phone:user?.Phone, 
+                                
                                 // client:user.databaseName,
                                 client:'aa', 
                                 permissions:user.Access, 
@@ -517,6 +520,8 @@ const tenantSignIn = async (req,res)=>{
                                 email:user.Email,
                                 userName:user.UserName,
                                 isAdmin: user.IsAdmin,
+                                fullName:user?.FullName,
+                                phone:user?.Phone, 
                                 // client:user.databaseName,
                                 client:'aa', 
                                 permissions:user.Access, 
