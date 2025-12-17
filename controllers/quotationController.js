@@ -58,14 +58,16 @@ const quotationSaveUpdate = async (req,res)=>{
                 let newId =  result.output.NewID; 
                 let encryptedId =  formData.id;
                 if(formData.id == '0'){
-                     encryptedId =  encryptID(newId);
+                     encryptedId =  newId;
+                    //  encryptedId =  encryptID(newId);
+
                     console.log(encryptedId); 
-                    await pool.request()
-                    .query(`
-                        UPDATE CustomerQuotation 
-                        SET Id2 = '${encryptedId}' 
-                        WHERE Id = ${newId}
-                    `);
+                    // await pool.request()
+                    // .query(`
+                    //     UPDATE CustomerQuotation 
+                    //     SET Id2 = '${encryptedId}' 
+                    //     WHERE Id = ${newId}
+                    // `);
                 }
                 let attachments = null;
                 if(Array.isArray(req.files?.attachments)){
@@ -206,7 +208,7 @@ async function saveQuotationDocuments(pool,attachmentUrls,NewID,formData){
 // end of saveQuotationDocuments
 
 const getQuotationList = async (req, res) => {  
-    const {organizationId} = req.body; // user data sent from client
+    const {organizationId,IsActive} = req.body; // user data sent from client
      
     try {
          
@@ -214,25 +216,23 @@ const getQuotationList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
-        const query = `exec getQuotationList '${organizationId}'`; 
-        const apiResponse = await pool.request().query(query); 
-        const formatCreatedAt = (createdAt) => {
-            const date = new Date(createdAt);
-            return date.toLocaleDateString("en-US");
-        };
+        var result = null;  
+        if (IsActive) {
+            result = await pool.request()
+            .input('OrganizationId', sql.NVarChar(65), organizationId || null)   
+            .execute('GetActiveQuotationList');
+        }else{
+            result = await pool.request()
+                .input('OrganizationId', sql.NVarChar(65), organizationId || null)   
+                .execute('getQuotationList');
+        }
+    
         
-        let formatedData = apiResponse.recordset.map(staff => ({
-            ...staff
-            // CreatedAt: formatCreatedAt(staff.CreatedAt),
-            // ChangedAt: formatCreatedAt(staff.ChangedAt), 
-        })); 
-        formatedData = formatedData.map(({ ID, ...rest }) => rest);
 
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `Customer List loaded successfully!`,
-            data: formatedData
+            message: `Quotations List loaded successfully!`,
+            data: result.recordset
         });
          
     } catch (error) {

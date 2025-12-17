@@ -346,7 +346,7 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
                 .input('costCenterId', sql.NVarChar(65), item.costCenterId || null)
                 .input('referenceNo', sql.NVarChar(100), item.referenceNo || null)
                 .input('remarks', sql.NVarChar(sql.MAX), item.remarks || null)
-                .input('statusId', sql.Int, item.statusId || 1)
+                .input('statusId', sql.Int, formData.statusId || 1)
                 .input('isBulkExpense', sql.Bit, parseBoolean(item.isBulkExpense) || false)
                 .input('billable', sql.Bit, item.billable || false)
                 .input('organizationId', sql.NVarChar(65), formData.organizationId || null)

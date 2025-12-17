@@ -351,13 +351,15 @@ const getInvoicesList = async (req, res) => {
         let query = '';
         await setTenantContext(pool,req);
          
-        query = `exec FinInvoice_Get Null,'${organizationId}'`;   
+     
+        const result = await pool.request()
+                        .input('OrganizationId', sql.NVarChar(65), organizationId || null)   
+                        .execute('FinInvoice_Get');
           
-        const apiResponse = await pool.request().query(query); 
-        
+    
         res.status(200).json({
             message: `Invoices List loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  result.recordset
         });
          
     } catch (error) {
@@ -399,7 +401,38 @@ const getTaxRate = async (req, res) => {
 };
 // end of getTaxRate
 
+const getOrdersForInvoice = async (req, res) => {  
+    const {organizationId,customerId} = req.body;  
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+         
+        const result = await pool.request()
+                    .input('OrganizationId', sql.NVarChar(65), organizationId || null)  
+                    .input('CustomerId', sql.NVarChar(65), customerId || null)    
+                    .execute('GetOrdersForInvoice');
+          
+  
+        
+        res.status(200).json({
+            message: `Invoice Orders loaded successfully!`,
+            data:  result.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getOrdersForInvoice
+
  
 
 
-module.exports =  {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+module.exports =  {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;

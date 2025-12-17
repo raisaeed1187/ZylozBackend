@@ -8,7 +8,8 @@ let lastPendingIds = new Set();
 
 function initSocketServer(ioInstance) {
   io = ioInstance;
-  setIO(io);
+  setIO(io); 
+
   io.on("connection", (socket) => {
     console.log("🟢 Client connected:", socket.id);
 

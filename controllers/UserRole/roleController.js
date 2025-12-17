@@ -283,7 +283,7 @@ const setUserModuleMenuConfig = async (req, res) => {
         roleId: req.authUser?.ID2,
         message: `Permissions updated for role ${req.authUser?.ID2}`,
       }); 
-    }
+    } 
 
     await transaction.commit();
 

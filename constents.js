@@ -152,13 +152,23 @@ function getStartOfMonth(date){
     return formattedDate;
 };
  
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const lower = value.toLowerCase();
+    return lower === "yes" || lower === "true" || lower === "1";
+  }
+  return Boolean(value);
+}
+ 
 
 const methods = { 
     getNextDay,
     getCurrentDateTime,
     setCurrentUser,
     setCurrentDatabase,
-    getStartOfMonth
+    getStartOfMonth,
+    parseBoolean
 }
 
 const constents = {

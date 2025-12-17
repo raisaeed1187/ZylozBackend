@@ -41,35 +41,35 @@ const tenantModuleSubscription = async (req, res) => {
         transaction = new sql.Transaction(pool);
         await transaction.begin(); 
         
-        const request = new sql.Request(transaction); 
+        // const request = new sql.Request(transaction); 
 
 
-        // for (const moduleId of moduleIds) {
-        //     const request = new sql.Request(transaction); 
-        //     console.log(moduleId);
-        //     console.log('before TenantModules_SaveOrUpdate');
+        for (const moduleId of moduleIds) {
+            const request = new sql.Request(transaction); 
+            console.log(moduleId);
+            console.log('before TenantModules_SaveOrUpdate');
 
-        //     await request
-        //         .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
-        //         .input("ModuleID", sql.NVarChar(65), moduleId)
-        //         .input("IsTrial", sql.Bit,  parseBoolean(isTrail) ? 1 : 0)
-        //         .input("Price", sql.Decimal(18, 2), price ?? null)
-        //         .input("SubscriptionStatus", sql.NVarChar(50), "Active")
-        //         .input("User", sql.NVarChar(65), req.authUser.username)
-        //         .execute("TenantModules_SaveOrUpdate");
-        //     console.log('after TenantModules_SaveOrUpdate');
+            await request
+                .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+                .input("ModuleID", sql.NVarChar(65), moduleId)
+                .input("IsTrial", sql.Bit,  parseBoolean(isTrail) ? 1 : 0)
+                .input("Price", sql.Decimal(18, 2), price ?? null)
+                .input("SubscriptionStatus", sql.NVarChar(50), "Active")
+                .input("User", sql.NVarChar(65), req.authUser.username)
+                .execute("TenantModules_SaveOrUpdate");
+            console.log('after TenantModules_SaveOrUpdate');
 
-        // }
+        }
             // console.log('before TenantModules_SaveOrUpdate_JSON');
 
-        await request
-            .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
-            .input("ModulesJson", sql.NVarChar(sql.MAX), apps)  
-            .input("IsTrial", sql.Bit, parseBoolean(isTrail) ? 1 : 0)
-            .input("Price", sql.Decimal(18, 2), price ?? null)
-            .input("SubscriptionStatus", sql.NVarChar(50), "Active")
-            .input("User", sql.NVarChar(100), req.authUser.username)
-            .execute("TenantModules_SaveOrUpdate_JSON");
+        // await request
+        //     .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+        //     .input("ModulesJson", sql.NVarChar(sql.MAX), apps)  
+        //     .input("IsTrial", sql.Bit, parseBoolean(isTrail) ? 1 : 0)
+        //     .input("Price", sql.Decimal(18, 2), price ?? null)
+        //     .input("SubscriptionStatus", sql.NVarChar(50), "Active")
+        //     .input("User", sql.NVarChar(100), req.authUser.username)
+        //     .execute("TenantModules_SaveOrUpdate_JSON");
 
             // console.log('after TenantModules_SaveOrUpdate_JSON');
 

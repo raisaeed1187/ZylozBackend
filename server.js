@@ -41,7 +41,7 @@ const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunitySt
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
-const {getTaxRate,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
+const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
 const {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
@@ -255,7 +255,7 @@ app.post('/api/vendors',authenticateToken,express.json(),getVendorsList );
 
 app.post('/api/item/save-update',authenticateToken,express.json(),upload,itemSaveUpdate ); 
 app.post('/api/item',authenticateToken,express.json(),getItemDetails );
-app.post('/api/items',express.json(),getItemsList );
+app.post('/api/items',express.json(),authenticateToken,getItemsList );
 app.post('/api/item/variations',express.json(),getItemVariationsList );
 app.post('/api/items-variations',express.json(),getItemsWithVariations );
 
@@ -561,6 +561,9 @@ app.post('/api/finance/received-payment/save-update',authenticateToken,express.j
 app.post('/api/finance/received-payments',authenticateToken,express.json(),getPaymentsList );
 app.post('/api/finance/received-payment',authenticateToken,express.json(),getPaymentDetails ); 
 
+app.post('/api/finance/invoice-orders',authenticateToken,express.json(),getOrdersForInvoice );
+
+
 // end of received payment
 
 app.post('/api/finance/additionalfield/save-update',authenticateToken,express.json(),upload,finAdditionalFieldSaveUpdate );
@@ -638,7 +641,7 @@ app.post('/api/laundry/order/delete-item',express.json(),deleteOrderItem );
 
 
 
-
+ 
 
 
  

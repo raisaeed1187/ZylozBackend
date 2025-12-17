@@ -57,6 +57,8 @@ const employeeSaveUpdate = async (req,res)=>{
                 } 
  
 
+                console.log('formData');
+                console.log(formData);
 
   
                 const result = await request
@@ -73,7 +75,7 @@ const employeeSaveUpdate = async (req,res)=>{
                     .input("jobPosition", sql.NVarChar(255), formData.jobPosition)
                     .input("manager", sql.NVarChar(255), formData.manager)
                     .input("img", sql.NVarChar(sql.MAX), imgUrl)
-                    .input("isUAENational", sql.Bit, formData.isUAENational)
+                    .input("isUAENational", sql.Bit, parseBoolean(formData.isUAENational))
                     .input("originCountry", sql.NVarChar(100), formData.originCountry) 
                     .input("contractType", sql.NVarChar(100), formData.contractType)  
                     .input("IsSubmit", sql.Int, formData.isSubmit == '1' ? 1 : 0)   
@@ -87,14 +89,14 @@ const employeeSaveUpdate = async (req,res)=>{
                 let newId =  result.output.NewID; 
                 let encryptedId =  formData.ID2;
                 if(formData.ID2 == '0'){
-                     encryptedId =  encryptID(newId);
+                     encryptedId = newId; //encryptID(newId);
                     console.log(encryptedId); 
                     
-                    const updateReq = new sql.Request(transaction);
-                    await updateReq
-                    .input("ID2", sql.NVarChar, encryptedId)
-                    .input("ID", sql.Int, newId)
-                    .query("UPDATE Employee SET ID2 = @ID2 WHERE ID = @ID");
+                    // const updateReq = new sql.Request(transaction);
+                    // await updateReq
+                    // .input("ID2", sql.NVarChar, encryptedId)
+                    // .input("ID", sql.Int, newId)
+                    // .query("UPDATE Employee SET ID2 = @ID2 WHERE ID = @ID");
                     
                 }
                  
@@ -245,7 +247,7 @@ async function employeeSalaryDetailsSaveUpdate(req,EmployeeId, transaction){
 
                 const now = new Date(); 
                 const formattedDate = getStartOfMonth(now); 
-                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${formData.organizationId || null},'${req.authUser.tenantId}'`; 
+                const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}','${formData.organizationId || null}','${req.authUser.tenantId}'`; 
                 const runPayrollReq = new sql.Request(transaction);
                  
                 const apiRunPayrollResponse = await runPayrollReq.query(runPayrollQuery);  
@@ -288,7 +290,7 @@ async function employeeBenefitSaveUpdate(req,EmployeeId,transaction){
                     } 
                     const now = new Date(); 
                     const formattedDate = getStartOfMonth(now); 
-                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}',${formData.organizationId || null},'${req.authUser.tenantId}'`; 
+                    const runPayrollQuery = `exec Save_PayrollOutput '${formattedDate}','${req.authUser.username}','${formData.organizationId || null}','${req.authUser.tenantId}'`; 
 
                     const runPayrollReq = new sql.Request(transaction);
                  
