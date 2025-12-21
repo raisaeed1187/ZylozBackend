@@ -2,6 +2,8 @@ const sql = require("mssql");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+ 
 require("dotenv").config(); 
 const store = require('../store'); 
 const { setCurrentDatabase,setCurrentUser } = require('../constents').actions;
@@ -9,6 +11,7 @@ const { sendEmail } = require('../services/mailer');
 const { generateOtp } = require('../utils/generateOTP');
 const { getOtpTemplate } = require('../utils/otpEmailTemplates');
 const { setTenantContext } = require("../helper/db/sqlTenant");
+const { getUserCreationTemplate } = require("../utils/userCreationEmailTempate");
 
 
 
@@ -19,40 +22,51 @@ const userCreation = async (req,res)=>{
     const formData = req.body;  
 
     try {
-            if (!formData.email || !formData.password || !formData.fullName) {
+            if (!formData.email || !formData.fullName) {
                 return res.status(400).json({ message: 'Enter required fields!' });
             }
-            console.log('database');
+             
             console.log(req.authUser.database); 
-            store.dispatch(setCurrentDatabase(req.authUser.database || 'Zyloz')); 
+            store.dispatch(setCurrentDatabase(req.authUser.database || 'VPSZyloz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
             await setTenantContext(pool,req);
-             
-            const hashedPassword = await bcrypt.hash(formData.password, 10);
+            const plainPassword = generateStrongPassword(8); 
+            // console.log('plainPassword');
+            // console.log(plainPassword); 
+
  
-            const { otp, expiresAt } = generateOtp(6, 10); // 6 digits, expires in 10 mins
-            const otpHtml = getOtpTemplate(otp, formData.fullName);
-            const text = `Your AllBiz OTP is ${otp}. It will expire in 10 minutes.`;
+            const html = await getUserCreationTemplate(
+                formData.fullName,
+                formData.email,
+                plainPassword
+            );
+            const text = `Welcome to Allbiz – Your account is ready to go`;
  
+            console.log('Sending email to:', formData.email);
             await sendEmail(
                 formData.email,
-                "Your AllBiz OTP Code",
+                "Welcome to Allbiz – Your Account Is Ready",
                 text,
-                otpHtml
+                html
             );
+            console.log('Email sent successfully to:', formData.email);
+
+            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+             const username = getUsernameFromEmail(formData.email);
 
             const request = pool.request();
             request.input("ID2", sql.NVarChar(100), formData.ID2);
-            request.input("username", sql.NVarChar(100), formData.fullName);
+            request.input("username", sql.NVarChar(100), username);
+            request.input("fullName", sql.NVarChar(100), formData.fullName); 
             request.input("email", sql.NVarChar(100), formData.email);
             request.input("password", sql.NVarChar(255), hashedPassword);
             request.input("client", sql.NVarChar(50), req.authUser.database);
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
             request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
-            request.output('ID', sql.NVarChar(100))  
-
+            request.output('ID', sql.NVarChar(100))   
             await request.execute("User_Registeration");
  
 
@@ -67,7 +81,43 @@ const userCreation = async (req,res)=>{
 
         }
 }
-// end userCreation
+// end userCreation 
+
+const getUsernameFromEmail = (email) => {
+    if (!email) return "";
+    return email.split("@")[0];
+    };
+
+ 
+function generateStrongPassword(length = 8) {
+  if (length < 4) {
+    throw new Error("Password length must be at least 4");
+  }
+
+  const lowercase = "abcdefghijklmnopqrstuvwxyz";
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const digits = "0123456789";
+  const special = "!@#$%^&*()-_=+[]{}<>?";
+  const allChars = lowercase + uppercase + digits + special;
+ 
+  let password = [
+    lowercase[crypto.randomInt(lowercase.length)],
+    uppercase[crypto.randomInt(uppercase.length)],
+    digits[crypto.randomInt(digits.length)],
+    special[crypto.randomInt(special.length)],
+  ];
+
+   
+  for (let i = password.length; i < length; i++) {
+    password.push(allChars[crypto.randomInt(allChars.length)]);
+  }
+
+ 
+  password = password.sort(() => crypto.randomInt(2) - 1);
+
+  return password.join("");
+}
+
 
 const tenantCreation = async (req,res)=>{ 
     const formData = req.body;  
@@ -682,7 +732,7 @@ const varifyOTP = async (req,res)=>{
             //     return res.status(400).json({ message: otpRecord.StatusMessage || "OTP verification failed!" });
             // }
 
-            if (purpose = 'TenantVerification') {
+            if (purpose == 'TenantVerification') {
                  return res.status(200).json({
                     message: "OTP Verified successfull",
                     data: otp

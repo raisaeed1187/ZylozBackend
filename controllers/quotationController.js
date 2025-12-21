@@ -116,9 +116,15 @@ async function quotationItemSaveUpdate(req,QuotationId){
                                 .input('description', sql.NVarChar(sql.MAX), itemFormData.description)
                                 .input('qty', sql.Int, itemFormData.qty)
                                 .input('unit', sql.NVarChar(50), itemFormData.unit)
-                                .input('rate', sql.Decimal(18,2), itemFormData.rate)
-                                .input('discount', sql.Decimal(18,2), itemFormData.discount)
-                                .input('totalAmount', sql.Decimal(18,2), itemFormData.totalAmount)
+                                .input('rate', sql.Decimal(18,5), itemFormData.rate)
+                                .input('discount', sql.Decimal(18,5), itemFormData.discount)
+                                .input('totalAmount', sql.Decimal(18,5), itemFormData.totalAmount)
+                                .input('Vat', sql.Decimal(18,5), itemFormData.vat)
+                                .input('VatName', sql.NVarChar(100), itemFormData.vatName)
+                                .input('VatId', sql.NVarChar(100), itemFormData.vatId)
+                                .input('VatAmount', sql.Decimal(18,5), itemFormData.vatAmount)
+ 
+
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('CustomerQuotationItem_Save_Update');
                         }

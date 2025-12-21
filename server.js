@@ -41,7 +41,7 @@ const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunitySt
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
-const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
+const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,sendInvoice,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
 const {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
@@ -550,7 +550,9 @@ app.post('/api/finance/make-payment',authenticateToken,express.json(),getMakePay
 
 
 
-app.post('/api/finance/invoice/save-update',authenticateToken,express.json(),upload,invoiceSaveUpdate );
+app.post('/api/finance/invoice/save-update',authenticateToken,express.json(),upload,invoiceSaveUpdate ); 
+app.post('/api/finance/invoice/send',authenticateToken,express.json(),upload,sendInvoice );
+
 app.post('/api/finance/invoices',authenticateToken,express.json(),getInvoicesList );
 app.post('/api/finance/invoice',authenticateToken,express.json(),getInvoiceDetails );
 app.post('/api/finance/customer/invoices',authenticateToken,express.json(),getCustomerInvoice );

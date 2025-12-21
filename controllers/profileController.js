@@ -19,6 +19,7 @@ const CONTAINER_NAME = "documents";
 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const { runTenantQuery,runTenantProcedure, setTenantContext } = require("../helper/db/sqlTenant");
+const { getIO } = require("../socket/socket");
 
   
 const orgProfileSaveUpdate = async (req,res)=>{
@@ -75,12 +76,13 @@ const orgProfileSaveUpdate = async (req,res)=>{
                     .input('AddressLine2', sql.NVarChar(250), formData.addressLine2)
                     .input('City', sql.NVarChar(250), formData.city)
                     .input('State', sql.NVarChar(250), formData.state)
+                    .input('Country', sql.NVarChar(250), formData.country) 
                     .input('LicensesNumber', sql.NVarChar(250), formData.licensesNumber)
                     .input('TRNNumber', sql.NVarChar(250), formData.trnNumber)
                     .input('ExpiryDate', sql.NVarChar(250), formData.expiryDate) 
                     .input('EstCardDetails', sql.NVarChar(250), formData.estCardDetails)
                     .input('EstCardExpiryDate', sql.NVarChar(250), formData.estCardExpiryDate) 
-                    .input('Status', sql.NVarChar(50), "1") 
+                    .input('Status', sql.NVarChar(50), formData.status) 
                     .input('Logo', sql.NVarChar(250), typeof formData.logo === "string" && formData.logo.startsWith("http") ? formData.logo : logoUrl) 
                     .input('Attachments', sql.NVarChar(250), "") 
                     .input('CreatedBy', sql.NVarChar(250), req.authUser.username) 
@@ -124,6 +126,16 @@ const orgProfileSaveUpdate = async (req,res)=>{
                 if(attachments){
                     await saveOrgProfileDocuments(pool,attachments,encryptedId,formData,transaction);
                 }
+
+                const io = getIO();
+
+                if (io) {
+                    // console.log('inside before emmit'); 
+                    io.emit("permissionsUpdated", {
+                        roleId: req.authUser?.ID2,
+                        message: `Permissions updated for role ${req.authUser?.ID2}`,
+                    }); 
+                } 
 
                 await transaction.commit();
 

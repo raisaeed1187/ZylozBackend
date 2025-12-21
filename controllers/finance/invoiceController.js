@@ -13,6 +13,7 @@ const constentsSlice = require("../../constents");
 const { helper } = require("../../helper");
 const { setTenantContext } = require("../../helper/db/sqlTenant");
 const auditLog = require("../../helper/auditLogger");
+const { sendEmail } = require("../../services/mailer");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -433,6 +434,87 @@ const getOrdersForInvoice = async (req, res) => {
 // end of getOrdersForInvoice
 
  
+const sendInvoice = async (req, res) => {
+  const formData = req.body;
+
+  let pool;
+  let transaction;
+
+  try {
+    if (!formData.to || !formData.pdfBase64 || !formData.fileName) {
+      return res.status(400).json({
+        message: "Required fields missing",
+      });
+    }
+
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await setTenantContext(pool, req);
+    await transaction.begin();
+
+    const pdfBuffer = Buffer.from(formData.pdfBase64, "base64");
+
+    const attachments = [
+      {
+        filename: formData.fileName,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ];
+
+    const to = Array.isArray(formData.to)
+      ? formData.to.join(",")
+      : formData.to;
+
+    const cc = Array.isArray(formData.cc)
+      ? formData.cc.join(",")
+      : formData.cc || [];
+
+    const bcc = Array.isArray(formData.bcc)
+      ? formData.bcc.join(",")
+      : formData.bcc || [];
+
+    const subject = formData.subject || "Invoice "+formData.invoiceCode;
+    const text = "Please find attached the invoice.";
+    const html = formData.body || null;
+
+    await sendEmail(
+      to,
+      subject,
+      text,
+      html,
+      attachments,
+      cc,
+      bcc
+    );
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      message: "Invoice sent successfully",
+    });
+  } catch (err) {
+    console.error("SEND INVOICE ERROR:", err);
+
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (_) {}
+    }
+
+    return res.status(500).json({
+      message: err.message,
+    });
+  }
+};
 
 
-module.exports =  {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+
+
+module.exports =  {getTaxRate,sendInvoice,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;

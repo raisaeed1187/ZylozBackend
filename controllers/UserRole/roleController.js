@@ -328,9 +328,7 @@ const getRolesList = async (req, res) => {
     res.status(400).json({ message: error.message, data: null });
   }
 };
-
-
-// GET all users
+ 
 const getUsersRolesList = async (req, res) => {
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -342,7 +340,8 @@ const getUsersRolesList = async (req, res) => {
     // const result = await pool.request().query(`EXEC UsersRoles_Get`);
 
     const result = await pool.request()
-      .execute("UsersAccessInfo_GetAll");
+        .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )   
+        .execute("UsersAccessInfo_GetAll");
  
     const parseIDs = (json) => {
       if (!json) return [];

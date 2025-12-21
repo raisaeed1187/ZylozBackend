@@ -364,19 +364,21 @@ const getProfitAndLoss = async (req, res) => {
         let query = '';
         await setTenantContext(pool,req);
          
-        query = `exec GetProfitAndLoss
-        '${fromYear}', 
-         ${fromMonth ? `'${fromMonth}'` : 'NULL'},
-        '${toYear}', 
-         ${toMonth ? `'${toMonth}'` : 'NULL'}, 
-        '${organizationId}', 
-        ${groupByYear}`;   
-          
-        const apiResponse = await pool.request().query(query); 
+        const request = pool.request();
+
+        request.input("FromYear", sql.Int, fromYear ?? null);
+        request.input("FromMonth", sql.Int, fromMonth ?? null);
+        request.input("ToYear", sql.Int, toYear ?? null);
+        request.input("ToMonth", sql.Int, toMonth ?? null);
+        request.input("OrganizationId", sql.NVarChar(65), organizationId ?? null);
+        request.input("GroupByYear", sql.Bit, groupByYear ? 1 : 0);
+
+        const result = await request.execute("GetProfitAndLoss");
+
         
         res.status(200).json({
             message: `Profit & Loss loaded successfully!`,
-            data:  apiResponse.recordset
+            data:  result.recordset
         });
          
     } catch (error) {
