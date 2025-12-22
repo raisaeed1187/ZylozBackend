@@ -54,8 +54,8 @@ const coaSaveUpdate = async (req,res)=>{
                 request.input("Value", sql.Decimal(18, 8), formData.value || 0);
                 request.input("ChangePercentage", sql.Decimal(5, 2), formData.change || 0);
                 request.input("CreatedBy", sql.NVarChar(100), req.authUser.username || 'Admin'); // replace with real user
-                request.input("IsActive", sql.Bit, parseBoolean(formData.isActive) || true); 
-                request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked) || false); 
+                request.input("IsActive", sql.Bit, parseBoolean(formData.isActive)); 
+                request.input("IsLocked", sql.Bit, parseBoolean(formData.isLocked)); 
                 request.input("OrganizationId", sql.NVarChar(100), formData.organizationId || false); 
                 request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);  
 
@@ -286,6 +286,7 @@ const getCOAListNew = async (req, res) => {
         value: row.Value,
         changePercentage: row.ChangePercentage,
         isActive: row.IsActive,
+        isLocked: row.IsLocked, 
         accountType: row.AccountType,
         accountGroup: row.AccountGroup,
         accountSubGroup: row.AccountSubGroup,

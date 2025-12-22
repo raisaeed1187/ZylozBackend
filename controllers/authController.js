@@ -12,6 +12,7 @@ const { generateOtp } = require('../utils/generateOTP');
 const { getOtpTemplate } = require('../utils/otpEmailTemplates');
 const { setTenantContext } = require("../helper/db/sqlTenant");
 const { getUserCreationTemplate } = require("../utils/userCreationEmailTempate");
+const {helper} = require('../helper.js');
 
 
 
@@ -632,6 +633,20 @@ const sendOTP = async (req, res) => {
         var userId, email = formData.email, name = formData.name;
        
         if (formData.purpose == 'VendorVerification') {
+            const fullHost = req.get('host');
+
+            const subdomain = helper.methods.getSubdomain(req);
+
+            const tenantResponse = await pool
+                .request()
+                .input("DomainPrefix", sql.NVarChar, subdomain)
+                .execute("Tenant_GetDetails");
+
+             await pool.request()
+                .input("tenantId", sql.NVarChar, tenantResponse.recordset[0].ID2)
+                .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+    
+
              // Get Vendor Details
             const vendorResponse = await pool
                 .request()

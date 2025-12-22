@@ -46,11 +46,23 @@ const urlToBase64 = async (url) => {
     return base64;
 };
 
+function getSubdomain (req) {
+    const host = req.get('host'); // e.g., "terravision1.allbiz.ae" or "allbiz.ae"
+    const domainParts = host.split('.'); // split by "."
+
+    // If host has more than 2 parts, treat the first part as subdomain
+    if (domainParts.length > 2) {
+        return domainParts[0]; // subdomain exists
+    }
+    return null; // no subdomain
+};
+
 
 const methods = { 
     getNextDay,
     getCurrentDateTime,
-    urlToBase64
+    urlToBase64,
+    getSubdomain
 }
 
 
