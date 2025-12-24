@@ -632,16 +632,21 @@ const sendOTP = async (req, res) => {
 
         var userId, email = formData.email, name = formData.name;
        
-        if (formData.purpose == 'VendorVerification') {
+        if (formData.purpose == 'VendorVerification') { 
             const fullHost = req.get('host');
+            const origin = req.headers.origin;
+ 
+
 
             const subdomain = helper.methods.getSubdomain(req);
+            
 
             const tenantResponse = await pool
                 .request()
                 .input("DomainPrefix", sql.NVarChar, subdomain)
                 .execute("Tenant_GetDetails");
 
+            
              await pool.request()
                 .input("tenantId", sql.NVarChar, tenantResponse.recordset[0].ID2)
                 .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
@@ -653,6 +658,8 @@ const sendOTP = async (req, res) => {
                 .input("ID2", sql.NVarChar, formData.ID2)
                 .execute("Vendor_GetDetails");
     
+            
+
             if (vendorResponse.recordset.length === 0) {
                 return res.status(400).json({ message: "Vendor not registered!" });
             } 

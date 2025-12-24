@@ -10,6 +10,9 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
+const { helper } = require("../helper");
+const { setTenantContext } = require("../helper/db/sqlTenant");
+const { sendEmail } = require("../services/mailer");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -23,17 +26,28 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 const quotationSaveUpdate = async (req,res)=>{
     const formData = req.body;
 
+    let pool, transaction;
+
+
     try {
              
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
-            const pool = await sql.connect(config);
             try { 
-                  
+                pool = await sql.connect(config);
+                transaction = new sql.Transaction(pool);
+     
+                await setTenantContext(pool,req);
+     
                  
-                const result = await pool.request()
+                await transaction.begin(); 
+                  
+                const request = new sql.Request(transaction);
+                
+                 
+                const result = await request
                     .input('ID2', sql.NVarChar(250), formData.id)  
                     .input('customerId', sql.NVarChar(350), formData.customerId)
                     .input('quotationNo', sql.NVarChar(250), formData.quotationNo)
@@ -51,7 +65,10 @@ const quotationSaveUpdate = async (req,res)=>{
                     .input('OrganizationId', sql.NVarChar(500), formData.organizationId || '' ) 
                     .input('BranchID', sql.NVarChar(500), formData.branchId || '' ) 
                     .input('currency', sql.NVarChar(500), formData.currency || '' ) 
-                    
+                    .input('statusId', sql.NVarChar(50), formData.statusId || '' )  
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
+  
                     .output('NewID', sql.NVarChar(255))  
                     .execute('CustomerQuotation_Save_Update');    
 
@@ -76,39 +93,52 @@ const quotationSaveUpdate = async (req,res)=>{
                         : []; 
                 }
                 if(attachments){
-                    await saveQuotationDocuments(pool,attachments,encryptedId,formData);
+                    await saveQuotationDocuments(pool,attachments,encryptedId,formData,transaction);
                 }
                 if(formData.itemsFormData){
-                    quotationItemSaveUpdate(req,encryptedId);
+                    await quotationItemSaveUpdate(req,encryptedId,transaction);
                 }
+
+                await transaction.commit();
+
                 res.status(200).json({
                     message: 'Customer saved/updated',
                     data: '' //result
                 });
             } catch (err) { 
-                return res.status(400).json({ message: err.message,data:null}); 
-
-            } 
+                console.error("SQL ERROR DETAILS:", err);
+                if (transaction) try { await transaction.rollback(); } catch(e) {}
+                
+                return res.status(400).json({ 
+                    message: err.message,
+                    // sql: err.originalError?.info || err
+                }); 
+            }
              
-        } catch (error) { 
-            return res.status(400).json({ message: error.message,data:null}); 
-
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
         }
 }
 // end of quotationSaveUpdate
 
-async function quotationItemSaveUpdate(req,QuotationId){
+async function quotationItemSaveUpdate(req,QuotationId,transaction){
     const formData = req.body; 
     const itemsFormData = JSON.parse(formData.itemsFormData); 
     try {
-            const config = store.getState().constents.config;  
-
-            const pool = await sql.connect(config);
+             
             try { 
                 if (itemsFormData) {
                     for (let itemFormData of itemsFormData) {  
-                        if(itemFormData.name){
-                            let result = await pool.request()
+                        if(itemFormData.description){
+                            const itemRequest = new sql.Request(transaction);
+                            
+                            let result = await itemRequest
                                 .input('ID2', sql.NVarChar(350), itemFormData.Id2)
                                 .input('quotationId', sql.NVarChar(355), QuotationId) 
                                 .input('type', sql.NVarChar(50), itemFormData.type)
@@ -123,7 +153,8 @@ async function quotationItemSaveUpdate(req,QuotationId){
                                 .input('VatName', sql.NVarChar(100), itemFormData.vatName)
                                 .input('VatId', sql.NVarChar(100), itemFormData.vatId)
                                 .input('VatAmount', sql.Decimal(18,5), itemFormData.vatAmount)
- 
+                                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )    
+                                .input('CreatedBy', sql.NVarChar(100), req.authUser.username )
 
                                 .output('NewID', sql.NVarChar(255)) 
                                 .execute('CustomerQuotationItem_Save_Update');
@@ -189,13 +220,14 @@ async function uploadDocument(file){
 }
 // end of uploadDocument
 
-async function saveQuotationDocuments(pool,attachmentUrls,NewID,formData){ 
+async function saveQuotationDocuments(pool,attachmentUrls,NewID,formData,transaction){ 
 
     try { 
         if (attachmentUrls.length > 0) {
             for (let url of attachmentUrls) { 
+                const itemRequest = new sql.Request(transaction);
                   
-                await pool.request()
+                await itemRequest
                     .input("ID2", sql.NVarChar, "0")  
                     .input("QuotationId", sql.NVarChar(360), NewID)  
                     .input("DocumentName", sql.NVarChar, url.fileName)  
@@ -222,6 +254,8 @@ const getQuotationList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
+
         var result = null;  
         if (IsActive) {
             result = await pool.request()
@@ -256,25 +290,59 @@ const getQuotationDetails = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
           
+
         const query = `exec getQuotationDetails '${Id}'`; 
+        // console.log('query');
+        // console.log(query)
+
         const apiResponse = await pool.request().query(query);  
         const itemsQuery = `exec GetQuotationItemsList '${Id}'`; 
         const itemsQueryResponse = await pool.request().query(itemsQuery); 
         let customer = null;
-        if(apiResponse.recordset){
-            const customerId = apiResponse.recordset[0]?.customerId || '0'; 
-            const customerQuery = `exec GetCustomerDetails '${customerId}'`; 
-            const customerQueryResponse = await pool.request().query(customerQuery); 
-            customer = customerQueryResponse.recordset[0]; 
-        }
+        // if(apiResponse.recordset){
+        //     const customerId = apiResponse.recordset[0]?.customerId || '0'; 
+        //     const customerQuery = `exec GetCustomerDetails '${customerId}'`; 
+        //     const customerQueryResponse = await pool.request().query(customerQuery); 
+        //     customer = customerQueryResponse.recordset[0]; 
+        // }
         
 
         let letResponseData = {};
         if(apiResponse.recordset){
+            let isApprover = false;
+            let isTransectionHasApprovals = false;
+
+            // console.log(`exec Approval_IsUserApprover '${req.authUser.ID2}','${Id}','Quotation' `);
+            const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.ID2}','${Id}','Quotation' `); 
+                
+            // console.log(checkIsApproverResponse.recordset);
+            if (checkIsApproverResponse.recordset.length > 0) {
+                isApprover = checkIsApproverResponse.recordset[0].IsApprover;
+                isTransectionHasApprovals = checkIsApproverResponse.recordset[0].IsTransectionHasApprovals;
+            }
+
+            // console.log('apiResponse.recordset[0].logo');
+            // console.log(apiResponse.recordset[0]);
+            // console.log(apiResponse.recordset[0].logo);
+
+
+            const logoBase64 = await helper.methods.urlToBase64(apiResponse.recordset[0].logo);
+            // console.log('logoBase64');
+            // console.log(logoBase64);
+
             // letResponseData = apiResponse.recordset[0];
+            const quotationDetails = {
+                ...apiResponse.recordset[0],
+                isApprover: isApprover,
+                isTransectionHasApprovals:isTransectionHasApprovals,
+                logo: logoBase64  
+            };
+
+         
             letResponseData = {
-                quotationDetails: apiResponse.recordset[0],
+                quotationDetails: quotationDetails,
                 items: itemsQueryResponse.recordset,
                 customer: customer,
             }
@@ -299,7 +367,7 @@ const deleteQuotationItem = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+          await setTenantContext(pool,req);
         const query = `exec DeleteQuotationItem '${Id}'`; 
         const apiResponse = await pool.request().query(query); 
        
@@ -353,7 +421,7 @@ const getQuotationStatus = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+          await setTenantContext(pool,req);
         const query = `exec CustomerQuotationStatus_Get `; 
         const apiResponse = await pool.request().query(query); 
         
@@ -377,7 +445,7 @@ const quotationChangeStatus = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
-          
+          await setTenantContext(pool,req);
         const query = `exec ChangeStatus_CustomerQuotation '${Id}', '${StatusId}'`; 
         const apiResponse = await pool.request().query(query); 
         
@@ -393,4 +461,97 @@ const quotationChangeStatus = async (req, res) => {
 };
 // end of quotationChangeStatus
 
-module.exports =  {quotationChangeStatus,getQuotationStatus,deleteQuotationItem,quotationSaveUpdate,getQuotationList,getQuotationDetails,getQuotationDocuments} ;
+const sendQuotation = async (req, res) => {
+  const formData = req.body;
+
+  let pool;
+  let transaction;
+    console.log('sendQuotation formData');
+    console.log(formData);
+  try {
+    if (!formData.to || !formData.pdfBase64 || !formData.fileName) {
+      return res.status(400).json({
+        message: "Required fields missing",
+      });
+    }
+
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+
+    const config = store.getState().constents.config;
+
+    pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+
+    await setTenantContext(pool, req);
+    await transaction.begin();
+
+    const pdfBuffer = Buffer.from(formData.pdfBase64, "base64");
+
+    const attachments = [
+      {
+        filename: formData.fileName,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ];
+
+    const to = Array.isArray(formData.to)
+      ? formData.to.join(",")
+      : formData.to;
+
+    const cc = Array.isArray(formData.cc)
+      ? formData.cc.join(",")
+      : formData.cc || [];
+
+    const bcc = Array.isArray(formData.bcc)
+      ? formData.bcc.join(",")
+      : formData.bcc || [];
+
+    const subject = formData.subject || "Quotation "+formData.quotationNo;
+    const text = "Please find attached the quotation.";
+    const html = formData.body || null;
+
+    await sendEmail(
+      to,
+      subject,
+      text,
+      html,
+      attachments,
+      cc,
+      bcc
+    );
+    const request = new sql.Request(transaction);
+
+    const { ID2, statusId, organizationId } = formData;
+
+    request.input("ID2", sql.NVarChar(65), ID2);  
+    request.input("StatusId", sql.Int, statusId || null);
+    request.input("OrganizationID", sql.NVarChar(65), organizationId);
+    request.input("CurrentUser", sql.NVarChar(65), req.authUser.username);
+    request.input("IsNewLog", sql.Bit, 1); 
+    const apiResponse = await request.execute("CustomerQuotation_Change_Status");
+    
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      message: "Quotation sent successfully",
+    });
+  } catch (err) {
+    console.error("SEND Quotation ERROR:", err);
+
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (_) {}
+    }
+
+    return res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+// end of sendQuotation
+
+module.exports =  {sendQuotation,quotationChangeStatus,getQuotationStatus,deleteQuotationItem,quotationSaveUpdate,getQuotationList,getQuotationDetails,getQuotationDocuments} ;

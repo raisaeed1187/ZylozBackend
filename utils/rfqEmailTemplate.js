@@ -280,7 +280,7 @@ const getRfqTemplateNew = async (
 
       <!-- CTA BUTTON -->
       <div style="text-align:center;">
-        <a href="${baseUrl}/auth/otp-varification/${rfqID}/${vendorID}?email=${vendorEmail}" class="btn">
+        <a href="${baseUrl}/auth/otp-varification/${rfqID}/${vendorID}?email=${vendorEmail}" class="btn" style="color:#fff;">
           🔐 Access Portal & Submit Your Quote
         </a>
         <p style="font-size:12px;color:#777;margin-top:8px;">

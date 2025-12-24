@@ -17,7 +17,7 @@ const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,ge
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
 const {approvalWorkFlowSaveUpdate,getApprovalWorkFlowDetails,getApprovalWorkFlowsList} = require('./controllers/approvalWorkFlowController'); 
 
-const {quotationChangeStatus,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
+const {quotationChangeStatus,sendQuotation,getQuotationStatus,quotationSaveUpdate,deleteQuotationItem,getQuotationList,getQuotationDetails,getQuotationDocuments} = require('./controllers/quotationController'); 
 const {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,employeeSaveUpdate,deleteEmployeeItem,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} = require('./controllers/employeeController'); 
 const {saveEmployeeEOS,releaseEmployeeEOS,releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,createDefaultCOASaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
@@ -359,7 +359,9 @@ app.post('/api/quotation',authenticateToken,express.json(),getQuotationDetails )
 app.post('/api/quotation/documents',authenticateToken,express.json(),getQuotationDocuments );
 app.post('/api/quotation/item/delete',authenticateToken,express.json(),deleteQuotationItem );
 app.post('/api/quotation/status',authenticateToken,express.json(),getQuotationStatus );
-app.post('/api/quotation/change/status',authenticateToken,express.json(),quotationChangeStatus );
+app.post('/api/quotation/change/status',authenticateToken,express.json(),quotationChangeStatus );  
+app.post('/api/quotation/send',authenticateToken,express.json(),upload,sendQuotation );
+
 //end quotation controller
 
 app.post('/api/employee-save-update',authenticateToken,express.json(),employeeUpload,employeeSaveUpdate );

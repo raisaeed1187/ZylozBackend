@@ -46,16 +46,30 @@ const urlToBase64 = async (url) => {
     return base64;
 };
 
-function getSubdomain (req) {
-    const host = req.get('host'); // e.g., "terravision1.allbiz.ae" or "allbiz.ae"
-    const domainParts = host.split('.'); // split by "."
 
-    // If host has more than 2 parts, treat the first part as subdomain
-    if (domainParts.length > 2) {
-        return domainParts[0]; // subdomain exists
+
+function getSubdomain(req) {
+    let origin = req.headers.origin || req.headers.host || "";
+    // let origin = 'https://test01.allbiz.ae';
+
+    if (!origin) return null;
+
+    
+    origin = origin.replace(/^https?:\/\//, ""); 
+    
+     
+    origin = origin.split(':')[0];
+
+    const hostParts = origin.split('.');
+
+     
+    if (hostParts.length > 2) {
+        return hostParts[0];  
     }
-    return null; // no subdomain
-};
+
+    return null;
+}
+
 
 
 const methods = { 
