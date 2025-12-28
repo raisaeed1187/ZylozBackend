@@ -34,7 +34,7 @@ const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers
 const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
 const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
-const {getInventoryGRNItems} = require('./controllers/procurement/inventoryController'); 
+const {getInventoryGRNItems,getStockItems, stockOutSaveUpdate,stockTransferSaveUpdate,getInventoryStockTransfers, getInventoryStockOuts, getInventoryStockDetails, getInventoryStockOutDetails} = require('./controllers/procurement/inventoryController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
 const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunityStatusHistory,leadCallLogSaveOrUpdate,CRMEmailSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,opportunitysaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,crmAccountSaveUpdate,crmContactSaveUpdate,getCRMAccount,getCRMContact,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
 
@@ -282,6 +282,13 @@ app.post('/api/procurement/purchase-report',authenticateToken,express.json(),get
 // inventory
 
 app.post('/api/inventory/grn-items',authenticateToken,express.json(),getInventoryGRNItems );
+app.post('/api/inventory/stock-items',authenticateToken,express.json(),getStockItems); 
+app.post('/api/inventory/stock-out/save-update',authenticateToken,express.json(),upload,stockOutSaveUpdate ); 
+app.post('/api/inventory/stock-transfer/save-update',authenticateToken,express.json(),upload,stockTransferSaveUpdate );
+ 
+app.post('/api/inventory/stock-outs',authenticateToken,express.json(),getInventoryStockOuts);  
+app.post('/api/inventory/stock-transfers',authenticateToken,express.json(),getInventoryStockTransfers);
+app.post('/api/inventory/stock/details',authenticateToken,express.json(),getInventoryStockDetails);
 
 // end of inventory
 

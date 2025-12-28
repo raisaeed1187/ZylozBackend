@@ -272,7 +272,7 @@ const getPOPreviousGRns = async (req, res) => {
             await setTenantContext(pool,req);
 
         let query = ''; 
-        query = `exec PO_Previous_GRNs_Get  ${poID}`;   
+        query = `exec PO_Previous_GRNs_Get  '${poID}'`;   
           
         const apiResponse = await pool.request().query(query); 
         

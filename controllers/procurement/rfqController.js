@@ -277,6 +277,7 @@ async function createPOFromRFQ(req, res, rfqID2, transaction) {
             .input('DeliveryLocation', sql.NVarChar(100), formData.deliveryLocation || null) 
             .input('OrderNo', sql.NVarChar(100), formData.orderNo || null) 
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            .input('WarehouseId', sql.NVarChar(100), formData.deliveryLocation || null) 
 
             .output('ID', sql.NVarChar(100))
             .execute('PurchaseOrder_SaveOrUpdate');
