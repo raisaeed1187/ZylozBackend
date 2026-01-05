@@ -35,6 +35,7 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems,getStockItems, stockOutSaveUpdate,stockTransferSaveUpdate,getInventoryStockTransfers, getInventoryStockOuts, getInventoryStockDetails, getInventoryStockOutDetails} = require('./controllers/procurement/inventoryController'); 
+const {manpowerRequirementSaveUpdate,getManpowerRequirementsList,getManpowerRequirementsDetails, manpowerRequirementDetailsDelete,getAgentsList,assignedAgentDelete,agentAssignmentSaveUpdate,candidateSaveUpdate, getCandidatesList } = require('./controllers/overseas/manpowerRequirementController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
 const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunityStatusHistory,leadCallLogSaveOrUpdate,CRMEmailSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,opportunitysaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,crmAccountSaveUpdate,crmContactSaveUpdate,getCRMAccount,getCRMContact,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
 
@@ -291,6 +292,17 @@ app.post('/api/inventory/stock-transfers',authenticateToken,express.json(),getIn
 app.post('/api/inventory/stock/details',authenticateToken,express.json(),getInventoryStockDetails);
 
 // end of inventory
+
+app.post('/api/overseas/manpower-requirement/save-update',authenticateToken,express.json(),upload,manpowerRequirementSaveUpdate ); 
+app.post('/api/overseas/manpower-requirements',authenticateToken,express.json(),getManpowerRequirementsList);
+app.post('/api/overseas/manpower-requirement',authenticateToken,express.json(),getManpowerRequirementsDetails);
+app.post('/api/overseas/manpower-requirement/delete',authenticateToken,express.json(),manpowerRequirementDetailsDelete); 
+app.post('/api/overseas/agent-assignment/save-update',authenticateToken,express.json(),upload,agentAssignmentSaveUpdate ); 
+app.post('/api/overseas/assigned-agent/delete',authenticateToken,express.json(),assignedAgentDelete); 
+app.post('/api/overseas/agents-list',authenticateToken,express.json(),getAgentsList);
+
+app.post('/api/overseas/candidate/save-update',authenticateToken,express.json(),upload,candidateSaveUpdate ); 
+app.post('/api/overseas/candidates-list',authenticateToken,express.json(),getCandidatesList);
 
 // warehouse
 app.post('/api/warehouse/save-update',authenticateToken,express.json(),upload,warehouseSaveUpdate ); 

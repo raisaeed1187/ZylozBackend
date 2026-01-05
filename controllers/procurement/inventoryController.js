@@ -199,8 +199,7 @@ async function stockTransferItemSaveUpdate(req, stockTransferId, transaction) {
     throw new Error("Item Save Failed: " + err.message);
   }
 }
-
-//  end of stock transfer
+//  end of stockTransferItemSaveUpdate
   
 function encryptID(id) {
   
