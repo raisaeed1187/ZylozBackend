@@ -356,7 +356,7 @@ const signIn = async (req,res)=>{
                     }
                     // return user;
 
-                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2,
+                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId,
                         fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
                         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
                         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
@@ -504,7 +504,7 @@ const tenantSignIn = async (req,res)=>{
         
                 if(user){  
                       
-                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2,
+                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId,
                         fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
                         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
                         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 

@@ -374,7 +374,7 @@ const candidateSaveUpdate = async (req, res) => {
       .input("ID2", sql.NVarChar(65), formData.ID2 || null)
 
       .input("RequirementID", sql.NVarChar(65), formData.requirementID) 
-      .input("AgentID", sql.NVarChar(65), formData.agentID)
+      .input("AgentID", sql.NVarChar(65), req.authUser.agentId)
 
       .input("FullName", sql.NVarChar(150), formData.fullName)
       .input("Nationality", sql.NVarChar(100), formData.nationality)
@@ -420,7 +420,7 @@ const candidateSaveUpdate = async (req, res) => {
 
 
 const getCandidatesList = async (req, res) => {  
-    const { Id,agentId, organizationId } = req.body;  
+    const { Id,manpowerRequirementID,agentId, organizationId } = req.body;  
       
     try {
         // Set database and user context
@@ -433,8 +433,8 @@ const getCandidatesList = async (req, res) => {
  
         // Execute stored procedure
         const response = await pool.request() 
-            .input('RequirementID', sql.NVarChar(65), Id || null) 
-            .input('AgentID', sql.NVarChar(65), agentId || null)  
+            .input('RequirementID', sql.NVarChar(65), manpowerRequirementID || null) 
+            .input('AgentID', sql.NVarChar(65), req.authUser.agentId || null)  
             .execute('CandidateMaster_GetByRequirementID');
 
          
@@ -447,6 +447,103 @@ const getCandidatesList = async (req, res) => {
         return res.status(400).json({ message: error.message, data: null });
     }
 };
+
+const getManpowerRequirementsByAgent = async (req, res) => {  
+    const { Id, organizationId,requirementID } = req.body; // user data sent from client
+      
+    try {
+        // Set database and user context
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+
+        await setTenantContext(pool, req);
+ 
+        // Execute stored procedure
+        const response = await pool.request()
+            .input('AgentID', sql.NVarChar(65), req.authUser.agentId)  
+            .input('RequirementID', sql.NVarChar(65), requirementID || null)  
+            .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)  
+            .input('OrganizationID', sql.NVarChar(65), organizationId || null) 
+            .execute('ManpowerRequirementAgentAssignments_GetByAgent');
+
+         
+        res.status(200).json({
+            message: `Manpower Requirement Agent Assignments loaded successfully!`,
+            data: response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+ 
+const getAssignedAgentTrades = async (req, res) => {  
+    const { Id, organizationId,requirementID } = req.body; // user data sent from client
+      
+    try {
+        // Set database and user context
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+
+        await setTenantContext(pool, req);
+ 
+        // Execute stored procedure
+        const response = await pool.request()
+            .input('AgentID', sql.NVarChar(65), req.authUser.agentId)  
+            .input('RequirementID', sql.NVarChar(65), requirementID || null)  
+            .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)  
+            .input('OrganizationID', sql.NVarChar(65), organizationId || null) 
+            .execute('ManpowerRequirementAgentAssignedTrades_GetByAgent');
+
+         
+        res.status(200).json({
+            message: `Manpower Requirement AgentAssigned Trades  loaded successfully!`,
+            data: response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+ 
+const updateCandidateStatus = async (req, res) => {  
+    const { Id, organizationId,requirementID } = req.body; // user data sent from client
+      
+    try {
+        // Set database and user context
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+
+        await setTenantContext(pool, req);
+ 
+        // Execute stored procedure
+        const response = await pool.request()
+            .input('CandidateID2', sql.NVarChar(65), Id)  
+            .input('StatusID', sql.NVarChar(65), requirementID || null)  
+            .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)  
+            .input('OrganizationID', sql.NVarChar(65), organizationId || null) 
+            .input('UserName', sql.NVarChar(65), req.authUser.username || null) 
+
+            .execute('CandidateMaster_UpdateStatus');
+
+         
+        res.status(200).json({
+            message: `Manpower Requirement Candidate Status updated successfully!`,
+            data: response.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+
  
 
-module.exports =  {getCandidatesList,candidateSaveUpdate, manpowerRequirementDetailsDelete,assignedAgentDelete,getAgentsList, agentAssignmentSaveUpdate, getManpowerRequirementsList,getManpowerRequirementsDetails, manpowerRequirementSaveUpdate} ;
+module.exports =  {getAssignedAgentTrades,getManpowerRequirementsByAgent,getCandidatesList,candidateSaveUpdate, manpowerRequirementDetailsDelete,assignedAgentDelete,getAgentsList, agentAssignmentSaveUpdate, getManpowerRequirementsList,getManpowerRequirementsDetails, manpowerRequirementSaveUpdate} ;

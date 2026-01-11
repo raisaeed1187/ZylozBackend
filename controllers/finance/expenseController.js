@@ -11,6 +11,7 @@ const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../../constents");
 const { setTenantContext } = require("../../helper/db/sqlTenant");
+const { helper } = require("../../helper");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -484,18 +485,46 @@ const getPettyCashDetails = async (req, res) => {
         const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Petty Cash'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
 
+        if (apiResponse.recordset.length > 0) {
+            const expenseDetails = apiResponse.recordset[0];
+            
+            const logoBase64 = await helper.methods.urlToBase64(expenseDetails.logo);
+             
+            
+            const invoiceUpdatedDetails = {
+                ...expenseDetails,
+                logo: logoBase64
+            };
+    
+            const data = {
+                expenseDetails: invoiceUpdatedDetails,
+                expenseItems: itemsApiResponse.recordset,
+                jouralLedgers: jouralLedgerApiResponse.recordset,  
+            }
+            
+            // Return a response (do not return the whole req/res object)
+            res.status(200).json({
+                message: `Expense details loaded successfully!`,
+                data: data
+            });
+            
+        }else{
+            return res.status(400).json({ message: 'No record found',data:null});
+    
 
-        const data = {
-            expenseDetails: apiResponse.recordset[0],
-            expenseItems: itemsApiResponse.recordset,
-            jouralLedgers: jouralLedgerApiResponse.recordset,  
         }
+
+        // const data = {
+        //     expenseDetails: apiResponse.recordset[0],
+        //     expenseItems: itemsApiResponse.recordset,
+        //     jouralLedgers: jouralLedgerApiResponse.recordset,  
+        // }
         
-        // Return a response (do not return the whole req/res object)
-        res.status(200).json({
-            message: `pettyCash details loaded successfully!`,
-            data: data
-        });
+        // // Return a response (do not return the whole req/res object)
+        // res.status(200).json({
+        //     message: `pettyCash details loaded successfully!`,
+        //     data: data
+        // });
          
     } catch (error) {
         return res.status(400).json({ message: error.message,data:null});
