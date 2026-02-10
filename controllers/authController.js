@@ -14,10 +14,14 @@ const { setTenantContext } = require("../helper/db/sqlTenant");
 const { getUserCreationTemplate } = require("../utils/userCreationEmailTempate");
 const {helper} = require('../helper.js');
 
+const { OAuth2Client } = require("google-auth-library");
+
+
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
- 
+
+
  
 const userCreation = async (req,res)=>{ 
     const formData = req.body;  
@@ -34,8 +38,29 @@ const userCreation = async (req,res)=>{
             const pool = await sql.connect(config);
             await setTenantContext(pool,req);
             const plainPassword = generateStrongPassword(8); 
+            // const plainPassword = '12345'; 
+
             // console.log('plainPassword');
             // console.log(plainPassword); 
+
+            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+            const username = getUsernameFromEmail(formData.email);
+
+            const request = pool.request();
+            request.input("ID2", sql.NVarChar(100), formData.ID2);
+            request.input("username", sql.NVarChar(100), username);
+            request.input("fullName", sql.NVarChar(100), formData.fullName); 
+            request.input("email", sql.NVarChar(100), formData.email);
+            request.input("password", sql.NVarChar(255), hashedPassword);
+            request.input("client", sql.NVarChar(50), req.authUser.database);
+            request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
+            request.input("agencyId", sql.NVarChar(100), formData.agencyId || null);
+            request.input("agentId", sql.NVarChar(100), formData.agentId || null);
+            request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
+            request.output('ID', sql.NVarChar(100))   
+            await request.execute("User_Registeration");
+ 
 
  
             const html = await getUserCreationTemplate(
@@ -54,22 +79,7 @@ const userCreation = async (req,res)=>{
             );
             console.log('Email sent successfully to:', formData.email);
 
-            const hashedPassword = await bcrypt.hash(plainPassword, 10);
-
-             const username = getUsernameFromEmail(formData.email);
-
-            const request = pool.request();
-            request.input("ID2", sql.NVarChar(100), formData.ID2);
-            request.input("username", sql.NVarChar(100), username);
-            request.input("fullName", sql.NVarChar(100), formData.fullName); 
-            request.input("email", sql.NVarChar(100), formData.email);
-            request.input("password", sql.NVarChar(255), hashedPassword);
-            request.input("client", sql.NVarChar(50), req.authUser.database);
-            request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
-            request.input("TenantId", sql.NVarChar(100), req.authUser.tenantId);
-            request.output('ID', sql.NVarChar(100))   
-            await request.execute("User_Registeration");
- 
+            
 
             res.status(200).json({
                 message: 'User registered successfully',
@@ -350,13 +360,13 @@ const signIn = async (req,res)=>{
         
                         if (!isMatch) {
                             // return res.status(401).json({ message: "Invalid password" });
-                        return  res.status(400).json({ message: 'Invalid password',data:null});
+                            return  res.status(400).json({ message: 'Invalid password',data:null});
         
                         }
                     }
                     // return user;
 
-                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId,
+                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId, agencyId : user?.AgencyId,
                         fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
                         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
                         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
@@ -454,8 +464,7 @@ const signIn = async (req,res)=>{
                       return  res.status(400).json({ message: 'Un Authenticated User',data:null});
                     }
 
-
-                    pool.close();
+ 
                 }else{
                     console.log('in else condition');
                    return  res.status(400).json({ message: 'User not found',data:null});
@@ -873,6 +882,75 @@ const getAuditLog = async (req,res)=>{
 }
 // end of getAuditLog
 
- 
+const generateJWT = (user) =>
+  jwt.sign(
+    { id: user.id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES }
+  );
 
-module.exports =  {getAuditLog,tenantCreation,signUp,varifyOTP,userCreation,tenantSignIn,signIn,sendOTP} ;
+const googleAuth = async (req, res) => {
+  try {
+    const { token,client } = req.body;
+    const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    store.dispatch(setCurrentDatabase( client )); 
+    const config =  store.getState().constents.config;  
+           
+
+    const pool = await sql.connect(config);
+            
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    const { sub, email, name, picture, email_verified } = payload;
+
+    const result = await pool
+                    .request()
+                    .input("email", sql.NVarChar, email)
+                    .execute("User_login");
+
+    if (!email_verified || result.recordset.length === 0) {
+      return res.status(401).json({ message: "Email not verified" });
+    }
+
+    let user = result.recordset[0]; 
+
+    // if (!user) {
+    //   user = {
+    //     id: users.length + 1,
+    //     googleId: sub,
+    //     email,
+    //     name,
+    //     avatar: picture,
+    //     provider: "google",
+    //     createdAt: new Date(),
+    //   };
+    //   users.push(user);
+    // }
+
+    const appToken = generateJWT(user);
+
+    res.json({
+      token: appToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(401).json({ message: "Google login failed" });
+  }
+};
+
+
+module.exports =  {googleAuth,getAuditLog,tenantCreation,signUp,varifyOTP,userCreation,tenantSignIn,signIn,sendOTP} ;

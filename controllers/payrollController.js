@@ -733,7 +733,7 @@ const getPayrollPreview = async (req, res) => {
             
             const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.staffId}','${Id}','Payroll' `); 
             
-            console.log(checkIsApproverResponse.recordset);
+            // console.log(checkIsApproverResponse.recordset);
             if (checkIsApproverResponse.recordset.length > 0) {
                 isApprover = checkIsApproverResponse.recordset[0].IsApprover;
             }
@@ -756,7 +756,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec Get_PayrollOutputHistory '${Id}',${payrollStatusId},'${organizationId}'`;  
                     
                 }else{
-                    query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}',${req.authUser.tenantId}`;  
+                    query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}','${req.authUser.tenantId}'`;  
                 }
                  
                 console.log('query : ',query); 

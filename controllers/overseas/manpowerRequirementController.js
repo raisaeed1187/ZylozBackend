@@ -188,10 +188,15 @@ const getManpowerRequirementsList = async (req, res) => {
 
         await setTenantContext(pool, req);
  
+        const agentId =  req.authUser.agentId;
+        const agencyId =  req.authUser.agencyId;
+
+
         // Execute stored procedure
         const response = await pool.request()
         .input('tenantId', sql.NVarChar(65), req.authUser.tenantId)  
             .input('organizationId', sql.NVarChar(65), organizationId || null) 
+            .input('agencyId', sql.NVarChar(65), agencyId || null) 
             .execute('ManpowerRequirement_GetAllWithSummary');
 
          

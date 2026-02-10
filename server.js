@@ -39,6 +39,9 @@ const {manpowerRequirementSaveUpdate,getManpowerRequirementsList,getManpowerRequ
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
 const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunityStatusHistory,leadCallLogSaveOrUpdate,CRMEmailSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,opportunitysaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,crmAccountSaveUpdate,crmContactSaveUpdate,getCRMAccount,getCRMContact,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
 
+const {agentSaveUpdate,getAgentDetails,getAllAgentsList} = require('./controllers/overseas/agentController');   
+const {agencySaveUpdate,getAgencyDetails,getAllAgencysList} = require('./controllers/overseas/agencyController');
+
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
@@ -305,6 +308,20 @@ app.post('/api/overseas/candidate/save-update',authenticateToken,express.json(),
 app.post('/api/overseas/candidates-list',authenticateToken,express.json(),getCandidatesList);
 app.post('/api/overseas/agent/manpower-requirements',authenticateToken,express.json(),getManpowerRequirementsByAgent);
 app.post('/api/overseas/agent/assigned-trades',authenticateToken,express.json(),getAssignedAgentTrades);
+
+
+
+app.post('/api/overseas/agent/save-update',authenticateToken,express.json(),upload,agentSaveUpdate ); 
+app.post('/api/overseas/agent',authenticateToken,express.json(),getAgentDetails );
+app.post('/api/overseas/agents',authenticateToken,express.json(),getAllAgentsList );
+ 
+//end agent controller
+
+app.post('/api/overseas/agency/save-update',authenticateToken,express.json(),upload,agencySaveUpdate ); 
+app.post('/api/overseas/agency',authenticateToken,express.json(),getAgencyDetails );
+app.post('/api/overseas/agencys',authenticateToken,express.json(),getAllAgencysList );
+ 
+//end agency controller
 
 // warehouse
 app.post('/api/warehouse/save-update',authenticateToken,express.json(),upload,warehouseSaveUpdate ); 

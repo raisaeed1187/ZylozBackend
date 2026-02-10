@@ -72,7 +72,7 @@ const makePaymentSaveUpdate = async (req,res)=>{
 
             const newID = result.output.ID;
             if(formData.makePaymentItems){ 
-                makePaymentItemSaveUpdate(req,newID,transaction)
+                await makePaymentItemSaveUpdate(req,newID,transaction)
             }
             await transaction.commit();
 

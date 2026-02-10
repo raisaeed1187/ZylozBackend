@@ -90,7 +90,7 @@ const invoiceSaveUpdate = async (req,res)=>{
 
             }
             if(formData.additionalFields){ 
-                additionalFieldSaveUpdate(req,newID,transaction)
+                await additionalFieldSaveUpdate(req,newID,transaction)
             }
 
  

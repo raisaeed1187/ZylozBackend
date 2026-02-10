@@ -73,7 +73,7 @@ const contractSaveUpdate = async (req,res)=>{
                 contractPropertySaveUpdate(req,newID,transaction)
             }
             if(formData.locations){ 
-                contractLocationSaveUpdate(req,newID,true,transaction)
+               await contractLocationSaveUpdate(req,newID,true,transaction)
             }
 
             await transaction.commit();
@@ -96,35 +96,24 @@ const contractSaveUpdate = async (req,res)=>{
 }
 // end of contractSaveUpdate
 
-async function contractLocationSaveUpdate(req,contractId,isContract,transaction){
-    const formData = req.body; 
-    const properties = JSON.parse(formData.locations); 
-    try {
-            // store.dispatch(setCurrentDatabase(req.authUser.database));
-            // store.dispatch(setCurrentUser(req.authUser)); 
-            // const config = store.getState().constents.config;  
-            // const pool = await sql.connect(config);
-            try { 
-                if (properties) {
-                    for (let item of properties) {  
-                        const itemRequest = new sql.Request(transaction);
-                        
-                        if(item.ID2){
-                            await itemRequest
-                                .input('ID', sql.Int, item.ID || 0)
-                                .input('ContractID', sql.NVarChar(65), contractId)
-                                .input('LocationID', sql.NVarChar(65), item.ID2)
-                                .input('IsContract', sql.Bit, isContract ? 1 : 0) 
-                                .execute('ContractLocation_SaveOrUpdate');
-                        }
-                    }   
-                }  
-            } catch (err) { 
-                throw new Error(err.message);
-            }  
-        } catch (error) { 
-            throw new Error(error.message);
-        }
+async function contractLocationSaveUpdate(req, contractId, isContract, transaction) {
+    const formData = req.body;
+    const properties = JSON.parse(formData.locations);
+
+    if (!properties || !properties.length) return;
+
+    for (const item of properties) {
+        if (!item.ID2) continue;
+
+        const request = new sql.Request(transaction);
+
+        await request
+            .input('ID', sql.Int, item.ID || 0)
+            .input('ContractID', sql.NVarChar(65), contractId)
+            .input('LocationID', sql.NVarChar(65), item.ID2)
+            .input('IsContract', sql.Bit, isContract ? 1 : 0)
+            .execute('ContractLocation_SaveOrUpdate');
+    }
 }
 // end of contractLocationSaveUpdate
 
@@ -214,7 +203,7 @@ const projectSaveUpdate = async (req,res)=>{
             const newID = result.output.ID;
 
             if(formData.locations){ 
-                contractLocationSaveUpdate(req,newID,false,transaction)
+               await contractLocationSaveUpdate(req,newID,false,transaction)
             }
 
             await transaction.commit();
