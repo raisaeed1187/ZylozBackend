@@ -11,7 +11,7 @@ const { initSocketServer } = require("./socket/socketServer");
 
 
 const {uploadDocument,getDynamicCreatedTablesWithModules,getMainModules,createNewTable, getDynamicCreatedTables,getTableDetailsById,getSpecificTableField,saveDynamicTableData} = require('./controllers/createNewTableController')
-const {signUp, tenantCreation,userCreation,sendOTP,varifyOTP,getAuditLog,signIn,tenantSignIn} = require('./controllers/authController'); 
+const {signUp, tenantCreation,userCreation,sendOTP,varifyOTP,getAuditLog,signIn,googleAuth,tenantSignIn} = require('./controllers/authController'); 
 
 const {branchSaveUpdate,getBranchDetails,getBranchesList,orgProfileSaveUpdate,getOrgProfileList,getOrgProfileDetails,getOrgProfileDocuments} = require('./controllers/profileController'); 
 const {customerSaveUpdate,deleteCustomerContact,getCustomerList,getCustomerDetails,getCustomerDocuments} = require('./controllers/customerController'); 
@@ -154,6 +154,7 @@ app.use('/api', router);
 app.post('/api/signup',express.json(),signUp );
 app.post('/api/signin',express.json(),signIn );
 app.post('/api/tenant-signin',express.json(),tenantSignIn );
+app.post('/api/google-auth',express.json(),googleAuth );
 
 
 
