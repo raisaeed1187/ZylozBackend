@@ -317,6 +317,9 @@ const signIn = async (req,res)=>{
 
             store.dispatch(setCurrentDatabase( client )); 
             const config =  store.getState().constents.config;  
+
+           
+
             // console.log('config login');
             // console.log(config);
             // return [client];
@@ -324,6 +327,16 @@ const signIn = async (req,res)=>{
 
             const pool = await sql.connect(config);
             
+            //  const result1 = await pool
+            //     .request() 
+            //     .query(`
+            //         select *  FROM dbo.Users
+            //     `);
+
+                
+
+            //     return  res.status(400).json({ message: 'Invalid email',data:result1.recordset});
+             
             
                 const result = await pool
                     .request()
@@ -487,6 +500,8 @@ const tenantSignIn = async (req,res)=>{
             const email = decoded.email;
 
             const pool = await sql.connect(config);
+
+            
              
                 const result = await pool
                     .request()

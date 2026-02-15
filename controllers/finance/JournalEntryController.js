@@ -388,6 +388,42 @@ const getProfitAndLoss = async (req, res) => {
 };
 // end of getProfitAndLoss
 
+const getCostCenterReport = async (req, res) => {  
+    const {organizationId,fromYear,fromMonth,toYear,toMonth,groupByYear,groupByOrganization,Id} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+         
+        const request = pool.request();
+
+        request.input("FromYear", sql.Int, fromYear ?? null);
+        request.input("FromMonth", sql.Int, fromMonth ?? null);
+        request.input("ToYear", sql.Int, toYear ?? null);
+        request.input("ToMonth", sql.Int, toMonth ?? null);
+        request.input("OrganizationId", sql.NVarChar(65), organizationId ?? null);
+        request.input("GroupByYear", sql.Bit, groupByYear ? 1 : 0);
+
+        const result = await request.execute("GetCostCenterReport");
+
+        
+        res.status(200).json({
+            message: `Profit & Loss loaded successfully!`,
+            data:  result.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getCostCenterReport
+
 const getBalanceSheet = async (req, res) => {  
     const {organizationId,fromYear,asOnDate} = req.body; // user data sent from client
      
@@ -640,4 +676,4 @@ const getVatReturns = async (req, res) => {
 
 
 
-module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getVatReturnsDetails,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getVatReturnsDetails,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

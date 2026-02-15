@@ -252,8 +252,7 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
 
     Object.keys(itemsObj).forEach((key) => {
         const value = itemsObj[key];
-
-        // Value might already be string or object, handle both
+ 
         if (typeof value === 'string') {
         try {
             expenseItems.push(JSON.parse(value));
@@ -261,7 +260,7 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
             console.error(`Error parsing expense item for key ${key}:`, err);
         }
         } else if (Array.isArray(value)) {
-        // Sometimes frontend sends an array stringified, parse each
+        
         value.forEach(v => {
             try {
             expenseItems.push(typeof v === 'string' ? JSON.parse(v) : v);
@@ -270,7 +269,7 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
             }
         });
         } else if (typeof value === 'object' && value !== null) {
-        // Already an object, push directly
+       
         expenseItems.push(value);
         }
     });
@@ -298,14 +297,14 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
              
             console.log('rowFiles');
             const rowFiles = await req.files.filter(f => f.fieldname == `attachments[${rowIdx}]`);
-            console.log(rowFiles);
+            // console.log(rowFiles);
 
             let documentUrl = null;
             let documentName = null;
 
 
             for (let file of rowFiles) {
-                console.log('inside file loop');
+                // console.log('inside file loop');
                 // const blobName = `expense-${new Date()}-${Date.now()}-${file.originalname}`;
                 // const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
@@ -317,8 +316,8 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
                 documentUrl = file ? (await uploadDocument(file)).fileUrl : null;
                 documentName = file.originalname;
                 
-                console.log(documentUrl);
-                console.log(documentName);
+                // console.log(documentUrl);
+                // console.log(documentName);
 
                 // Optional: save URL in SQL
                 // const blobUrl = blockBlobClient.url;
@@ -332,7 +331,7 @@ async function expenseItemSaveUpdate(req, expenseId,transaction) {
 
             const itemRequest = new sql.Request(transaction);
 
-            // Save expense row in SQL
+           
             const result = await itemRequest
                 .input('ID2', sql.NVarChar(65), item.ID2 || '0')
                 .input('expenseCode', sql.NVarChar(100), item.expenseCode || null)

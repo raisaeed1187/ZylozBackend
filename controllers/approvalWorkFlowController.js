@@ -49,6 +49,7 @@ const approvalWorkFlowSaveUpdate = async (req,res)=>{
             .input('Transaction', sql.NVarChar(100), formData.transaction || null)
             .input('NumbersOfLevels', sql.Int, formData.numbersOfLevels || 0)
             .input('IsLimitApplicable', sql.Bit, parseBoolean(formData.isLimitApplicable) || false)
+            .input('IsActive', sql.Bit, parseBoolean(formData.isActive) || false)
             .input('LimitPrice', sql.Decimal(18, 8), formData.limitPrice || null)
             .input('OrganizationId', sql.NVarChar(65), formData.organizationId || null)
             .input('CreatedBy', sql.NVarChar(100), req.authUser.username  )

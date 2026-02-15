@@ -44,7 +44,7 @@ const {agencySaveUpdate,getAgencyDetails,getAllAgencysList} = require('./control
 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,sendInvoice,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -533,6 +533,9 @@ app.post('/api/finance/trail-balance',authenticateToken,express.json(),getTrailB
 app.post('/api/finance/p-and-l',authenticateToken,express.json(),getProfitAndLoss );
 app.post('/api/finance/balance-sheet',authenticateToken,express.json(),getBalanceSheet );
 
+app.post('/api/finance/cost-center/report',authenticateToken,express.json(),getCostCenterReport );
+
+
 app.post('/api/finance/aging',authenticateToken,express.json(),getCustomerInvoiceAging );
 
 
@@ -635,6 +638,7 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 
 app.post('/api/dashboard/p-and-l',authenticateToken,express.json(),getProfitAndLossDashboard ); 
 app.post('/api/dashboard/aging',authenticateToken,express.json(),getAgingDashboard ); 
+
 
 
 
