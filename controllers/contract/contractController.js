@@ -112,6 +112,8 @@ async function contractLocationSaveUpdate(req, contractId, isContract, transacti
             .input('ContractID', sql.NVarChar(65), contractId)
             .input('LocationID', sql.NVarChar(65), item.ID2)
             .input('IsContract', sql.Bit, isContract ? 1 : 0)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
             .execute('ContractLocation_SaveOrUpdate');
     }
 }

@@ -119,7 +119,9 @@ const orgProfileSaveUpdate = async (req,res)=>{
                         coaRequest.input("Mode", sql.NVarChar(100), String(formData.mode));
                         coaRequest.input("SourceOrganizationId", sql.NVarChar(100), String(formData.sourceOrganizationId) || null);
                         coaRequest.input("TargetOrganizationId", sql.NVarChar(100), encryptedId || null); 
-                        coaRequest.input("CreatedBy", sql.NVarChar(100), req?.authUser?.username || 'admin'); 
+                        coaRequest.input("CreatedBy", sql.NVarChar(100), req?.authUser?.username);
+                        coaRequest.input("TenantId", sql.NVarChar(100), req?.authUser?.tenantId || 'admin'); 
+
                         await coaRequest.execute("TransferChartOfAccounts");
 
                 }

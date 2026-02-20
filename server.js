@@ -67,7 +67,7 @@ const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionA
 
 const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
 
-const {getProfitAndLossDashboard,getAgingDashboard} = require('./controllers/dashboardController'); 
+const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
@@ -638,6 +638,8 @@ app.post('/api/finance/cost-center/type',authenticateToken,express.json(),getCos
 
 app.post('/api/dashboard/p-and-l',authenticateToken,express.json(),getProfitAndLossDashboard ); 
 app.post('/api/dashboard/aging',authenticateToken,express.json(),getAgingDashboard ); 
+app.post('/api/dashboard/employees',authenticateToken,express.json(),getEmployeesByJoiningDate ); 
+app.post('/api/dashboard/payroll',authenticateToken,express.json(),getPayrollByMonth ); 
 
 
 

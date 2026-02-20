@@ -511,6 +511,8 @@ const payrollConfigurationSave = async (req, res) => {
             .input("totalPayDays", sql.NVarChar(255), formData.totalPayDays) 
             .input("isFullCalendar", sql.BIT, formData.isFullCalendar == 'true' ? 1 : 0) 
             .input("OTSalary", sql.NVarChar(255), formData.otSalary)  
+            .input("projectLocationAttendanceApplicable", sql.NVarChar(255), formData.projectLocationAttendanceApplicable)  
+
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
             
             .output('NewID', sql.NVarChar(255))  
@@ -681,6 +683,10 @@ const getPayrollSummary = async (req, res) => {
            
 
         const query = `exec GetPayrollMasterSummary Null,'${organizationId}'`; 
+
+        console.log('query');
+        console.log(query);
+
         const apiResponse = await pool.request().query(query);  
          
         let letResponseData = {};
@@ -709,9 +715,7 @@ const getPayrollPreview = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config; 
 
-        console.log('req.authUser');
-        console.log(req.authUser);
-
+     
 
         const pool = await sql.connect(config); 
                 await setTenantContext(pool,req);
@@ -759,7 +763,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}','${req.authUser.tenantId}'`;  
                 }
                  
-                console.log('query : ',query); 
+                console.log('query payroll draft : ',query); 
 
 
             }
@@ -896,14 +900,21 @@ const getPayrollEmployeeDetails = async (req, res) => {
         const dd = String(firstDay.getDate()).padStart(2, '0');
 
         const formatted = `${yyyy}-${mm}-${dd}`;
-
+        var apiResponse = null
         if(isEOS){
             query = `exec Get_Accrual_PayrollOutput '${formatted}',0,NULL,'${employeeId}'`;       
+            apiResponse = await pool.request().query(query); 
         }else{
-            query = `exec GetDraftPayrollOutput '${Id}','${employeeId}'`;   
+            // query = `exec GetDraftPayrollOutput '${Id}','${employeeId}',''`; 
+            apiResponse = await pool.request() 
+                    .input('PayrollID', sql.NVarChar(65), Id || null)
+                    .input('EmployeeID', sql.NVarChar(65), employeeId || null) 
+                    .input('TenantId', sql.NVarChar(65), req.authUser.tenantId) 
+                    .execute('GetDraftPayrollOutput');
         }
         console.log('query',query);
-        const apiResponse = await pool.request().query(query); 
+        console.log('req.authUser.tenantId',req.authUser.tenantId);
+
         console.log('apiResponse.recordset',apiResponse.recordset);    
         let paySlipInfo = {};
 

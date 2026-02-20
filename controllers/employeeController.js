@@ -1291,7 +1291,7 @@ const employeeLeaveSaveUpdate = async (req,res)=>{
                     .input("isResumed", sql.Bit, 1)
                     .input("resumptionDate", sql.Date, formData.resumeDate) 
                     .input("remarks", sql.NVarChar(500), formData.reason) 
-                    .input('createdBy', sql.NVarChar(250), req.authUser.username || "Admin") 
+                    .input('createdBy', sql.NVarChar(250), req.authUser.username) 
                     .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                     
                     .execute('EmployeeLeave_Resumption');    
