@@ -69,6 +69,9 @@ const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,
 
 const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
+const {getLicensesList,licenseSaveUpdate,getLicenseDetails,getLicenseSummary} = require('./controllers/licanceManagement/licenceController'); 
+
+
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
     getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
@@ -115,7 +118,8 @@ const upload = multer({
 }).fields([
     { name: "logo", maxCount: 1 },
     { name: "img", maxCount: 1 }, 
-    { name: "attachments", maxCount: 5 }
+    { name: "attachments", maxCount: 5 }, 
+    { name: "documents", maxCount: 5 },   
 ]);
 
 const expenseUpload = multer({
@@ -127,6 +131,14 @@ const expenseUpload = multer({
 }).any();
 
 const employeeUpload = multer({
+    storage: storage,
+    limits: { 
+        fileSize: 10 * 1024 * 1024,
+        fieldSize: 10 * 1024 * 1024  
+    }
+}).any(); 
+
+const documentUpload = multer({
     storage: storage,
     limits: { 
         fileSize: 10 * 1024 * 1024,
@@ -618,6 +630,9 @@ app.post('/api/finance/additionalfield',authenticateToken,express.json(),getFinA
 // end of fin additional field
 
 
+
+
+
 app.post('/api/finance/bank/save-update',authenticateToken,express.json(),upload,bankSaveUpdate );
 app.post('/api/finance/banks',authenticateToken,express.json(),getBanksList );
 app.post('/api/finance/bank',authenticateToken,express.json(),getBankDetails );
@@ -668,6 +683,16 @@ app.post('/api/role/users-roles',authenticateToken,express.json(),getUsersRolesL
 app.post('/api/role/users-permissions',authenticateToken,express.json(),getUserPermissions );
 
 
+app.post('/api/license/save-update',authenticateToken,express.json(),documentUpload,licenseSaveUpdate );
+app.post('/api/licenses',authenticateToken,express.json(),getLicensesList );
+app.post('/api/license',authenticateToken,express.json(),getLicenseDetails );
+app.post('/api/license/delete-document',authenticateToken,express.json(),getLicenseDetails );
+
+
+app.post('/api/license/summary',authenticateToken,express.json(),getLicenseSummary );
+
+
+// end of license
  
 
 

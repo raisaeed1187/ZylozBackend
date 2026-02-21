@@ -912,10 +912,10 @@ const getPayrollEmployeeDetails = async (req, res) => {
                     .input('TenantId', sql.NVarChar(65), req.authUser.tenantId) 
                     .execute('GetDraftPayrollOutput');
         }
-        console.log('query',query);
-        console.log('req.authUser.tenantId',req.authUser.tenantId);
+        // console.log('query',query);
+        // console.log('req.authUser.tenantId',req.authUser.tenantId);
 
-        console.log('apiResponse.recordset',apiResponse.recordset);    
+        // console.log('apiResponse.recordset',apiResponse.recordset);    
         let paySlipInfo = {};
 
         if(apiResponse.recordset.length > 0){

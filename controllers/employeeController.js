@@ -111,7 +111,7 @@ const employeeSaveUpdate = async (req,res)=>{
                     await employeeBenefitSaveUpdate(req,encryptedId, transaction);
                 }
                 if(formData.employeeDocuments){
-                    employeeDocumentSaveUpdate(req,encryptedId, transaction);
+                    await employeeDocumentSaveUpdate(req,encryptedId, transaction);
                 }
 
                 
