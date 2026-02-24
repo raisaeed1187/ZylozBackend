@@ -798,7 +798,9 @@ const varifyOTP = async (req,res)=>{
                 if(user){ 
                     const vendorEmail = user.vendorEmail; 
                     
-                    const token = jwt.sign({ Id: ID2,ID2: user.ID2, username: user.vendorName,staffId: ID2,email:vendorEmail,database:from}, SECRET_KEY, {
+                    const token = jwt.sign({ Id: ID2,ID2: user.ID2, username: user.vendorName,staffId: ID2,
+                        email:vendorEmail,database:from, tenantId:user?.TenantId
+                    }, SECRET_KEY, {
                         expiresIn: "5h",
                     });
                       
