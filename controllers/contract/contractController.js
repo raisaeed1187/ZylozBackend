@@ -589,7 +589,7 @@ const getLocationDetails = async (req, res) => {
 // end of getLocationDetails
 
 const getContractLocations = async (req, res) => {  
-    const {Id,IsForContract} = req.body; // user data sent from client
+    const {Id,IsForContract,isForPurchase} = req.body; // user data sent from client
       
     try {
          
@@ -599,8 +599,16 @@ const getContractLocations = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         await setTenantContext(pool,req);
- 
-        const locationsQuery = `exec ContractLocation_Get '${Id}',${IsForContract ? 1 : 0}`;   
+        let locationsQuery = null;
+        if (isForPurchase) {
+            locationsQuery = `exec PurchaseContractLocation_Get '${Id}',${IsForContract ? 1 : 0}`;   
+            
+        }else{
+            locationsQuery = `exec ContractLocation_Get '${Id}',${IsForContract ? 1 : 0}`;   
+
+        }
+        
+        
         const locationsApiResponse = await pool.request().query(locationsQuery); 
            
         res.status(200).json({
@@ -615,7 +623,269 @@ const getContractLocations = async (req, res) => {
 };
 // end of getContractLocations
 
+
+// -------------- purchase COntract
+
+const purchaseContractSaveUpdate = async (req,res)=>{
+    const formData = req.body; 
+    let pool, transaction;
+    
+
+    try {
+             
+            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentUser(req.authUser)); 
+            const config = store.getState().constents.config;  
+            console.log('formData');
+            console.log(formData); 
+              
+            pool = await sql.connect(config);
+            transaction = new sql.Transaction(pool);
+
+            await setTenantContext(pool,req);
+
+            
+            await transaction.begin();
+              
+            const request = new sql.Request(transaction);
+            
+
+            const result = await request
+            .input("ID2", sql.NVarChar(65), formData.ID2)
+            .input("VendorId", sql.NVarChar(65), formData.VendorId)
+            .input("ContactPerson", sql.VarChar(100), formData.ContactPerson)
+            .input("VendorEmail", sql.VarChar(255), formData.VendorEmail)
+            .input("VendorPhone", sql.VarChar(50), formData.VendorPhone)
+            .input("ContractCode", sql.VarChar(50), formData.ContractCode)
+            .input("ContractName", sql.VarChar(255), formData.ContractName)
+            .input("ContractType", sql.VarChar(100), formData.ContractType)
+            .input("StartDate", sql.VarChar(100), formData.StartDate)
+            .input("EndDate", sql.VarChar(100), formData.EndDate)
+            .input("AnnualAmount", sql.Decimal(18, 8), formData.AnnualAmount)
+            .input("TotalAmount", sql.Decimal(18, 8), formData.TotalAmount)
+            .input("ContractIncharge", sql.VarChar(100), formData.ContractIncharge) 
+            .input("StatusId", sql.VarChar(25), formData.StatusId == 'null' ? null : formData.StatusId  || null) 
+            .input("QuotationId", sql.VarChar(100), formData.QuotationId) 
+            .input("createdBy", sql.VarChar(100), formData.createdBy)
+            .input("OrganizationId", sql.VarChar(65), formData.organizationId || null) 
+            .input("BranchId", sql.VarChar(65), formData.branchId || null) 
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            .input('Scope', sql.NVarChar(100), formData.Scope )  
+            .output('ID', sql.NVarChar(100)) 
+            .execute("dbo.PurchaseContract_SaveUpdate");
+    
+            const newID = result.output.ID;
+            if(formData.properties){ 
+                await contractPropertySaveUpdate(req,newID,transaction)
+            }
+            if(formData.paymentSchedules){ 
+                await contractPaymentScheduleSaveUpdate(req,newID,transaction)
+            }
+ 
+            if(formData.locations){ 
+               await purchaseContractLocationSaveUpdate(req,newID,true,transaction)
+            }
+
+            await transaction.commit();
+
+            res.status(200).json({
+                message: 'contract saved/updated',
+                data: '' //result
+            });
+           
+             
+        } catch (err) { 
+            console.error("SQL ERROR DETAILS:", err);
+            if (transaction) try { await transaction.rollback(); } catch(e) {}
+            
+            return res.status(400).json({ 
+                message: err.message,
+                // sql: err.originalError?.info || err
+            }); 
+        }
+}
+// end of purchaseContractSaveUpdate
+
+async function purchaseContractLocationSaveUpdate(req, contractId, isContract, transaction) {
+    const formData = req.body;
+    const properties = JSON.parse(formData.locations);
+
+    if (!properties || !properties.length) return;
+
+    for (const item of properties) {
+        if (!item.ID2) continue;
+
+        const request = new sql.Request(transaction);
+
+        await request
+            .input('ID', sql.Int, item.ID || 0)
+            .input('ContractID', sql.NVarChar(65), contractId)
+            .input('LocationID', sql.NVarChar(65), item.ID2)
+            .input('IsContract', sql.Bit, isContract ? 1 : 0)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+
+            .execute('PurchaseContractLocation_SaveOrUpdate');
+    }
+}
+// end of purchaseContractLocationSaveUpdate
+
+async function contractPaymentScheduleSaveUpdate(req, contractId, transaction) {
+    const formData = req.body;
+    const schedules = JSON.parse(formData.paymentSchedules || '[]');
+
+    if (!schedules || !schedules.length) return;
+
+    for (const item of schedules) {
+        const request = new sql.Request(transaction);
+
+        await request
+            .input('ID2', sql.NVarChar(65), item.ID2 || null)
+            .input('ContractID', sql.NVarChar(65), contractId)
+            .input('InstNo', sql.Int, item.instNo)
+
+            .input('PaymentType', sql.NVarChar(50), item.paymentType || null)
+            .input('Description', sql.NVarChar(500), item.description || null)
+
+            .input('Percentage', sql.Decimal(5, 2), parseFloat(cleanNumber(item.percentage) || 0))
+            .input('Amount', sql.Decimal(18, 4), parseFloat(cleanNumber(item.amount) || 0))
+            .input('MilestoneDate', sql.Date, item.milestoneDate || null)
+            .input('CertifiedAmount', sql.Decimal(18, 4), parseFloat(cleanNumber(item.certifiedAmount) || 0))
+            .input('PaidAmount', sql.Decimal(18, 4), parseFloat(cleanNumber(item.paidAmount) || 0))
+            .input('Balance', sql.Decimal(18, 4), parseFloat(cleanNumber(item.balance) || 0))
+
+            .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
+            .input('TenantId', sql.NVarChar(65), req.authUser.tenantId)
+
+            .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
+            .input('ChangedBy', sql.NVarChar(100), req.authUser.username)
+
+            .execute('ContractPaymentSchedule_SaveOrUpdate');
+    }
+}
+
+function cleanNumber(price) {
+    return (price || '0').toString().replace(/,/g, '');
+}
  
 
+const getPurchaseContractDetails = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+        
+        if (Id) {
+            query = `exec PurchaseContract_Get '${Id}'`;  
+            
+        } 
+ 
+        const apiResponse = await pool.request().query(query); 
+         
+        
+         
+        res.status(200).json({
+            message: `Contract details loaded successfully!`,
+            data: apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseContractDetails
 
-module.exports =  {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractsList,getProjectDetails,getContractDetails} ;
+const getPurchaseContractsList = async (req, res) => {  
+    const {organizationId,date,isMonthly} = req.body; // user data sent from client
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+         
+        query = `exec PurchaseContract_GetList '${organizationId}'`;   
+         
+        const apiResponse = await pool.request().query(query); 
+        
+        res.status(200).json({
+            message: `Contracts List loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseContractsList
+
+const getPurchaseContractLocations = async (req, res) => {  
+    const {Id,IsForContract} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+ 
+        const locationsQuery = `exec PurchaseContractLocation_Get '${Id}',${IsForContract ? 1 : 0}`;   
+        const locationsApiResponse = await pool.request().query(locationsQuery); 
+           
+        res.status(200).json({
+            message: `Contract locations loaded successfully!`,
+            data: locationsApiResponse.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseContractLocations
+
+
+const getContractPaymentSchedule = async (req, res) => {  
+    const {Id,IsForContract,isForPurchase} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+        const request = pool.request();  
+        request.input('ContractID', sql.NVarChar(65), Id);
+        request.input('OrganizationId', sql.NVarChar(65), null);
+        request.input('TenantId', sql.NVarChar(65), req.authUser.tenantId); 
+
+        const result = await request.execute('ContractPaymentSchedule_Get');
+         
+        res.status(200).json({
+            message: `Contract locations loaded successfully!`,
+            data: result.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getContractPaymentSchedule
+
+
+module.exports =  {getContractPaymentSchedule,getPurchaseContractLocations, getPurchaseContractsList,getPurchaseContractDetails, purchaseContractSaveUpdate, getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractsList,getProjectDetails,getContractDetails} ;

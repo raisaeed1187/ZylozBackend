@@ -234,15 +234,20 @@ const getCustomerList = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
         
-        await setTenantContext(pool,req);
+         const tran = new sql.Transaction(pool);
+        await tran.begin();
 
-
-        const query = `exec GetCustomerList`; 
-        const apiResponse = await pool.request().query(query); 
-        const formatCreatedAt = (createdAt) => {
-            const date = new Date(createdAt);
-            return date.toLocaleDateString("en-US");
-        };
+        try { 
+            const request = tran.request();
+            
+            await setTenantContext(request, req);
+  
+            const query = `exec GetCustomerList`; 
+            const apiResponse = await request.query(query); 
+            const formatCreatedAt = (createdAt) => {
+                const date = new Date(createdAt);
+                return date.toLocaleDateString("en-US");
+            };
         
         // let formatedData = apiResponse.recordset.map(staff => ({
         //     ...staff,
@@ -256,6 +261,15 @@ const getCustomerList = async (req, res) => {
             message: `Customer List loaded successfully!`,
             data: apiResponse.recordset
         });
+
+            await tran.commit();   
+
+
+        } catch (err) {
+            await tran.rollback();
+            throw err;
+        }
+
          
     } catch (error) {
         return res.status(400).json({ message: error.message,data:null});

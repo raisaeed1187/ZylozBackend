@@ -27,7 +27,7 @@ const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/h
 const {getfinancialPeriodLocks,financialPeriodLockSave,financeConfigurationSave,getFinanceConfiguration} = require('./controllers/finance/financeConfigurationController'); 
 
 
-const {getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
+const {getContractPaymentSchedule, getPurchaseContractLocations,getPurchaseContractsList,getPurchaseContractDetails, purchaseContractSaveUpdate, getAttendanceContractLocationsList,getAttendanceContractsList,getContractLocations,getLocationDetails,locationSaveUpdate,getPropertyDetails,propertySaveUpdate,projectSaveUpdate,contractSaveUpdate,getContractDetails,getProjectDetails,getContractsList} = require('./controllers/contract/contractController'); 
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
@@ -67,7 +67,7 @@ const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionA
 
 const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
 
-const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPayrollByMonth} = require('./controllers/dashboardController'); 
+const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPurchaseContractByMonth, getPurchaseOrderByMonth, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
 const {getLicensesList,licenseSaveUpdate,getLicenseDetails,getLicenseSummary} = require('./controllers/licanceManagement/licenceController'); 
 
@@ -246,6 +246,17 @@ app.post('/api/attendance/contract/locations',authenticateToken,express.json(),g
 app.post('/api/project/save-update',authenticateToken,express.json(),upload,projectSaveUpdate ); 
 app.post('/api/project',authenticateToken,express.json(),getProjectDetails );
  
+
+app.post('/api/purchase-contract/save-update',authenticateToken,express.json(),upload,purchaseContractSaveUpdate ); 
+
+app.post('/api/purchase-contract',authenticateToken,express.json(),getPurchaseContractDetails );
+app.post('/api/purchase-contracts',authenticateToken,express.json(),getPurchaseContractsList );
+app.post('/api/purchase-contract/locations',authenticateToken,express.json(),getPurchaseContractLocations );
+app.post('/api/purchase-contract/payment-schedule',authenticateToken,express.json(),getContractPaymentSchedule );
+
+
+
+
 app.post('/api/property/save-update',authenticateToken,express.json(),upload,propertySaveUpdate ); 
 app.post('/api/property',authenticateToken,express.json(),getPropertyDetails );
 app.post('/api/properties',authenticateToken,express.json(),getPropertyDetails );
@@ -655,6 +666,8 @@ app.post('/api/dashboard/p-and-l',authenticateToken,express.json(),getProfitAndL
 app.post('/api/dashboard/aging',authenticateToken,express.json(),getAgingDashboard ); 
 app.post('/api/dashboard/employees',authenticateToken,express.json(),getEmployeesByJoiningDate ); 
 app.post('/api/dashboard/payroll',authenticateToken,express.json(),getPayrollByMonth ); 
+app.post('/api/dashboard/purchase-contract',authenticateToken,express.json(),getPurchaseContractByMonth ); 
+app.post('/api/dashboard/purchase-order',authenticateToken,express.json(),getPurchaseOrderByMonth ); 
 
 
 

@@ -6,18 +6,34 @@ async function getPool() {
   return sql.connect(config);
 }
  
-const setTenantContext = async (reqOrTransaction, req) => {
-    const request =
-        reqOrTransaction instanceof sql.Transaction
-            ? new sql.Request(reqOrTransaction)
-            : reqOrTransaction.request ? reqOrTransaction.request() : new sql.Request(reqOrTransaction);
+// const setTenantContext = async (reqOrTransaction, req) => {
+//     const request =
+//         reqOrTransaction instanceof sql.Transaction
+//             ? new sql.Request(reqOrTransaction)
+//             : reqOrTransaction.request ? reqOrTransaction.request() : new sql.Request(reqOrTransaction);
+
+//     const tenantId = req.authUser.tenantId;
+//     return request
+//         .input("tenantId", sql.NVarChar, tenantId)
+//         .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+// };
+
+const setTenantContext = async (connOrTran, req) => {
+    let request;
+
+    if (connOrTran instanceof sql.Transaction) { 
+        request = new sql.Request(connOrTran);
+    } else if (connOrTran instanceof sql.Request) { 
+        request = connOrTran;
+    } else { 
+        request = connOrTran.request();
+    }
 
     const tenantId = req.authUser.tenantId;
     return request
         .input("tenantId", sql.NVarChar, tenantId)
         .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
 };
-
 
 async function applyTenantContext(pool, tenantId) {
   await pool.request()

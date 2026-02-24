@@ -200,48 +200,50 @@ function encryptID(id) {
 // end of encryptID
  
 const getCOAList = async (req, res) => {  
-    const {isDetailsView,organizationId,transaction} = req.body; // user data sent from client
-     
+    const { isDetailsView, organizationId, transaction } = req.body;
+
     try {
-         
         store.dispatch(setCurrentDatabase(req.authUser.database));
         store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
-            await setTenantContext(pool,req);
-        
-        if(isDetailsView){
-            query = `exec GetChartOfAccountsDetailsView Null,'${organizationId}'`; 
-        }
-        else if (transaction){
-            query = `exec ChartOfAccount_GetAll '${transaction}','${organizationId}'`; 
-        }
-        else{
-            query = `exec ChartOfAccount_GetAll Null,'${organizationId}'`; 
-        }
-        const apiResponse = await pool.request().query(query); 
-        const formatCreatedAt = (createdAt) => {
-            const date = new Date(createdAt);
-            return date.toLocaleDateString("en-US");
-        };
-        
-        // let formatedData = apiResponse.recordset.map(staff => ({
-        //     ...staff,
-        //     CreatedAt: formatCreatedAt(staff.CreatedAt || staff.createdAt),
-        //     ChangedAt: formatCreatedAt(staff.ChangedAt || staff.changedAt), 
-        // })); 
-        // formatedData = formatedData.map(({ ID, ...rest }) => rest);
 
-        // Return a response (do not return the whole req/res object)
-        res.status(200).json({
-            message: `COAs List loaded successfully!`,
-            data: apiResponse.recordset
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);
+
+       
+        const tran = new sql.Transaction(pool);
+        await tran.begin();
+
+        try {
+            
+            
+            const request = tran.request();
+            
+            await setTenantContext(request, req);
+
+            let query = '';
+            if (isDetailsView) {
+                query = `exec GetChartOfAccountsDetailsView Null,'${organizationId}'`; 
+            } else if (transaction) {
+                query = `exec ChartOfAccount_GetAll '${transaction}','${organizationId}'`; 
+            } else {
+                query = `exec ChartOfAccount_GetAll Null,'${organizationId}'`; 
+            }
+
+            const apiResponse = await request.query(query);
+
+            await tran.commit();  
+
+            res.status(200).json({
+                message: `COAs List loaded successfully!`,
+                data: apiResponse.recordset
+            });
+        } catch (err) {
+            await tran.rollback();
+            throw err;
+        }
         
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
     }
 };
 // end of getCOAList

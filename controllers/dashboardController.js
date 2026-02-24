@@ -133,6 +133,40 @@ const getEmployeesByJoiningDate = async (req, res) => {
 };
 // end of getEmployeesByJoiningDate
 
+const getPurchaseContractByMonth = async (req, res) => {  
+    const {organizationId,fromYear,fromMonth,toYear,toMonth,Id} = req.body; 
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
+
+        
+        const apiResponse = await pool.request() 
+        .input('FromYear', sql.NVarChar(65), fromYear || null)
+        .input('FromMonth', sql.NVarChar(65), fromMonth || null)
+        .input('ToYear', sql.NVarChar(65), toYear || null)
+        .input('ToMonth', sql.NVarChar(65), toMonth || null)
+        .input('OrganizationId', sql.NVarChar(65), organizationId || null)
+
+        .execute('GetPurchaseContractMonthWise');
+        
+        res.status(200).json({
+            message: `Employees contract loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+        
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseContractByMonth
+
 const getPayrollByMonth = async (req, res) => {  
     const {organizationId,fromYear,fromMonth,toYear,toMonth,Id} = req.body; 
      
@@ -167,7 +201,41 @@ const getPayrollByMonth = async (req, res) => {
 };
 // end of getPayrollByMonth
 
+const getPurchaseOrderByMonth = async (req, res) => {  
+    const {organizationId,fromYear,fromMonth,toYear,toMonth,Id} = req.body; 
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        await setTenantContext(pool,req);
+
+        
+        const apiResponse = await pool.request() 
+        .input('FromYear', sql.NVarChar(65), fromYear || null)
+        .input('FromMonth', sql.NVarChar(65), fromMonth || null)
+        .input('ToYear', sql.NVarChar(65), toYear || null)
+        .input('ToMonth', sql.NVarChar(65), toMonth || null)
+        .input('OrganizationId', sql.NVarChar(65), organizationId || null)
+
+        .execute('GetPurchaseOrderMonthWise');
+        
+        res.status(200).json({
+            message: `Purchase Order data loaded successfully!`,
+            data:  apiResponse.recordset
+        });
+        
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getPurchaseOrderByMonth
+
  
 
 
-module.exports =  {getProfitAndLossDashboard,getAgingDashboard,getEmployeesByJoiningDate,getPayrollByMonth} ;
+module.exports =  {getPurchaseOrderByMonth,getPurchaseContractByMonth,getProfitAndLossDashboard,getAgingDashboard,getEmployeesByJoiningDate,getPayrollByMonth} ;

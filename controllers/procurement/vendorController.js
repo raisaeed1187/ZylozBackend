@@ -141,17 +141,36 @@ const getVendorsList = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
-        let query = '';
-            await setTenantContext(pool,req);
+ 
+
+       
+        const tran = new sql.Transaction(pool);
+        await tran.begin();
+
+        try {
+            
+            
+            const request = tran.request();
+            
+            await setTenantContext(request, req);
+
+            let query = '';  
+            query = `exec Vendor_GetDetails `;   
          
-        query = `exec Vendor_GetDetails `;   
-         
-        const apiResponse = await pool.request().query(query); 
+            const apiResponse = await request.query(query); 
         
-        res.status(200).json({
-            message: `Vendors List loaded successfully!`,
-            data:  apiResponse.recordset
-        });
+            await tran.commit();   
+            
+            res.status(200).json({
+                message: `Vendors List loaded successfully!`,
+                data:  apiResponse.recordset
+            });
+
+        } catch (err) {
+            await tran.rollback();
+            throw err;
+        }
+        
          
     } catch (error) {
         return res.status(400).json({ message: error.message,data:null});
