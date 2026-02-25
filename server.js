@@ -70,6 +70,7 @@ const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,
 const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPurchaseContractByMonth, getPurchaseOrderByMonth, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
 const {getLicensesList,licenseSaveUpdate,getLicenseDetails,getLicenseSummary} = require('./controllers/licanceManagement/licenceController'); 
+const {getVisasList,visaSaveUpdate,getVisaDetails,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
 
 
 
@@ -248,7 +249,6 @@ app.post('/api/project',authenticateToken,express.json(),getProjectDetails );
  
 
 app.post('/api/purchase-contract/save-update',authenticateToken,express.json(),upload,purchaseContractSaveUpdate ); 
-
 app.post('/api/purchase-contract',authenticateToken,express.json(),getPurchaseContractDetails );
 app.post('/api/purchase-contracts',authenticateToken,express.json(),getPurchaseContractsList );
 app.post('/api/purchase-contract/locations',authenticateToken,express.json(),getPurchaseContractLocations );
@@ -700,12 +700,17 @@ app.post('/api/license/save-update',authenticateToken,express.json(),documentUpl
 app.post('/api/licenses',authenticateToken,express.json(),getLicensesList );
 app.post('/api/license',authenticateToken,express.json(),getLicenseDetails );
 app.post('/api/license/delete-document',authenticateToken,express.json(),getLicenseDetails );
-
-
 app.post('/api/license/summary',authenticateToken,express.json(),getLicenseSummary );
 
 
 // end of license
+
+app.post('/api/visa/save-update',authenticateToken,express.json(),documentUpload,visaSaveUpdate );
+app.post('/api/visas',authenticateToken,express.json(),getVisasList );
+app.post('/api/visa',authenticateToken,express.json(),getVisaDetails );
+app.post('/api/visa/delete-document',authenticateToken,express.json(),getVisaDetails );
+app.post('/api/visa/summary',authenticateToken,express.json(),getVisaSummary );
+
  
 
 
@@ -768,3 +773,4 @@ process.on('SIGINT', () => {
 });
 
 
+// "email-worker": "node workers/emailWorker.js"

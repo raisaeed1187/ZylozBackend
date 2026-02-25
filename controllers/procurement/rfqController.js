@@ -17,6 +17,7 @@ const { getRfqTemplate,getRfqTemplateNew } = require('../../utils/rfqEmailTempla
 const { getRfqSubmittedTemplate } = require('../../utils/rfqSubmittedTemplate');
 const { helper } = require("../../helper");
 const { setTenantContext } = require("../../helper/db/sqlTenant");
+const emailQueue = require("../../queues/emailQueue");
  
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -176,37 +177,7 @@ const rfqSaveUpdate = async (req, res) => {
             // end of vendor item save
         }
 
-        // start save attachements
-        // if (formData.attachments && formData.attachments.length > 0) {
-        //     for (const att of formData.attachments) {
-
-        //         if (!att.fileName || !att.fileUrl) continue; // skip empty
- 
-        //         const attSaveReq = new sql.Request(transaction);
-
-        //         let attSave = await attSaveReq
-        //             .input('ID2', sql.NVarChar(65), att.ID2 || "0")
-        //             .input('FileName', sql.NVarChar(255), att.fileName)
-        //             .input('FileType', sql.NVarChar(50), att.fileType || null)
-        //             .input('FileSize', sql.BigInt, att.fileSize || null)
-        //             .input('FileURL', sql.NVarChar(sql.MAX), att.fileUrl)
-        //             .output('ID2', sql.NVarChar(65))              // output from Attachment_SaveOrUpdate
-        //             .execute('Attachment_SaveOrUpdate');
-
-        //         const attachmentID2 = attSave.output.ID2;
-        //         console.log("Attachment Saved ID2:", attachmentID2);
- 
-        //         const mapReq = new sql.Request(transaction);
-
-        //         await mapReq
-        //             .input('RFQId', sql.NVarChar(65), newRFQID2)
-        //             .input('VendorId', sql.NVarChar(65), att.vendorId || null)
-        //             .input('AttachmentId', sql.NVarChar(65), attachmentID2)
-        //             .execute('RFQVendorAttachment_SaveOrUpdate');
-
-        //         console.log("Attachment Linked to RFQ/Vendor");
-        //     }
-        // }
+       
         if (formData.statusId == 10) {
             await createPOFromRFQ(req, res, newRFQID2, transaction); // pass transaction
         }
@@ -238,9 +209,223 @@ const rfqSaveUpdate = async (req, res) => {
             data: null
         });
     }
-};
-
+}; 
 // end of rfqSaveUpdate
+
+
+// const rfqSaveUpdateNew = async (req, res) => {
+//   const formData = req.body;
+
+//   let pool;
+//   let transaction;
+
+//   // ⭐ collect emails here (IMPORTANT)
+//   const emailJobs = [];
+
+//   try {
+//     store.dispatch(setCurrentDatabase(req.authUser.database));
+//     store.dispatch(setCurrentUser(req.authUser));
+//     const config = store.getState().constents.config;
+
+//     pool = await sql.connect(config);
+//     transaction = new sql.Transaction(pool);
+//     await setTenantContext(pool, req);
+
+//     console.log("Starting SQL Transaction...");
+//     await transaction.begin();
+
+//     const request = new sql.Request(transaction);
+
+//     // ================= RFQ SAVE =================
+//     let rfqResult = await request
+//       .input("ID2", sql.NVarChar(65), formData.ID2)
+//       .input("RFQCode", sql.NVarChar(50), formData.rfqCode)
+//       .input("ContactPerson", sql.NVarChar(100), formData.contactPerson)
+//       .input("RFQDate", sql.Date, formData.rfqDate)
+//       .input("PaymentTerm", sql.NVarChar(100), formData.paymentTerm)
+//       .input("Description", sql.NVarChar(sql.MAX), formData.description)
+//       .input("TermsConditions", sql.NVarChar(sql.MAX), formData.termsConditions)
+//       .input("StatusId", sql.Int, formData.statusId)
+//       .input("TotalItems", sql.NVarChar(100), formData.totalItems)
+//       .input("TotalAmount", sql.NVarChar(100), formData.totalAmount)
+//       .input("CreatedBy", sql.NVarChar(100), req.authUser.username)
+//       .input("OrganizationId", sql.NVarChar(255), formData.organizationId)
+//       .input("BranchId", sql.NVarChar(255), formData.branchId)
+//       .input("DeliveryDate", sql.NVarChar(100), formData.deliveryDate || null)
+//       .input(
+//         "DeliveryLocation",
+//         sql.NVarChar(100),
+//         formData.deliveryLocation || null
+//       )
+//       .input("OrderNo", sql.NVarChar(100), formData.orderNo || null)
+//       .input("TenantId", sql.NVarChar(100), req.authUser.tenantId)
+//       .output("ID", sql.NVarChar(100))
+//       .execute("RFQ_SaveOrUpdate");
+
+//     const newRFQID2 = rfqResult.output.ID;
+//     console.log("RFQ Saved With ID2:", newRFQID2);
+
+//     // ================= ITEMS =================
+//     const items = JSON.parse(formData.poItems || "[]");
+
+//     for (let item of items) {
+//       const itemRequest = new sql.Request(transaction);
+
+//       let itemResult = await itemRequest
+//         .input("ID2", sql.NVarChar(65), item.ID2 || "0")
+//         .input("ItemId", sql.NVarChar(65), item.itemId || "")
+//         .input("RFQId", sql.NVarChar(65), newRFQID2)
+//         .input("ItemName", sql.NVarChar(200), item.item || "")
+//         .input("ItemUnit", sql.NVarChar(50), item.unit || "")
+//         .input("Qty", sql.NVarChar(100), String(item.qty))
+//         .input("UnitPrice", sql.NVarChar(100), String(item.unitPrice))
+//         .input("VatID", sql.NVarChar(65), String(item.taxId))
+//         .input("Vat", sql.NVarChar(65), String(item.tax))
+//         .input("Total", sql.NVarChar(100), String(item.amount))
+//         .input("TenantId", sql.NVarChar(100), req.authUser.tenantId)
+//         .output("ID", sql.NVarChar(100))
+//         .execute("RFQItem_SaveOrUpdate");
+
+//       const rfqItemID2 = itemResult.output.ID;
+
+//       // ================= VENDORS =================
+//       if (item.vendors?.length > 0) {
+//         for (const vendor of item.vendors) {
+//           const vendorRequest = new sql.Request(transaction);
+
+//           await vendorRequest
+//             .input("RFQItemId", sql.NVarChar(65), rfqItemID2)
+//             .input("VendorId", sql.NVarChar(65), vendor.id)
+//             .input("UnitPrice", sql.Decimal(18, 5), vendor.value)
+//             .input(
+//               "IsSelected",
+//               sql.Bit,
+//               vendor.id === item.selectedVendorId ? 1 : 0
+//             )
+//             .input("TenantId", sql.NVarChar(100), req.authUser.tenantId)
+//             .output("ID2", sql.NVarChar(65))
+//             .execute("RFQItemVendor_SaveOrUpdate");
+
+//           // ⭐ PREPARE EMAIL (DO NOT SEND)
+//           if (formData.statusId == 12 || formData.statusId == 15) {
+//             const rfqInfoRequest = new sql.Request(transaction);
+
+//             let rfqResponse = await rfqInfoRequest
+//               .input("ID2", sql.NVarChar(65), newRFQID2)
+//               .input("OrganizationId", sql.NVarChar(65), null)
+//               .input("VendorId", sql.NVarChar(65), vendor.id)
+//               .execute("RFQ_Get");
+
+//             if (rfqResponse.recordset.length > 0) {
+//               const vendorEmail = rfqResponse.recordset[0].vendorEmail;
+
+//               if (!isValidEmail(vendorEmail)) continue;
+
+//               let subject, text, html;
+
+//               const vendorName = vendor.name;
+//               const companyName = rfqResponse.recordset[0].company;
+//               const rfqNumber = rfqResponse.recordset[0].rfqCode;
+//               const rfqDate = rfqResponse.recordset[0].rfqDate;
+//               const vendorId = vendor.id;
+//               const dueDate = "2025-11-25";
+//               const deliveryDate = rfqResponse.recordset[0].deliveryDate;
+//               const deliveryLocation =
+//                 rfqResponse.recordset[0].deliveryLocation;
+//               const message = "";
+
+//               if (
+//                 formData.statusId == 15 &&
+//                 vendor.isCurrentSubmittedVendor == 1
+//               ) {
+//                 subject = "AllBiz - Quotation Submitted Successfully!";
+//                 text = subject;
+//                 html = await getRfqSubmittedTemplate(
+//                   vendorName,
+//                   vendorEmail,
+//                   vendorId,
+//                   newRFQID2,
+//                   companyName,
+//                   rfqNumber,
+//                   rfqDate,
+//                   dueDate,
+//                   deliveryDate,
+//                   deliveryLocation,
+//                   message,
+//                   formData.baseUrl || ""
+//                 );
+//               } else if (formData.statusId == 12) {
+//                 subject = "AllBiz - New Quotation Request";
+//                 text = subject;
+//                 html = await getRfqTemplateNew(
+//                   vendorName,
+//                   vendorEmail,
+//                   vendorId,
+//                   newRFQID2,
+//                   companyName,
+//                   rfqNumber,
+//                   rfqDate,
+//                   dueDate,
+//                   deliveryDate,
+//                   deliveryLocation,
+//                   message,
+//                   formData.baseUrl || ""
+//                 );
+//               }
+
+//               // ⭐ PUSH TO ARRAY (NOT QUEUE YET)
+//               emailJobs.push({
+//                 to: vendorEmail,
+//                 subject,
+//                 text,
+//                 html,
+//               });
+//             }
+//           }
+//         }
+//       }
+//     }
+
+//     // ================= CREATE PO =================
+//     if (formData.statusId == 10) {
+//       await createPOFromRFQ(req, res, newRFQID2, transaction);
+//     }
+
+//     // ================= COMMIT =================
+//     await transaction.commit();
+//     console.log("Transaction COMMITTED!");
+
+//     // 🚀 QUEUE EMAILS AFTER COMMIT (CRITICAL)
+//     for (const job of emailJobs) {
+//     //   await emailQueue.add("sendEmail", job);
+//       await emailQueue.add("sendEmail", job);
+   
+
+//     }
+
+//     res.status(200).json({
+//       message: "RFQ saved successfully",
+//       ID2: newRFQID2,
+//     });
+//   } catch (err) {
+//     console.error("RFQ SAVE ERROR:", err);
+
+//     if (transaction) {
+//       try {
+//         await transaction.rollback();
+//         console.log("Transaction ROLLED BACK!");
+//       } catch (rollbackErr) {
+//         console.error("Rollback failed:", rollbackErr);
+//       }
+//     }
+
+//     res.status(400).json({
+//       message: err.message,
+//       data: null,
+//     });
+//   }
+// };
+// end of rfqSaveUpdateNew
  
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
