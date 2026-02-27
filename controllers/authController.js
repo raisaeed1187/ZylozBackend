@@ -446,6 +446,7 @@ const signIn = async (req,res)=>{
                                 phone:user?.Phone, 
                                 
                                 // client:user.databaseName,
+                                defaultPage: modules.recordset[0].MenuUrl,
                                 client:'aa', 
                                 permissions:user.Access, 
                                 roleName:modules.recordset[0].RoleName,

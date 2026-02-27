@@ -73,6 +73,9 @@ const {getLicensesList,licenseSaveUpdate,getLicenseDetails,getLicenseSummary} = 
 const {getVisasList,visaSaveUpdate,getVisaDetails,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
 
 
+const {landSaveUpdate} = require('./controllers/propertyManagement/landController'); 
+
+
 
 const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate,laundryChangeOrderStatus,  laundryOrderItemSaveUpdate,
     getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
@@ -710,6 +713,11 @@ app.post('/api/visas',authenticateToken,express.json(),getVisasList );
 app.post('/api/visa',authenticateToken,express.json(),getVisaDetails );
 app.post('/api/visa/delete-document',authenticateToken,express.json(),getVisaDetails );
 app.post('/api/visa/summary',authenticateToken,express.json(),getVisaSummary );
+
+// end of visas
+
+app.post('/api/land/save-update',authenticateToken,express.json(),documentUpload,landSaveUpdate );
+
 
  
 

@@ -393,7 +393,6 @@ const getUserPermissions = async (req, res) => {
                         .request()
                         .input("UserID", sql.NVarChar, req.authUser.ID2)
                         .execute("GetUserModulesMenus");
-
       
     const usersAccess = await pool
         .request()
