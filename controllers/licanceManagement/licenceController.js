@@ -344,7 +344,39 @@ const getLicenseSummary = async (req, res) => {
 };
 // end of getLicenseSummary
  
+const deleteLicenseDocument = async (req, res) => {  
+    const {Id} = req.body; // user data sent from client
+      
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+            await setTenantContext(pool,req);
+ 
+         
+         const apiResponse = await pool.request() 
+            .input('ID2', sql.NVarChar(65),  Id)  
+            .execute('LicenseDocuments_Delete');
+
+           
+        // Return a response (do not return the whole req/res object)
+        res.status(200).json({
+            message: `License document deleted successfully!`,
+            data: ''
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deleteLicenseDocument
+
+
  
 
 
-module.exports =  {licenseSaveUpdate,getLicensesList,getLicenseDetails,getLicenseSummary} ;
+module.exports =  {deleteLicenseDocument,licenseSaveUpdate,getLicensesList,getLicenseDetails,getLicenseSummary} ;

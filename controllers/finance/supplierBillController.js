@@ -187,7 +187,7 @@ const getSupplierBillDetails = async (req, res) => {
         const itemsQuery = `exec finSupplierBillItemGet Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
-        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Supplier Bill'`;
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Supplier Bill','${organizationId}'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
 
 

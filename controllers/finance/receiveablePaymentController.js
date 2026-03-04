@@ -64,7 +64,7 @@ const paymentSaveUpdate = async (req,res)=>{
                 .input('PostingDate', sql.Date, formData.postingDate || null)
                 .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
                 .input('AdjustmentAccount', sql.NVarChar(100), formData.adjustmentAccount )  
-                .input('AdjustmentAmount', sql.NVarChar(100), formData.adjustmentAmount )  
+                .input('AdjustmentAmount', sql.NVarChar(100),(formData.adjustmentAmount || '0').toString() )  
  
                 .output('ID', sql.NVarChar(100))
                 .execute('FinReceivedPayment_SaveOrUpdate');
@@ -161,7 +161,7 @@ function encryptID(id) {
 // end of encryptID
  
 const getPaymentDetails = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
+    const {Id,organizationId} = req.body; // user data sent from client
       
     try {
          
@@ -181,7 +181,7 @@ const getPaymentDetails = async (req, res) => {
         const itemsQuery = `exec FinReceivedPaymentItem_Get '${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
-        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Received Payment'`;
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Received Payment','${organizationId}'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
 
 

@@ -69,8 +69,8 @@ const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,
 
 const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPurchaseContractByMonth, getPurchaseOrderByMonth, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
-const {getLicensesList,licenseSaveUpdate,getLicenseDetails,getLicenseSummary} = require('./controllers/licanceManagement/licenceController'); 
-const {getVisasList,visaSaveUpdate,getVisaDetails,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
+const {getLicensesList,licenseSaveUpdate,getLicenseDetails, deleteLicenseDocument,getLicenseSummary} = require('./controllers/licanceManagement/licenceController'); 
+const {getVisasList,visaSaveUpdate,getVisaDetails, deleteVisaDocument,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
 
 
 const {landSaveUpdate} = require('./controllers/propertyManagement/landController'); 
@@ -702,7 +702,7 @@ app.post('/api/role/users-permissions',authenticateToken,express.json(),getUserP
 app.post('/api/license/save-update',authenticateToken,express.json(),documentUpload,licenseSaveUpdate );
 app.post('/api/licenses',authenticateToken,express.json(),getLicensesList );
 app.post('/api/license',authenticateToken,express.json(),getLicenseDetails );
-app.post('/api/license/delete-document',authenticateToken,express.json(),getLicenseDetails );
+app.post('/api/license/delete-document',authenticateToken,express.json(),deleteLicenseDocument );
 app.post('/api/license/summary',authenticateToken,express.json(),getLicenseSummary );
 
 
@@ -711,7 +711,7 @@ app.post('/api/license/summary',authenticateToken,express.json(),getLicenseSumma
 app.post('/api/visa/save-update',authenticateToken,express.json(),documentUpload,visaSaveUpdate );
 app.post('/api/visas',authenticateToken,express.json(),getVisasList );
 app.post('/api/visa',authenticateToken,express.json(),getVisaDetails );
-app.post('/api/visa/delete-document',authenticateToken,express.json(),getVisaDetails );
+app.post('/api/visa/delete-document',authenticateToken,express.json(),deleteVisaDocument );
 app.post('/api/visa/summary',authenticateToken,express.json(),getVisaSummary );
 
 // end of visas
@@ -719,11 +719,7 @@ app.post('/api/visa/summary',authenticateToken,express.json(),getVisaSummary );
 app.post('/api/land/save-update',authenticateToken,express.json(),documentUpload,landSaveUpdate );
 
 
- 
-
-
-
-
+  
 app.post('/api/laundry/order/save-update',express.json(),upload,laundryOrderSaveUpdate ); 
 app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeOrderStatus ); 
 

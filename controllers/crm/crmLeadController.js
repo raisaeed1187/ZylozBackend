@@ -53,9 +53,16 @@ const crmLeadSaveUpdate = async (req, res) => {
             .input('City', sql.NVarChar(100), formData.city || null)
             .input('Industry', sql.NVarChar(100), formData.industry || null)
             .input('CompanySize', sql.NVarChar(65), formData.companySize || null)
-            .input('EstBudget', sql.Decimal(18,2), formData.estBudget || null)
+            .input('EstBudget', sql.NVarChar(65), formData.estBudget == 'null' ? null : formData.estBudget || null)
             .input('NextAction', sql.NVarChar(100), formData.nextAction || null)
-            .input('FollowUpDate', sql.DateTime, formData.followUpDate || null)
+            // .input('FollowUpDate', sql.NVarChar(100), formData.followUpDate == 'null' ? null : formData.followUpDate || null)
+            .input(
+            'FollowUpDate',
+            sql.DateTime,
+            formData.followUpDate && formData.followUpDate !== 'null'
+              ? new Date(formData.followUpDate)
+              : null
+          )
             .input('SetReminder', sql.Bit, parseBoolean(formData.setReminder || 0) ||  0)
             .input('PreferredMethod', sql.NVarChar(65), formData.preferredMethod || null)
             .input('BestTime', sql.NVarChar(65), formData.bestTime || null)
@@ -141,15 +148,21 @@ const getCRMLeadActivities = async (req, res) => {
         let result = null;
             await setTenantContext(pool,req);
 
-          if (isOpportunity) {
+          if (isOpportunity && Id) {
             result = await pool.request()
             .input('OpportunityID', sql.NVarChar(65), Id ||  null)  
             .execute('CRMLeadOpportunityActivities_Get'); 
-          }else{
+          }else if (Id){
             result = await pool.request()
             .input('LeadID', sql.NVarChar(65), Id ||  null)  
             .execute('CRMLeadActivities_Get');
+          }else{
+            result = await pool.request()
+            .input('LeadID', sql.NVarChar(65), Id ||  null)  
+            .execute('CRMLeadActivities_Get_Recent');
           }
+
+          
  
         res.status(200).json({
             message: `CRMLead details loaded successfully!`,

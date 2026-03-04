@@ -65,7 +65,9 @@ const makePaymentSaveUpdate = async (req,res)=>{
             .input('BaseCurrencyRate', sql.Decimal(18, 8), formData.baseCurrencyRate || 0.00) 
             .input('PostingDate', sql.Date, formData.postingDate || null)
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
-    
+            .input('AdjustmentAccount', sql.NVarChar(100), formData.adjustmentAccount )  
+            .input('AdjustmentAmount', sql.NVarChar(100),(formData.adjustmentAmount || '0').toString() )  
+             
             .output('ID', sql.NVarChar(100))
             .execute('FinMakePayment_SaveOrUpdate');
 
@@ -177,8 +179,16 @@ const getMakePaymentDetails = async (req, res) => {
         const itemsQuery = `exec FinMakePaymentItem_Get Null,'${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
-        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Make Payment'`;
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Make Payment','${organizationId}'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
+
+        // const jouralLedgerApiResponse = await pool
+        //         .request()
+        //         .input("JournalEntryId", sql.NVarChar, Id || null) 
+        //         .input("Source", sql.NVarChar, 'Make Payment') 
+        //         .input("OrganizationId", sql.NVarChar, organizationId) 
+ 
+        //         .execute("FinJournalLedger_Get");
 
 
         const data = {
