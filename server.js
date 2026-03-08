@@ -73,7 +73,7 @@ const {getLicensesList,licenseSaveUpdate,getLicenseDetails, deleteLicenseDocumen
 const {getVisasList,visaSaveUpdate,getVisaDetails, deleteVisaDocument,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
 
 
-const {landSaveUpdate} = require('./controllers/propertyManagement/landController'); 
+const {landSaveUpdate,getLandsList, landDevFeasibilitySave,landDevFeasibilityGet,landDevFeasibilityList} = require('./controllers/propertyManagement/landController'); 
 
 
 
@@ -717,6 +717,12 @@ app.post('/api/visa/summary',authenticateToken,express.json(),getVisaSummary );
 // end of visas
 
 app.post('/api/land/save-update',authenticateToken,express.json(),documentUpload,landSaveUpdate );
+app.post('/api/lands',authenticateToken,express.json(),getLandsList );
+
+app.post('/api/land/dev-feasibility/save-update',authenticateToken,express.json(),documentUpload,landDevFeasibilitySave );
+app.post('/api/land/dev-feasibility',authenticateToken,express.json(),landDevFeasibilityGet );
+app.post('/api/land/dev-feasibilities',authenticateToken,express.json(),landDevFeasibilityList );
+
 
 
   

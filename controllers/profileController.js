@@ -249,7 +249,7 @@ const getOrgProfileList = async (req, res) => {
          
         await setTenantContext(pool,req);
           
-        const query = `exec OrganizationProfile_Get`; 
+        const query = `exec OrganizationProfile_Get null, '${req.authUser.tenantId}'`; 
         const result = await pool.request().query(query); 
 
         // const result = await runTenantQuery(req, "EXEC OrganizationProfile_Get");
