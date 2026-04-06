@@ -726,16 +726,16 @@ app.post('/api/land/dev-feasibilities',authenticateToken,express.json(),landDevF
 
 
   
-app.post('/api/laundry/order/save-update',express.json(),upload,laundryOrderSaveUpdate ); 
-app.post('/api/laundry/order/change-status',express.json(),upload,laundryChangeOrderStatus ); 
+app.post('/api/laundry/order/save-update',authenticateToken,express.json(),upload,laundryOrderSaveUpdate ); 
+app.post('/api/laundry/order/change-status',authenticateToken,express.json(),upload,laundryChangeOrderStatus ); 
 
-app.post('/api/laundry/orders',express.json(),getLaundryOrders );
-app.post('/api/laundry/order',express.json(),getLaundryOrders );
-app.post('/api/laundry/order-details',express.json(),getLaundryOrderDetails );
+app.post('/api/laundry/orders',authenticateToken,express.json(),getLaundryOrders );
+app.post('/api/laundry/order',authenticateToken,express.json(),getLaundryOrders );
+app.post('/api/laundry/order-details',authenticateToken,express.json(),getLaundryOrderDetails );
 
-app.post('/api/laundry/order-items',express.json(),getLaundryOrderItems );
-app.post('/api/laundry/customer-details',express.json(),getLaundryCustomerDetails );
-app.post('/api/laundry/order/delete-item',express.json(),deleteOrderItem );
+app.post('/api/laundry/order-items',authenticateToken,express.json(),getLaundryOrderItems );
+app.post('/api/laundry/customer-details',authenticateToken,express.json(),getLaundryCustomerDetails );
+app.post('/api/laundry/order/delete-item',authenticateToken,express.json(),deleteOrderItem );
 
 
 

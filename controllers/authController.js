@@ -444,7 +444,7 @@ const signIn = async (req,res)=>{
                                 isAdmin: user.IsAdmin,
                                 fullName:user?.FullName,
                                 phone:user?.Phone, 
-                                
+                                t:user.TenantId,
                                 // client:user.databaseName,
                                 defaultPage: modules.recordset[0].MenuUrl,
                                 client:'aa', 
@@ -592,6 +592,7 @@ const tenantSignIn = async (req,res)=>{
                                 phone:user?.Phone, 
                                 // client:user.databaseName,
                                 client:'aa', 
+                                t:user.TenantId,
                                 permissions:user.Access, 
                                 roleName:modules.recordset[0].RoleName,
                                 roleCode:modules.recordset[0].RoleCode, 
@@ -992,7 +993,7 @@ const googleAuth = async (req, res) => {
                 isAdmin: user.IsAdmin,
                 fullName:user?.FullName,
                 phone:user?.Phone, 
-                
+                t:user.TenantId,
                 // client:user.databaseName,
                 client:'aa', 
                 permissions:user.Access, 

@@ -255,7 +255,7 @@ const getItemsWithVariations = async (req, res) => {
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
-            await setTenantContext(pool,req);
+        await setTenantContext(pool,req);
 
         // Fetch all items
         // const apiResponse = await pool.request().query(`exec MaterialItem_Get`);

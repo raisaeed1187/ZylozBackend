@@ -93,6 +93,7 @@ const laundryOrderSaveUpdate = async (req, res) => {
             .input('Latitude', sql.NVarChar(250), formData.locationLat)  
             .input('Longitude', sql.NVarChar(250), formData.locationLang)  
             .input('MapLocation', sql.NVarChar(250), formData.locationName)   
+            .input('TenantId', sql.NVarChar(250), formData.t)    
             .output('ID', sql.NVarChar(100))
             .execute('Laundry_Customer_Save_Update');
 
@@ -117,6 +118,7 @@ const laundryOrderSaveUpdate = async (req, res) => {
             .input('User', sql.NVarChar(100), formData.User || null)
             .input('AreaId', sql.NVarChar(65), formData.AreaId)  
             .input('AreaName', sql.NVarChar(100), formData.AreaName)  
+            .input('TenantId', sql.NVarChar(250), formData.t)    
             .output('ID', sql.NVarChar(100))
             .execute('LaundryOrders_SaveOrUpdate');
 
@@ -160,6 +162,7 @@ async function laundryOrderItemSaveUpdate(req,orderId){
                     .input('Quantity', sql.Int, item.Quantity || 1)
                     .input('UnitPrice', sql.Decimal(10,5), item.UnitPrice)
                     .input('User', sql.NVarChar(100), formData.user || null)
+                    .input('TenantId', sql.NVarChar(250), formData.t)    
                     .execute('LaundryOrderItems_SaveOrUpdate');
                 }
             }
@@ -338,7 +341,7 @@ const getLaundryPriceList = async (req, res) => {
 
 // ------------------------- LAUNDRY ORDERS -------------------------
 const getLaundryOrders = async (req, res) => {
-    const { ID2, CustomerId,isWeb, client } = req.body;
+    const { ID2, CustomerId,isWeb, client,t } = req.body;
 
     try {
         // console.log('client');
@@ -353,6 +356,7 @@ const getLaundryOrders = async (req, res) => {
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65), ID2 || null) 
             .input('isWeb', sql.Bit, isWeb ? 1 : 0 || null)  
+            .input('TenantId', sql.NVarChar(65), req.authUser.tenantId || t)  
             .execute('LaundryOrders_Get');
 
         res.status(200).json({
@@ -405,7 +409,7 @@ const getLaundryOrderDetails = async (req, res) => {
 
 // ------------------------- LAUNDRY ORDER ITEMS -------------------------
 const getLaundryOrderItems = async (req, res) => {
-    const { OrderId,client } = req.body;
+    const { OrderId,client,t } = req.body;
 
     try {
         store.dispatch(setCurrentDatabase(client));

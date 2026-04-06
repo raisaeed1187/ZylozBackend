@@ -104,7 +104,7 @@ async function makePaymentItemSaveUpdate(req,makePaymentId,transaction){
                 if (makePaymentItems) {
                     for (let item of makePaymentItems) {  
 
-                        if(item.billId && parseFloat(item.paymentAmount) > 0){ 
+                        if(parseFloat(item.paymentAmount) > 0){ 
 
                             const itemRequest = new sql.Request(transaction);
                             

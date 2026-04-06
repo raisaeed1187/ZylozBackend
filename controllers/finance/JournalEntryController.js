@@ -98,11 +98,9 @@ async function journalEntryItemSaveUpdate(req,journalEntryId,transaction){
              
             try { 
                 if (journalEntryItems) {
-                    for (let item of journalEntryItems) {  
-                        console.log('item');
-                        console.log(item);
+                    for (let item of journalEntryItems) {   
 
-                        if(item.description){ 
+                        if(item.account){ 
                             const itemRequest = new sql.Request(transaction);
                             
                             await itemRequest
