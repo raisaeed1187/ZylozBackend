@@ -93,7 +93,9 @@ const laundryOrderSaveUpdate = async (req, res) => {
             .input('Latitude', sql.NVarChar(250), formData.locationLat)  
             .input('Longitude', sql.NVarChar(250), formData.locationLang)  
             .input('MapLocation', sql.NVarChar(250), formData.locationName)   
-            .input('TenantId', sql.NVarChar(250), formData.t)    
+            .input('TenantId', sql.NVarChar(250), formData.t)  
+            .input('OrganizationId', sql.NVarChar(250), formData.t+'org')    
+
             .output('ID', sql.NVarChar(100))
             .execute('Laundry_Customer_Save_Update');
 

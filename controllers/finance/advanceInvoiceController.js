@@ -24,7 +24,7 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_C
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
   
-const invoiceSaveUpdate = async (req,res)=>{
+const advanceInvoiceSaveUpdate = async (req,res)=>{
     const formData = req.body; 
     
     let pool, transaction;
@@ -74,7 +74,7 @@ const invoiceSaveUpdate = async (req,res)=>{
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
             
             .output('ID', sql.NVarChar(100)) // output param
-            .execute('FinInvoice_SaveOrUpdate');
+            .execute('FinAdvanceInvoice_SaveOrUpdate');
 
              
 
@@ -86,14 +86,11 @@ const invoiceSaveUpdate = async (req,res)=>{
                 
                 const resultNew = await journalReq
                         .input('InvoiceId', sql.NVarChar(65), newID) 
-                        .execute('Invoice_Create_JournalEntries');
+                        .execute('AdvanceInvoice_Create_JournalEntries');
 
             }
             if(formData.additionalFields){ 
                 await additionalFieldSaveUpdate(req,newID,transaction)
-            }
-            if(formData.advanceAdjustments){ 
-                await invoiceApplyAdvanceInvoices(req,newID,transaction)
             }
 
  
@@ -115,7 +112,7 @@ const invoiceSaveUpdate = async (req,res)=>{
             }); 
         }
 }
-// end of invoiceSaveUpdate
+// end of advanceInvoiceSaveUpdate
  
 async function invoiceItemSaveUpdate(req,invoiceId,transaction){
     const formData = req.body; 
@@ -150,7 +147,7 @@ async function invoiceItemSaveUpdate(req,invoiceId,transaction){
                             .input('NetAmount', sql.NVarChar(100), (item.netAmount || '0').toString().replace(/,/g, ''))
                             .input('Remarks', sql.NVarChar(sql.MAX), item.remarks || '')
                             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
-                            .execute('FinInvoiceItem_SaveOrUpdate');
+                            .execute('FinAdvanceInvoiceItem_SaveOrUpdate');
 
                              
                         }
@@ -209,48 +206,6 @@ async function additionalFieldSaveUpdate(req,invoiceId,transaction){
 }
 // end of additionalFieldSaveUpdate
 
-
- 
-async function invoiceApplyAdvanceInvoices(req,invoiceId,transaction){
-    const formData = req.body;  
-    try {
-            // store.dispatch(setCurrentDatabase(req.authUser.database));
-            // store.dispatch(setCurrentUser(req.authUser)); 
-            // const config = store.getState().constents.config;  
-
-            // const pool = await sql.connect(config);
-            try { 
-                if (formData.advanceAdjustments) {  
-                            const itemRequest = new sql.Request(transaction);
-
-                            const result = await itemRequest 
-                            .input('InvoiceID2', sql.NVarChar(65), invoiceId)
-                            .input('AdvanceApplicationsJson', sql.NVarChar(sql.MAX), formData.advanceAdjustments || '')
- 
-                            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || '')
-                            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
-
-                            .input('BranchId', sql.NVarChar(100), formData.branchId || '') 
-                            .input('Currency', sql.NVarChar(65), formData.currency || '') 
-                            .input('BaseCurrencyRate', sql.NVarChar(65), formData.baseCurrencyRate || '1')  
-                            .input('CreatedBy', sql.NVarChar(200), req.authUser.username )
-                            .input('Remarks', sql.NVarChar(200), '' )
-
-                            .execute('usp_FinApplyAdvanceInvoices');
-
-                           
-                }
-
-
-            } catch (err) {
-                throw new Error(err.message);
-            }  
-        } catch (error) { 
-            throw new Error(error.message);
-        }
-}
-// end of invoiceItemSaveUpdate
-
  
  
 // end of customerContactSaveUpdate
@@ -267,7 +222,7 @@ function encryptID(id) {
 }
 // end of encryptID
  
-const getInvoiceDetailsOld = async (req, res) => {  
+const getAdvanceInvoiceDetailsOld = async (req, res) => {  
     const {Id,organizationId} = req.body; // user data sent from client
       
     try {
@@ -282,21 +237,18 @@ const getInvoiceDetailsOld = async (req, res) => {
 
  
 
-        query = `exec FinInvoice_Get '${Id}'`;   
+        query = `exec FinAdvanceInvoice_Get '${Id}'`;   
         const apiResponse = await pool.request().query(query);
 
-        const itemsQuery = `exec FinInvoiceItem_Get '${Id}'`;
+        const itemsQuery = `exec FinAdvanceInvoiceItem_Get '${Id}'`;
         const itemsApiResponse = await pool.request().query(itemsQuery);
 
         const addOnFieldsQuery = `exec FinTransactionAddtionalFieldValue_Get null,'${Id}'`;
         const addOnFieldsApiResponse = await pool.request().query(addOnFieldsQuery);
 
-        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Sales Invoice'`;
+        const jouralLedgerQuery = `exec FinJournalLedger_Get null,'${Id}','Advance Invoice'`;
         const jouralLedgerApiResponse = await pool.request().query(jouralLedgerQuery);
      
-        const advanceApplicationsQuery = `exec usp_FinGetAdvanceApplicationsByInvoice '${Id}'`;
-        const advanceApplicationsResponse = await pool.request().query(advanceApplicationsQuery);
-
 
         if (apiResponse.recordset.length > 0) {
             const invoiceDetails = apiResponse.recordset[0];
@@ -313,8 +265,6 @@ const getInvoiceDetailsOld = async (req, res) => {
                 invoiceItems: itemsApiResponse.recordset,
                 additionalFields: addOnFieldsApiResponse.recordset, 
                 jouralLedgers: jouralLedgerApiResponse.recordset, 
-                advanceApplications: advanceApplicationsResponse.recordset, 
-
             }
             
             // Return a response (do not return the whole req/res object)
@@ -334,8 +284,9 @@ const getInvoiceDetailsOld = async (req, res) => {
         
     }
 };
-// end of getInvoiceDetailsOld
-const getInvoiceDetails = async (req, res) => {  
+// end of getAdvanceInvoiceDetails
+
+const getAdvanceInvoiceDetails = async (req, res) => {  
     const {Id, organizationId} = req.body;
       
     try {
@@ -350,13 +301,13 @@ const getInvoiceDetails = async (req, res) => {
             .request()
             .input("ID2", sql.NVarChar, Id || null)
             .input("OrganizationId", sql.NVarChar, organizationId || null)
-            .execute("FinInvoice_Get");
+            .execute("FinAdvanceInvoice_Get");
 
         const itemsResponse = await pool
             .request()
             .input("InvoiceID", sql.NVarChar, Id || null)
             .input("ID2", sql.NVarChar, null)
-            .execute("FinInvoiceItem_Get");
+            .execute("FinAdvanceInvoiceItem_Get");
 
         const addOnFieldsResponse = await pool
             .request()
@@ -369,18 +320,14 @@ const getInvoiceDetails = async (req, res) => {
             .request()
             .input("ID2", sql.NVarChar, null)
             .input("JournalEntryId", sql.NVarChar, Id || null)
-            .input("Source", sql.NVarChar, "Sales Invoice")
+            .input("Source", sql.NVarChar, "Advance Invoice")
             .input("OrganizationId", sql.NVarChar, organizationId || null)
             .input("Account", sql.NVarChar, null)
             .input("StartDate", sql.Date, null)
             .input("EndDate", sql.Date, null)
             .execute("FinJournalLedger_Get");
 
-        const advanceApplicationsResponse = await pool
-            .request()
-            .input("InvoiceID2", sql.NVarChar, Id || null)
-            .execute("usp_FinGetAdvanceApplicationsByInvoice");
-
+         
         if (invoiceResponse.recordset.length > 0) {
             const invoiceDetails = invoiceResponse.recordset[0];
             
@@ -395,8 +342,7 @@ const getInvoiceDetails = async (req, res) => {
                 invoiceDetails: invoiceUpdatedDetails,
                 invoiceItems: itemsResponse.recordset,
                 additionalFields: addOnFieldsResponse.recordset, 
-                jouralLedgers: journalLedgerResponse.recordset, 
-                advanceApplications: advanceApplicationsResponse.recordset,
+                jouralLedgers: journalLedgerResponse.recordset  
             };
 
             res.status(200).json({
@@ -412,10 +358,9 @@ const getInvoiceDetails = async (req, res) => {
         return res.status(400).json({ message: error.message, data: null });
     }
 };
+// end of getAdvanceInvoiceDetails
 
-// end of getInvoiceDetails
-
-const getCustomerInvoice = async (req, res) => {  
+const getCustomerAdvanceInvoices = async (req, res) => {  
     const {customerId,creditNote,vatAble,organizationId,currency} = req.body; // user data sent from client
       
     try {
@@ -438,14 +383,22 @@ const getCustomerInvoice = async (req, res) => {
         // console.log(vatAble);
         // console.log(parseBoolean(vatAble));
 
-        const response = await pool
+        // const response = await pool
+        //     .request()
+        //     .input("CustomerId", sql.NVarChar, customerId || null)
+        //     .input("OrganizationId", sql.NVarChar, organizationId || null)
+        //     .input("Currency", sql.NVarChar, currency || null)
+        //     .input("IsVatAble", sql.Bit, parseBoolean(vatAble) ?? null)
+        //     .execute("FinCustomerAdvanceInvoices_Get");
+
+            const response = await pool
             .request()
             .input("CustomerId", sql.NVarChar, customerId || null)
             .input("OrganizationId", sql.NVarChar, organizationId || null)
-            .input("Currency", sql.NVarChar, currency || null)
-            .input("IsVatAble", sql.Bit, parseBoolean(vatAble) ?? null)
-            .execute("FinCustomerInvoices_Get");
+            .input("TenantId", sql.NVarChar, req.authUser.tenantId)
+            .execute("usp_FinGetAvailableAdvanceInvoices");
 
+            
         // const itemsApiResponse = await pool.request().query(query); 
           
         res.status(200).json({
@@ -458,7 +411,7 @@ const getCustomerInvoice = async (req, res) => {
         
     }
 };
-// end of getCustomerInvoice
+// end of getCustomerAdvanceInvoices
  
 function parseBoolean(value) {
   if (typeof value === "boolean") return value;
@@ -469,7 +422,7 @@ function parseBoolean(value) {
   return Boolean(value);
 }
 
-const getInvoicesList = async (req, res) => {  
+const getAdvanceInvoicesList = async (req, res) => {  
     const {Id,organizationId} = req.body;  
      
     try {
@@ -484,7 +437,7 @@ const getInvoicesList = async (req, res) => {
      
         const result = await pool.request()
                         .input('OrganizationId', sql.NVarChar(65), organizationId || null)   
-                        .execute('FinInvoice_Get');
+                        .execute('FinAdvanceInvoice_Get');
           
     
         res.status(200).json({
@@ -497,39 +450,8 @@ const getInvoicesList = async (req, res) => {
         
     }
 };
-// end of getInvoicesList
-
-const getTaxRate = async (req, res) => {  
-    const {Id,transaction} = req.body;  
-     
-    try {
-         
-        store.dispatch(setCurrentDatabase(req.authUser.database));
-        store.dispatch(setCurrentUser(req.authUser)); 
-        const config = store.getState().constents.config;    
-        const pool = await sql.connect(config);  
-        let query = '';
-        await setTenantContext(pool,req);
-         
-        if (transaction) {
-            query = `exec TaxRate_Get '${transaction}'`;    
-        }else{
-            query = `exec TaxRate_Get `;   
-        }
-          
-        const apiResponse = await pool.request().query(query); 
-        
-        res.status(200).json({
-            message: `Tax rates loaded successfully!`,
-            data:  apiResponse.recordset
-        });
-         
-    } catch (error) {
-        return res.status(400).json({ message: error.message,data:null});
-        
-    }
-};
-// end of getTaxRate
+// end of getAdvanceInvoicesList
+ 
 
 const getOrdersForInvoice = async (req, res) => {  
     const {organizationId,customerId} = req.body;  
@@ -646,4 +568,4 @@ const sendInvoice = async (req, res) => {
 
 
 
-module.exports =  {getTaxRate,sendInvoice,getOrdersForInvoice,invoiceSaveUpdate,getInvoicesList,getInvoiceDetails,getCustomerInvoice} ;
+module.exports =  {sendInvoice,getOrdersForInvoice,advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails,getCustomerAdvanceInvoices} ;

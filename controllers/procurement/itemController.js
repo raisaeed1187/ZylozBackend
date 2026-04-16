@@ -61,6 +61,8 @@ const itemSaveUpdate = async (req,res)=>{
             .input('costPrice', sql.NVarChar(100), formData.costPrice || '0')
             .input('createdBy', sql.NVarChar(100), req.authUser.username)
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || null)  
+
             
             .output('ID', sql.NVarChar(100)) // output param 
             .execute('dbo.MaterialItem_SaveUpdate');

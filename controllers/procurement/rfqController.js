@@ -755,17 +755,21 @@ const getRFQPOsList = async (req, res) => {
         }
   
         let isApprover = false;
+        let approver = '';
+
 
         const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.ID2}','${rfqId}','PO' `); 
             
         console.log(checkIsApproverResponse.recordset);
         if (checkIsApproverResponse.recordset.length > 0) {
             isApprover = checkIsApproverResponse.recordset[0].IsApprover;
+            approver = checkIsApproverResponse.recordset[0].Approver; 
         }
 
         rfqDetails = {
             ...rfqDetails,
             isApprover: isApprover
+
         };
 
         const poWithItems = await Promise.all(

@@ -534,6 +534,7 @@ const locationSaveUpdate = async (req,res)=>{
             .input('StatusId', sql.Int, formData.statusId || 1)
             .input('CreatedBy', sql.NVarChar(100), req.authUser.username)
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+            .input('OrganizationId', sql.NVarChar(100), formData.organizationId || req.authUser.tenantId || null)
 
             .output('ID', sql.NVarChar(100))
             .execute('Location_SaveOrUpdate');

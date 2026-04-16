@@ -35,6 +35,10 @@ const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsLis
 const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems,getStockItems, stockOutSaveUpdate,stockTransferSaveUpdate,getInventoryStockTransfers, getInventoryStockOuts, getInventoryStockDetails, getInventoryStockOutDetails} = require('./controllers/procurement/inventoryController'); 
+
+const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate, getTextileStockItems,textileStockOutSaveUpdate,textileStockTransferSaveUpdate,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, getTextileInventoryStockDetails, getTextileInventoryStockOutDetails} = require('./controllers/textile/textileInventoryController'); 
+
+
 const {manpowerRequirementSaveUpdate,getManpowerRequirementsList,getManpowerRequirementsDetails, manpowerRequirementDetailsDelete,getAgentsList,assignedAgentDelete,agentAssignmentSaveUpdate,candidateSaveUpdate, getCandidatesList, getManpowerRequirementsByAgent,getAssignedAgentTrades } = require('./controllers/overseas/manpowerRequirementController'); 
 const {warehouseSaveUpdate,getWarehouseDetails,getWarehousesList} = require('./controllers/procurement/warehouseController'); 
 const {crmLeadSaveUpdate,saveOrUpdateLeadStatusHistory,saveOrUpdateOpportunityStatusHistory,leadCallLogSaveOrUpdate,CRMEmailSaveOrUpdate,leadNoteSaveOrUpdate,leadMeetingSaveOrUpdate,opportunitysaveUpdate,getCRMOpportunity,getCRMOpportunityDetails,crmAccountSaveUpdate,crmContactSaveUpdate,getCRMAccount,getCRMContact,getCRMLeadDetails,getCRMLeadActivities,getCRMLeadsList} = require('./controllers/crm/crmLeadController'); 
@@ -47,6 +51,9 @@ const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeC
 const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,sendInvoice,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
+
+const {advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails, getCustomerAdvanceInvoices} = require('./controllers/finance/advanceInvoiceController'); 
+
 
 const {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
 const {getExpensesList,expenseSaveUpdate,getExpenseDetails,getPettyCashDetails,getPettyCashExpensesList} = require('./controllers/finance/expenseController'); 
@@ -322,6 +329,27 @@ app.post('/api/inventory/stock-transfers',authenticateToken,express.json(),getIn
 app.post('/api/inventory/stock/details',authenticateToken,express.json(),getInventoryStockDetails);
 
 // end of inventory
+
+
+// textile inventory
+ 
+app.post('/api/textile/inventory/stock-items',authenticateToken,express.json(),getTextileStockItems); 
+app.post('/api/textile/inventory/stock-out/save-update',authenticateToken,express.json(),upload,textileStockOutSaveUpdate ); 
+app.post('/api/textile/inventory/stock-transfer/save-update',authenticateToken,express.json(),upload,textileStockTransferSaveUpdate );
+ 
+app.post('/api/textile/inventory/stock-outs',authenticateToken,express.json(),getTextileInventoryStockOuts);  
+app.post('/api/textile/inventory/stock-transfers',authenticateToken,express.json(),getTextileInventoryStockTransfers);
+app.post('/api/textile/inventory/stock/details',authenticateToken,express.json(),getTextileInventoryStockDetails);
+
+
+app.post('/api/textile/inventory/stock-in/save-update',authenticateToken,express.json(),upload,textileStockInSaveUpdate ); 
+app.post('/api/textile/inventory/stock-ins',authenticateToken,express.json(),textileStockInGetList);  
+app.post('/api/textile/inventory/stock-in',authenticateToken,express.json(),textileStockInGetDetails);  
+
+
+// end of textile inventory
+
+
 
 app.post('/api/overseas/manpower-requirement/save-update',authenticateToken,express.json(),upload,manpowerRequirementSaveUpdate ); 
 app.post('/api/overseas/manpower-requirements',authenticateToken,express.json(),getManpowerRequirementsList);
@@ -629,11 +657,23 @@ app.post('/api/finance/customer/invoices',authenticateToken,express.json(),getCu
 
 app.post('/api/finance/tax-rate',authenticateToken,express.json(),getTaxRate );
 
+
+// end of invoice
+
+
+app.post('/api/finance/advance-invoice/save-update',authenticateToken,express.json(),upload,advanceInvoiceSaveUpdate ); 
+app.post('/api/finance/advance-invoices',authenticateToken,express.json(),getAdvanceInvoicesList );
+app.post('/api/finance/advance-invoice',authenticateToken,express.json(),getAdvanceInvoiceDetails );
+app.post('/api/finance/customer/advance-invoices',authenticateToken,express.json(),getCustomerAdvanceInvoices );
+
+// end of advance invoice
+
 app.post('/api/finance/received-payment/save-update',authenticateToken,express.json(),upload,paymentSaveUpdate );
 app.post('/api/finance/received-payments',authenticateToken,express.json(),getPaymentsList );
 app.post('/api/finance/received-payment',authenticateToken,express.json(),getPaymentDetails ); 
 
 app.post('/api/finance/invoice-orders',authenticateToken,express.json(),getOrdersForInvoice );
+
 
 
 // end of received payment
