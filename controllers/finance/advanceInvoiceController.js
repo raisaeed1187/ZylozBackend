@@ -565,7 +565,41 @@ const sendInvoice = async (req, res) => {
   }
 };
 
+const deleteAppliedAdvanceInvoice = async (req, res) => {  
+    const {applicationId,invoiceId,advInvoiceId, organizationId} = req.body;  
+     
+    try {
+         
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config);  
+        let query = '';
+        await setTenantContext(pool,req);
+         
+        const result = await pool.request()
+                    .input('ApplicationID2', sql.NVarChar(65), applicationId || null)  
+                    .input('InvoiceID2', sql.NVarChar(65), invoiceId || null)    
+                    .input('AdvanceInvoiceID2', sql.NVarChar(65), advInvoiceId || null)    
+                    .input('DeletedBy', sql.NVarChar(100), req.authUser.username || null)    
+
+                    .execute('usp_FinDeleteAdvanceInvoiceApplication');
+          
+  
+        
+        res.status(200).json({
+            message: `Applied Invoice deleted successfully!`,
+            data:  result.recordset
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of deleteAppliedInvoice
 
 
 
-module.exports =  {sendInvoice,getOrdersForInvoice,advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails,getCustomerAdvanceInvoices} ;
+
+module.exports =  {deleteAppliedAdvanceInvoice,sendInvoice,getOrdersForInvoice,advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails,getCustomerAdvanceInvoices} ;

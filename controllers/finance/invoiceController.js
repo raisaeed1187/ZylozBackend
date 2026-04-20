@@ -416,7 +416,7 @@ const getInvoiceDetails = async (req, res) => {
 // end of getInvoiceDetails
 
 const getCustomerInvoice = async (req, res) => {  
-    const {customerId,creditNote,vatAble,organizationId,currency} = req.body; // user data sent from client
+    const {customerId,creditNote,vatAble,organizationId,currency,isRcble} = req.body; // user data sent from client
       
     try {
          
@@ -444,6 +444,7 @@ const getCustomerInvoice = async (req, res) => {
             .input("OrganizationId", sql.NVarChar, organizationId || null)
             .input("Currency", sql.NVarChar, currency || null)
             .input("IsVatAble", sql.Bit, parseBoolean(vatAble) ?? null)
+            .input("IsReceiveAble", sql.Bit, parseBoolean(isRcble) ?? null)
             .execute("FinCustomerInvoices_Get");
 
         // const itemsApiResponse = await pool.request().query(query); 

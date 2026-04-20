@@ -52,7 +52,7 @@ const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJou
 const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,sendInvoice,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
-const {advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails, getCustomerAdvanceInvoices} = require('./controllers/finance/advanceInvoiceController'); 
+const {deleteAppliedAdvanceInvoice,advanceInvoiceSaveUpdate,getAdvanceInvoicesList,getAdvanceInvoiceDetails, getCustomerAdvanceInvoices} = require('./controllers/finance/advanceInvoiceController'); 
 
 
 const {deleteAppliedBillFromCreditNote,getAppliedVendorCreditInvoicesList, applyVendorCreditNoteOnInvoice,vendorCreditNoteSaveUpdate,getVendorCreditNotesList,getVendorCreditNoteDetails} = require('./controllers/finance/vendorCreditNoteController'); 
@@ -665,6 +665,7 @@ app.post('/api/finance/advance-invoice/save-update',authenticateToken,express.js
 app.post('/api/finance/advance-invoices',authenticateToken,express.json(),getAdvanceInvoicesList );
 app.post('/api/finance/advance-invoice',authenticateToken,express.json(),getAdvanceInvoiceDetails );
 app.post('/api/finance/customer/advance-invoices',authenticateToken,express.json(),getCustomerAdvanceInvoices );
+app.post('/api/finance/advance-invoice/delete',authenticateToken,express.json(),deleteAppliedAdvanceInvoice );
 
 // end of advance invoice
 
