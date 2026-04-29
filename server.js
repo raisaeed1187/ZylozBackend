@@ -22,6 +22,9 @@ const {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustm
 const {saveEmployeeEOS,releaseEmployeeEOS,releaseEmployeeSalary,holdEmployeeSalary,getPayrollConfiguration,payrollConfigurationSave,payrollSave,getPayrollHistory,getPayrollAccrualPreview,getPayrollPreview,getPayrollEmployeeDetails,getPayrollSummary,salaryComponentSaveUpdate,getSalaryComponentList,getSalaryComponentDetails,getSalaryComponentBenefitDetails,getSalaryComponentBenefitsList,salaryComponentBenefitSaveUpdate,getSalaryComponentDeductionDetails,getSalaryComponentDeductionsList,salaryComponentDeductionSaveUpdate} = require('./controllers/payrollController'); 
 const {coaAllocationSaveUpdate,getCOAAllocations,getCOAAllocationDetails, getCOAAcountTypes,coaSaveUpdate,createDefaultCOASaveUpdate,coaSaveUpdateNew,getCOAList,getCOAListNew,getCOADetails,deleteCOAAccount} = require('./controllers/finance/coaController'); 
 const {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceList,getAttendanceMasterList} = require('./controllers/hr/attendanceController'); 
+
+
+
 const {shiftSaveUpdate,getShiftDetails,getShiftsList} = require('./controllers/hr/shiftController'); 
 
 const {getfinancialPeriodLocks,financialPeriodLockSave,financeConfigurationSave,getFinanceConfiguration} = require('./controllers/finance/financeConfigurationController'); 
@@ -90,12 +93,21 @@ const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate
 
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
 
+const {enroll,checkIn} = require('./controllers/biometricAttendanceController'); 
+
 
  
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+
 app.use(cors());
+
+
 
 // const storage = multer.diskStorage({
 //     destination: function (req, file, cb) {
@@ -156,6 +168,7 @@ const documentUpload = multer({
         fieldSize: 10 * 1024 * 1024  
     }
 }).any(); 
+
 
 
 
@@ -780,10 +793,13 @@ app.post('/api/laundry/order/delete-item',authenticateToken,express.json(),delet
 
 
 
+// biometric attendance
+app.post('/api/biometric/enroll',enroll );   
+app.post('/api/biometric/check-in', checkIn);
 
+// app.post('/api/biometric/check-in',authenticateToken,express.json(),upload,checkIn ); 
 
-
-
+ 
  
 
 

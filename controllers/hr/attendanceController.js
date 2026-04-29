@@ -52,7 +52,7 @@ const attendanceSaveUpdate = async (req,res)=>{
                       .input("IsConfirmed", sql.Int, record?.IsConfirmed) 
                       .input("staffName", sql.NVarChar(100), record.staffName)
                       .input("designation", sql.NVarChar(50), record.designation)
-                      .input("projectName", sql.NVarChar(100), record.projectName)
+                      .input("projectName", sql.NVarChar(200), record.projectName)
                       .input("punchIn", sql.NVarChar(50), formatTime(record.punchIn))
                       .input("punchOut", sql.NVarChar(50), formatTime(record.punchOut))
                       .input("normalOT", sql.Decimal(5, 2), record.normalOT)
