@@ -66,16 +66,26 @@ async function checkLiveness(base64Image) {
   return res.data; // { is_live, score, message }
 }
 
-function initDb(formData) {
-  store.dispatch(setCurrentDatabase(formData.client || "allbiz"));
-  store.dispatch(setCurrentUser(formData.authUser || "System"));
-  return store.getState().constents.config;
+function initDb(formData, req= null) {
+
+  if (formData.client) {
+    store.dispatch(setCurrentDatabase(formData.client || "allbiz"));
+    store.dispatch(setCurrentUser(formData.authUser || "System"));
+    return store.getState().constents.config;
+    
+  }else{
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser)); 
+    const config = store.getState().constents.config;   
+    return config;
+  }
+
 }
 
 // ─── Enroll ──────────────────────────────────────────────────────────────────
 
 const enroll = async (req, res) => {
-  const { name, employeeCode, department = "", images, client } = req.body;
+  const { name, employeeCode,ID2, department = "", images, client } = req.body;
 
   if (!name || !employeeCode) {
     return res.status(400).json({ message: "name and employeeCode are required", data: null });
@@ -87,7 +97,7 @@ const enroll = async (req, res) => {
   const imageSlice = images.slice(0, MAX_ENROLL_IMGS);
 
   try {
-    const config = initDb(req.body);
+    const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
 
     // Check for duplicate employee code
@@ -107,10 +117,11 @@ const enroll = async (req, res) => {
       .input("name",       sql.NVarChar, name)
       .input("code",       sql.NVarChar, employeeCode)
       .input("dept",       sql.NVarChar, department)
+      .input("id2",        sql.NVarChar, ID2)
       .query(`
-        INSERT INTO AttendanceEmployees (Name, EmployeeCode, Department, IsActive, CreatedAt)
+        INSERT INTO AttendanceEmployees (Name, EmployeeCode, Department,EmployeeID2, IsActive, CreatedAt)
         OUTPUT INSERTED.EmployeeId
-        VALUES (@name, @code, @dept, 1, GETDATE())
+        VALUES (@name, @code, @dept, @id2, 1, GETDATE())
       `);
 
     const employeeId = result.recordset[0].EmployeeId;
@@ -131,9 +142,10 @@ const enroll = async (req, res) => {
           .input("empId",   sql.Int,            employeeId)
           .input("emb",     sql.NVarChar(sql.MAX), JSON.stringify(aiRes.embedding))
           .input("quality", sql.Float,           aiRes.quality_score || 0)
+          .input("id2",        sql.NVarChar, ID2) 
           .query(`
-            INSERT INTO FaceEmbeddings (EmployeeId, Embedding, QualityScore, CreatedAt)
-            VALUES (@empId, @emb, @quality, GETDATE())
+            INSERT INTO FaceEmbeddings (EmployeeId,EmployeeID2, Embedding, QualityScore, CreatedAt)
+            VALUES (@empId, @id2, @emb, @quality, GETDATE())
           `);
 
         enrolledCount++;
@@ -157,7 +169,9 @@ const enroll = async (req, res) => {
     const data = [
         {
         employeeId,
+        employeeID2: ID2,
         employeeName: name,
+        employeeCode: employeeCode,
         embeddingsStored: enrolledCount,
         warnings: errors.length > 0 ? errors : undefined,
       }
@@ -184,7 +198,7 @@ const checkIn = async (req, res) => {
   }
 
   try {
-    const config = initDb(req.body);
+    const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
     // await setTenantContext(pool,req);
 
@@ -307,7 +321,7 @@ const getLogs = async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    const config = initDb(req.body);
+    const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
 
     let where = "WHERE 1=1";
@@ -362,7 +376,7 @@ const getDailyReport = async (req, res) => {
   const { date = new Date().toISOString().slice(0, 10) } = req.query;
 
   try {
-    const config = initDb(req.body);
+    const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
 
     const result = await pool.request()
@@ -396,4 +410,412 @@ const getDailyReport = async (req, res) => {
   }
 };
 
-module.exports = { enroll, checkIn, getLogs, getDailyReport };
+
+const getAttendanceSummary = async (req, res) => {  
+    const {date} = req.body; 
+      
+    try {
+         
+        const config = initDb(req.body, req); 
+
+        const pool = await sql.connect(config);  
+         
+        await setTenantContext(pool,req);
+ 
+       
+        const apiResponse = await pool.request() 
+          .input('Date', sql.NVarChar(65),  date) 
+          .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId || null) 
+          .execute('usp_Attendance_GetDailySummary');
+  
+        const stringData = apiResponse.recordset.map(row => {
+          const newRow = {};
+          for (const key in row) {
+            newRow[key] = row[key] !== null && row[key] !== undefined
+              ? String(row[key])
+              : '';
+          }
+          return newRow;
+        });
+
+
+        res.status(200).json({
+            message: `Dashbaord summary loaded successfully!`,
+            data: stringData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceSummary
+
+const getAttendanceStatusWiseDetails = async (req, res) => {  
+    const {date,status} = req.body; 
+      
+    try {
+         
+        const config = initDb(req.body, req); 
+
+        const pool = await sql.connect(config);  
+         
+        await setTenantContext(pool,req);
+ 
+       
+        const apiResponse = await pool.request() 
+          .input('Date', sql.NVarChar(65),  date) 
+          .input('Status', sql.NVarChar(65),  status) 
+          .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId) 
+          .execute('usp_Attendance_GetDrillDown');
+  
+        const stringData = apiResponse.recordset.map(row => {
+          const newRow = {};
+          for (const key in row) {
+            newRow[key] = row[key] !== null && row[key] !== undefined
+              ? String(row[key])
+              : '';
+          }
+          return newRow;
+        });
+
+        res.status(200).json({
+            message: `Status ${status} details  loaded successfully!`,
+            data: stringData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceStatusWiseDetails
+
+const getAttendanceEnrolledEmployees = async (req, res) => {  
+    const {date,status} = req.body; 
+      
+    try {
+         
+        const config = initDb(req.body, req); 
+
+        const pool = await sql.connect(config);  
+         
+        await setTenantContext(pool,req);
+ 
+       
+        const apiResponse = await pool.request()  
+          .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId) 
+          .execute('usp_Attendance_GetEnrollmentStatus');
+  
+        const stringData = apiResponse.recordset.map(row => {
+          const newRow = {};
+          for (const key in row) {
+            newRow[key] = row[key] !== null && row[key] !== undefined
+              ? String(row[key])
+              : '';
+          }
+          return newRow;
+        });
+
+
+        res.status(200).json({
+            message: `Enrolled employees   loaded successfully!`,
+            data: stringData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceEnrolledEmployees
+
+const getAttendancePendingEnrollmentEmployees = async (req, res) => {  
+    const {date,status} = req.body; 
+      
+    try {
+         
+        const config = initDb(req.body, req); 
+
+        const pool = await sql.connect(config);  
+         
+        await setTenantContext(pool,req);
+ 
+       
+        const apiResponse = await pool.request()  
+          .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId) 
+          .execute('usp_Attendance_GetPendingEnrollment');
+  
+        const stringData = apiResponse.recordset.map(row => {
+          const newRow = {};
+          for (const key in row) {
+            newRow[key] = row[key] !== null && row[key] !== undefined
+              ? String(row[key])
+              : '';
+          }
+          return newRow;
+        });
+
+
+        res.status(200).json({
+            message: `Pending enrollment employees  loaded successfully!`,
+            data: stringData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendancePendingEnrollmentEmployees
+
+const getAttendanceEmployeeTimeline = async (req, res) => {  
+    const {date,employeeId,status} = req.body; 
+      
+    try {
+         
+        const config = initDb(req.body, req); 
+
+        const pool = await sql.connect(config);  
+         
+        await setTenantContext(pool,req);
+ 
+       
+        const apiResponse = await pool.request()  
+          .input('EmployeeId', sql.NVarChar(65), employeeId) 
+          .input('Date', sql.NVarChar(65), date) 
+          .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId) 
+
+          .execute('usp_Attendance_GetEmployeeTimeline');
+  
+        const stringData = apiResponse.recordset.map(row => {
+          const newRow = {};
+          for (const key in row) {
+            newRow[key] = row[key] !== null && row[key] !== undefined
+              ? String(row[key])
+              : '';
+          }
+          return newRow;
+        });
+
+
+        res.status(200).json({
+            message: `Employee timeline details  loaded successfully!`,
+            data: stringData
+        });
+         
+    } catch (error) {
+        return res.status(400).json({ message: error.message,data:null});
+        
+    }
+};
+// end of getAttendanceEmployeeTimeline
+
+const saveFingerprintTemplate = async (req, res) => {
+  const { 
+    employeeId2,
+    employeeCode,
+    fingerIndex,
+    fingerLabel,
+    template
+  } = req.body;
+
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request() 
+      .input('EmployeeId2', sql.NVarChar(65), employeeId2)
+      .input('EmployeeCode', sql.NVarChar(40), employeeCode)
+      .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .input('FingerLabel', sql.NVarChar(20), fingerLabel)
+      .input('Template', sql.NVarChar(sql.MAX), template)
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_SaveTemplate');
+
+    const response = result.recordset[0];
+
+    res.status(200).json({
+      success: response.ResultCode === 0,
+      limitReached: response.ResultCode === 1,
+      message: response.Message
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// end of saveFingerprintTemplate
+
+const getEmployeeFingers = async (req, res) => {
+  const { employeeId } = req.body;
+
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('EmployeeId', sql.NVarChar(65), employeeId)
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_GetByEmployee');
+
+    res.status(200).json({
+      success: true,
+      data: result.recordset
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// end of getEmployeeFingers
+
+const deleteFinger = async (req, res) => {
+  const { employeeId, fingerIndex } = req.body;
+
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('EmployeeId', sql.NVarChar(65), employeeId)
+      .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_DeleteOne');
+
+    res.status(200).json({
+      success: result.recordset[0].DeletedRows > 0
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// end of deleteFinger
+
+const deleteAllFingers = async (req, res) => {
+  const { employeeId } = req.body;
+
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('EmployeeId', sql.NVarChar(65), employeeId)
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_DeleteAllForEmployee');
+
+    res.status(200).json({
+      success: true,
+      deleted: result.recordset[0].DeletedRows
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// end of deleteAllFingers
+
+const logFingerprintPunch = async (req, res) => {
+  const {
+    employeeId,
+    employeeCode,
+    confidence,
+    fingerIndex
+  } = req.body;
+
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('EmployeeID2', sql.NVarChar(65), employeeId)
+      .input('EmployeeCode', sql.NVarChar(40), employeeCode)
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('Confidence', sql.Float, confidence)
+      .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .execute('usp_Fingerprint_LogPunch');
+
+    res.status(200).json({
+      message: "Punch logged",
+      data: result.recordset[0]
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+// end of logFingerprintPunch
+
+const getPendingFingerprintEnrollments = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_PendingEnrollment');
+
+    res.status(200).json({
+      message: "Pending enrollments loaded",
+      data: result.recordset
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+// end of getPendingFingerprintEnrollments
+
+const getAllFingerprintTemplates = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool = await sql.connect(config);
+
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .execute('usp_Fingerprint_GetAllTemplates');
+
+    res.status(200).json({
+      message: "Templates loaded",
+      data: result.recordset
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+// end of getAllFingerprintTemplates
+
+module.exports = { enroll, checkIn, getLogs, getDailyReport, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
+  getAttendanceEmployeeTimeline, saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers,
+  logFingerprintPunch, getAllFingerprintTemplates, getPendingFingerprintEnrollments
+
+
+};

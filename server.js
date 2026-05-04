@@ -93,7 +93,10 @@ const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate
 
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
 
-const {enroll,checkIn} = require('./controllers/biometricAttendanceController'); 
+const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
+saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments
+
+ } = require('./controllers/biometricAttendanceController'); 
 
 
  
@@ -794,12 +797,28 @@ app.post('/api/laundry/order/delete-item',authenticateToken,express.json(),delet
 
 
 // biometric attendance
-app.post('/api/biometric/enroll',enroll );   
-app.post('/api/biometric/check-in', checkIn);
 
+// const attendanceRouter = express.Router();
+
+app.post('/api/attendance/biometric/enroll',enroll );   
+app.post('/api/attendance/biometric/check-in', checkIn);
 // app.post('/api/biometric/check-in',authenticateToken,express.json(),upload,checkIn ); 
 
- 
+app.post('/api/attendance/dashboard/summary',authenticateToken,express.json(), getAttendanceSummary);
+app.post('/api/attendance/enrolled-employees',authenticateToken,express.json(), getAttendanceEnrolledEmployees);
+app.post('/api/attendance/pending-enrolled-employees',authenticateToken,express.json(), getAttendancePendingEnrollmentEmployees);
+app.post('/api/attendance/status-wise-details',authenticateToken,express.json(), getAttendanceStatusWiseDetails);
+app.post('/api/attendance/employee-timeline',authenticateToken,express.json(), getAttendanceEmployeeTimeline);
+
+
+app.post('/api/attendance/fingerprint/enroll', authenticateToken, saveFingerprintTemplate);
+app.post('/api/attendance/fingerprint/get-by-employee', authenticateToken, getEmployeeFingers);
+app.post('/api/attendance/fingerprint/delete', authenticateToken, deleteFinger);
+app.post('/api/attendance/fingerprint/delete-all', authenticateToken, deleteAllFingers);
+app.post('/api/attendance/fingerprint/get-all', authenticateToken, getAllFingerprintTemplates);
+app.post('/api/attendance/fingerprint/log-punch', authenticateToken, logFingerprintPunch);
+app.post('/api/attendance/fingerprint/pending-enrollments', authenticateToken, getPendingFingerprintEnrollments);
+    
  
 
 
