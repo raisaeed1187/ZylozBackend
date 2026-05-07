@@ -613,7 +613,7 @@ const getAttendanceEmployeeTimeline = async (req, res) => {
 
 const saveFingerprintTemplate = async (req, res) => {
   const { 
-    employeeId2,
+    employeeId,
     employeeCode,
     fingerIndex,
     fingerLabel,
@@ -627,9 +627,9 @@ const saveFingerprintTemplate = async (req, res) => {
     await setTenantContext(pool, req);
 
     const result = await pool.request() 
-      .input('EmployeeId2', sql.NVarChar(65), employeeId2)
+      .input('EmployeeId2', sql.NVarChar(65), employeeId)
       .input('EmployeeCode', sql.NVarChar(40), employeeCode)
-      .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .input('FingerIndex', sql.NVarChar(10), fingerIndex ? fingerIndex.toString() : null)
       .input('FingerLabel', sql.NVarChar(20), fingerLabel)
       .input('Template', sql.NVarChar(sql.MAX), template)
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
@@ -637,8 +637,28 @@ const saveFingerprintTemplate = async (req, res) => {
 
     const response = result.recordset[0];
 
+    if (response.ResultCode == 1) {
+      return res.status(400).json({
+        success: false,
+        message: response.Message
+      });
+    }
+
+    
+
+    const data = [{
+      employeeId,
+      employeeCode,
+      fingerIndex,
+      fingerLabel,
+      template,
+      templateSaved: response.ResultCode == 0 ? '1' : '0',
+      limitReached: response.ResultCode == 1 ? '1' : '0',
+    }];
+
     res.status(200).json({
       success: response.ResultCode === 0,
+      data: data,
       limitReached: response.ResultCode === 1,
       message: response.Message
     });
@@ -741,7 +761,12 @@ const logFingerprintPunch = async (req, res) => {
     employeeId,
     employeeCode,
     confidence,
-    fingerIndex
+    fingerIndex,
+    projectId,
+    latitude,
+    longitude,
+    organizationId
+
   } = req.body;
 
   try {
@@ -750,17 +775,36 @@ const logFingerprintPunch = async (req, res) => {
 
     await setTenantContext(pool, req);
 
+    // console.log('Logging fingerprint punch for employeeId:', employeeId, 'employeeCode:', employeeCode, 'confidence:', confidence, 'fingerIndex:', fingerIndex);
+
     const result = await pool.request()
       .input('EmployeeID2', sql.NVarChar(65), employeeId)
       .input('EmployeeCode', sql.NVarChar(40), employeeCode)
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
       .input('Confidence', sql.Float, confidence)
       .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .input('ProjectId', sql.NVarChar(65), projectId || null)
+      .input('Latitude', sql.NVarChar(65), latitude || null)
+      .input('Longitude', sql.NVarChar(65), longitude || null)
+      // .input('OrganizationId', sql.NVarChar(65), organizationId) 
       .execute('usp_Fingerprint_LogPunch');
 
+    // let data = null;
+    // if (result.recordset.length > 0) {
+    //   const r = result.recordset[0];
+    //   data = {
+    //     logId: r.LogId,
+    //     employeeId: r.EmployeeId,
+    //     employeeCode: r.EmployeeCode,
+    //     employeeName: r.Name,
+    //     type: r.Type,
+    //     confidence: r.Confidence,
+    //     timestamp: r.LogTime
+    //   };
+    // } 
     res.status(200).json({
-      message: "Punch logged",
-      data: result.recordset[0]
+      message: "Punch logged Succcessfully",
+      data: result.recordset
     });
 
   } catch (error) {
