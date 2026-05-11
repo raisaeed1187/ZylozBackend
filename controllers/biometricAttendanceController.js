@@ -2,7 +2,7 @@
  * Attendance Controller — Production
  * Handles: enroll, checkIn, checkOut, getLogs, getReport
  */
-
+  
 const sql        = require("mssql");
 const axios      = require("axios");
 const FormData   = require("form-data");
