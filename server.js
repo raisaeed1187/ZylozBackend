@@ -94,8 +94,9 @@ const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
 
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
-saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments
-
+saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
+getAttendanceLogSummary, getAttendanceListView,  getEmployeeLogs,  getProjectMatrix, getEmployeeMatrix,
+  
  } = require('./controllers/biometricAttendanceController'); 
 
 
@@ -819,7 +820,13 @@ app.post('/api/attendance/fingerprint/get-all', authenticateToken, getAllFingerp
 app.post('/api/attendance/fingerprint/log-punch', authenticateToken, logFingerprintPunch);
 app.post('/api/attendance/fingerprint/pending-enrollments', authenticateToken, getPendingFingerprintEnrollments);
     
- 
+
+app.post('/api/attendance/summary', authenticateToken, getAttendanceLogSummary);
+app.post('/api/attendance/list', authenticateToken, getAttendanceListView);
+app.post('/api/attendance/employee-logs', authenticateToken, getEmployeeLogs);
+app.post('/api/attendance/project-matrix', authenticateToken, getProjectMatrix);
+app.post('/api/attendance/employee-matrix', authenticateToken, getEmployeeMatrix);
+     
 
 
  

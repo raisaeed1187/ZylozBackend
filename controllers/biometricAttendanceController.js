@@ -13,7 +13,8 @@ require("dotenv").config();
 
 const { setCurrentDatabase, setCurrentUser } = require("../constents").actions;
 
-const FACE_API        = process.env.FACE_API_URL || "http://127.0.0.1:8001";
+// const FACE_API        = process.env.FACE_API_URL || "http://127.0.0.1:8001";
+const FACE_API        = process.env.FACE_API_URL || "http://31.97.70.146";
 const FACE_API_TOKEN  = process.env.FACE_API_TOKEN || "";
 const COSINE_MAX_DIST = parseFloat(process.env.COSINE_MAX_DIST || "0.38");
 const COOLDOWN_MINS   = parseInt(process.env.COOLDOWN_MINS || "2", 10);
@@ -629,8 +630,8 @@ const saveFingerprintTemplate = async (req, res) => {
     const result = await pool.request() 
       .input('EmployeeId2', sql.NVarChar(65), employeeId)
       .input('EmployeeCode', sql.NVarChar(40), employeeCode)
-      .input('FingerIndex', sql.NVarChar(10), fingerIndex ? fingerIndex.toString() : null)
-      .input('FingerLabel', sql.NVarChar(20), fingerLabel)
+      .input('FingerIndex', sql.NVarChar(10), fingerIndex ? fingerIndex.toString() : '0')
+      .input('FingerLabel', sql.NVarChar(20), fingerLabel ?? employeeCode+"_0")
       .input('Template', sql.NVarChar(sql.MAX), template)
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
       .execute('usp_Fingerprint_SaveTemplate');
@@ -782,7 +783,7 @@ const logFingerprintPunch = async (req, res) => {
       .input('EmployeeCode', sql.NVarChar(40), employeeCode)
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
       .input('Confidence', sql.Float, confidence)
-      .input('FingerIndex', sql.TinyInt, fingerIndex)
+      .input('FingerIndex', sql.TinyInt, fingerIndex || 0)
       .input('ProjectId', sql.NVarChar(65), projectId || null)
       .input('Latitude', sql.NVarChar(65), latitude || null)
       .input('Longitude', sql.NVarChar(65), longitude || null)
@@ -857,9 +858,223 @@ const getAllFingerprintTemplates = async (req, res) => {
 };
 // end of getAllFingerprintTemplates
 
+ 
+
+// ─── Helper: parse & validate date params ────────────────────────────────────
+const parseDateRange = (query) => {
+  const startDate = query.startDate || new Date().toISOString().slice(0, 10);
+  const endDate   = query.endDate   || new Date().toISOString().slice(0, 10);
+  return { startDate, endDate };
+};
+
+
+// ─── 1. GET /api/attendance/summary ──────────────────────────────────────────
+//        KPI strip: totals, present, absent, late, miss, att%, methods
+const getAttendanceLogSummary = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const { startDate, endDate } = parseDateRange(req.body);
+    console.log('Fetching attendance summary for', startDate, 'to', endDate);
+    
+    const result = await pool.request()
+      .input('TenantId',  sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('StartDate', sql.Date,         startDate)
+      .input('EndDate',   sql.Date,         endDate)
+      .execute('usp_Attendance_GetSummary');
+
+    res.status(200).json({
+      message: 'Summary loaded',
+      data:    result.recordset[0] ?? {}
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
+// ─── 2. GET /api/attendance/list ─────────────────────────────────────────────
+//        Paginated list view with search, location, status filters
+const getAttendanceListView = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const { startDate, endDate }  = parseDateRange(req.body);
+    const {
+      search     = null,
+      location   = null,
+      status     = null,
+      pageNumber = 1,
+      pageSize   = 50
+    } = req.query;
+
+    const result = await pool.request()
+      .input('TenantId',   sql.NVarChar(65),  req?.authUser?.tenantId)
+      .input('StartDate',  sql.Date,          startDate)
+      .input('EndDate',    sql.Date,          endDate)
+      .input('Search',     sql.NVarChar(200), search   || null)
+      .input('Location',   sql.NVarChar(120), location || null)
+      .input('Status',     sql.NVarChar(20),  status   || null)
+      .input('PageNumber', sql.Int,           parseInt(pageNumber))
+      .input('PageSize',   sql.Int,           parseInt(pageSize))
+      .execute('usp_Attendance_GetListView');
+
+    const rows      = result.recordset;
+    const totalRows = rows[0]?.TotalRows ?? 0;
+
+    res.status(200).json({
+      message:    'List loaded',
+      data:       rows,
+      pagination: {
+        totalRows,
+        pageNumber: parseInt(pageNumber),
+        pageSize:   parseInt(pageSize),
+        totalPages: Math.ceil(totalRows / pageSize)
+      }
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
+// ─── 3. GET /api/attendance/employee-logs ────────────────────────────────────
+//        All punch records for one employee on a given date (drawer detail)
+const getEmployeeLogs = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const { employeeId, logDate } = req.body;
+
+    if (!employeeId || !logDate) {
+      return res.status(400).json({ message: 'employeeId and logDate are required.' });
+    }
+
+    const result = await pool.request()
+      .input('TenantId',    sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('EmployeeID2', sql.NVarChar(65), employeeId)
+      .input('LogDate',     sql.Date,         logDate)
+      .execute('usp_Attendance_GetEmployeeLogs');
+
+    res.status(200).json({
+      message: 'Employee logs loaded',
+      data:    result.recordset
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
+// ─── 4. GET /api/attendance/project-matrix ───────────────────────────────────
+//        Location × day pivot for the Project view
+const getProjectMatrix = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const { startDate, endDate } = parseDateRange(req.body);
+
+    const result = await pool.request()
+      .input('TenantId',  sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('StartDate', sql.Date,         startDate)
+      .input('EndDate',   sql.Date,         endDate)
+      .execute('usp_Attendance_GetProjectMatrix');
+
+    res.status(200).json({
+      message: 'Project matrix loaded',
+      data:    result.recordset
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+ 
+//        Employee × day productivity matrix for the Employee view
+const getEmployeeMatrix = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const { startDate, endDate } = parseDateRange(req.body);
+
+    const result = await pool.request()
+      .input('TenantId',  sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('StartDate', sql.Date,         startDate)
+      .input('EndDate',   sql.Date,         endDate)
+      .execute('usp_Attendance_GetEmployeeMatrix');
+
+    // ── Transform flat rows → { employeeId, days: [...] } groups ──
+    const grouped = {};
+    for (const row of result.recordset) {
+      const key = row.EmployeeID2;
+      if (!grouped[key]) {
+        grouped[key] = {
+          employeeId:  row.EmployeeId,
+          employeeID2: row.EmployeeID2,
+          EmployeeCode: row.EmployeeCode,
+          EmployeeName: row.EmployeeName,
+          Department: row.Department,
+
+          days:        [],
+          totalHours:  0,
+          daysPresent: 0
+        };
+      }
+      grouped[key].days.push({
+        logDate:       row.LogDate,
+        hoursWorked:   row.HoursWorked,
+        hoursWorkedFmt:row.HoursWorkedFmt,
+        punchInTime:   row.PunchInTime,
+        method:        row.Method,
+        status:        row.DayStatus
+      });
+      if (row.HoursWorked)                      grouped[key].totalHours  += parseFloat(row.HoursWorked);
+      if (row.DayStatus !== 'Absent')           grouped[key].daysPresent += 1;
+    }
+
+    // Format total hours as HH:MM
+    const toHHMM = (decimal) => {
+      const h = Math.floor(decimal);
+      const m = Math.round((decimal - h) * 60);
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    };
+
+    const employees = Object.values(grouped).map(e => ({
+      ...e,
+      totalHoursFmt: toHHMM(e.totalHours)
+    }));
+
+    res.status(200).json({
+      message: 'Employee matrix loaded',
+      data:    employees
+    });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+ 
+ 
+
+
 module.exports = { enroll, checkIn, getLogs, getDailyReport, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
   getAttendanceEmployeeTimeline, saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers,
-  logFingerprintPunch, getAllFingerprintTemplates, getPendingFingerprintEnrollments
-
+  logFingerprintPunch, getAllFingerprintTemplates, getPendingFingerprintEnrollments,
+  getAttendanceLogSummary,getAttendanceListView,getEmployeeLogs,getProjectMatrix,getEmployeeMatrix
 
 };
