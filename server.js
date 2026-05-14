@@ -39,7 +39,11 @@ const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,del
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems,getStockItems, stockOutSaveUpdate,stockTransferSaveUpdate,getInventoryStockTransfers, getInventoryStockOuts, getInventoryStockDetails, getInventoryStockOutDetails} = require('./controllers/procurement/inventoryController'); 
 
-const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate, getTextileStockItems,textileStockOutSaveUpdate,textileStockTransferSaveUpdate,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, getTextileInventoryStockDetails, getTextileInventoryStockOutDetails} = require('./controllers/textile/textileInventoryController'); 
+const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate, getTextileStockItems,textileStockOutSaveUpdate,textileStockTransferSaveUpdate,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, getTextileInventoryStockDetails, getTextileInventoryStockOutDetails,
+textileStock_GeneralSelection,  textileStock_SpecificSelection,  textileOrder_Save,  textileOrder_UpdateStatus,
+  textileOrder_Delete,  textileOrder_GetList,  textileOrder_GetByID,
+
+} = require('./controllers/textile/textileInventoryController'); 
 
 
 const {manpowerRequirementSaveUpdate,getManpowerRequirementsList,getManpowerRequirementsDetails, manpowerRequirementDetailsDelete,getAgentsList,assignedAgentDelete,agentAssignmentSaveUpdate,candidateSaveUpdate, getCandidatesList, getManpowerRequirementsByAgent,getAssignedAgentTrades } = require('./controllers/overseas/manpowerRequirementController'); 
@@ -96,6 +100,7 @@ const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantCont
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
 saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
 getAttendanceLogSummary, getAttendanceListView,  getEmployeeLogs,  getProjectMatrix, getEmployeeMatrix,
+regularizeAttendance,
   
  } = require('./controllers/biometricAttendanceController'); 
 
@@ -362,6 +367,16 @@ app.post('/api/textile/inventory/stock/details',authenticateToken,express.json()
 app.post('/api/textile/inventory/stock-in/save-update',authenticateToken,express.json(),upload,textileStockInSaveUpdate ); 
 app.post('/api/textile/inventory/stock-ins',authenticateToken,express.json(),textileStockInGetList);  
 app.post('/api/textile/inventory/stock-in',authenticateToken,express.json(),textileStockInGetDetails);  
+
+app.post  ("/api/textile/stock/general-selection",  authenticateToken,express.json(), textileStock_GeneralSelection);
+app.post  ("/api/textile/stock/specific-selection", authenticateToken,express.json(), textileStock_SpecificSelection);
+ 
+// ── Order CRUD ────────────────────────────────────────────────
+app.post  ("/api/textile/order/save",          authenticateToken,express.json(), textileOrder_Save);
+app.post ("/api/textile/order/update-status", authenticateToken,express.json(), textileOrder_UpdateStatus);
+app.post("/api/textile/order/delete",        authenticateToken,express.json(), textileOrder_Delete);
+app.post("/api/textile/order/list",          authenticateToken,express.json(), textileOrder_GetList);
+app.post("/api/textile/order/details",       authenticateToken,express.json(), textileOrder_GetByID);
 
 
 // end of textile inventory
@@ -826,7 +841,7 @@ app.post('/api/attendance/list', authenticateToken, getAttendanceListView);
 app.post('/api/attendance/employee-logs', authenticateToken, getEmployeeLogs);
 app.post('/api/attendance/project-matrix', authenticateToken, getProjectMatrix);
 app.post('/api/attendance/employee-matrix', authenticateToken, getEmployeeMatrix);
-     
+app.post('/api/attendance/regularize', authenticateToken, regularizeAttendance); 
 
 
  

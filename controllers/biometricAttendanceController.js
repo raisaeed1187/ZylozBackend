@@ -1068,6 +1068,56 @@ const getEmployeeMatrix = async (req, res) => {
   }
 };
 
+
+// ─── 6. POST /api/attendance/regularize ──────────────────────────────────────
+//        Submit a regularization request for an employee
+const regularizeAttendance = async (req, res) => {
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+ 
+    const {
+      employeeId,   // EmployeeID2
+      logDate,      // 'YYYY-MM-DD'
+      inTime,       // 'HH:MM'
+      outTime,      // 'HH:MM'
+      reason,
+      remarks = ''
+    } = req.body;
+ 
+    if (!employeeId || !logDate || !inTime || !outTime || !reason) {
+      return res.status(400).json({
+        message: 'employeeId, logDate, inTime, outTime and reason are required.'
+      });
+    }
+ 
+    const result = await pool.request()
+      .input('TenantId',    sql.NVarChar(65),  req?.authUser?.tenantId)
+      .input('EmployeeID2', sql.NVarChar(65),  employeeId)
+      .input('LogDate',     sql.Date,          logDate)
+      .input('InTime',      sql.VarChar(8),    inTime + ':00')
+      .input('OutTime',     sql.VarChar(8),    outTime + ':00')
+      .input('Reason',      sql.NVarChar(255), reason)
+      .input('Remarks',     sql.NVarChar(500), remarks)
+      .input('RequestedBy', sql.NVarChar(65),  req?.authUser?.userId || null)
+      .execute('usp_Attendance_RegularizeLog');
+ 
+    const row = result.recordset[0];
+ 
+    if (!row?.Success) {
+      return res.status(400).json({ message: row?.Message || 'Regularization failed.' });
+    }
+ 
+    res.status(200).json({
+      message: row.Message,
+      data:    { employeeId, logDate, inTime, outTime, reason }
+    });
+ 
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
  
  
 
@@ -1075,6 +1125,9 @@ const getEmployeeMatrix = async (req, res) => {
 module.exports = { enroll, checkIn, getLogs, getDailyReport, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
   getAttendanceEmployeeTimeline, saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers,
   logFingerprintPunch, getAllFingerprintTemplates, getPendingFingerprintEnrollments,
-  getAttendanceLogSummary,getAttendanceListView,getEmployeeLogs,getProjectMatrix,getEmployeeMatrix
+  getAttendanceLogSummary,getAttendanceListView,getEmployeeLogs,getProjectMatrix,getEmployeeMatrix,regularizeAttendance
 
 };
+
+
+

@@ -632,4 +632,418 @@ const textileStockInGetDetails = async (req, res) => {
 };
 // end of textileStockInGetDetails
 
-module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockInSaveUpdate,getTextileInventoryStockDetails,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, textileStockOutSaveUpdate, textileStockTransferSaveUpdate , getPODetails,getTextileStockItems,getTextileInventoryGRNItems} ;
+// ---------------- order creation
+
+const getPool = async (req) => {
+  store.dispatch(setCurrentDatabase(req.authUser.database));
+  store.dispatch(setCurrentUser(req.authUser));
+  const config = store.getState().constents.config;
+  const pool = await sql.connect(config);
+  await setTenantContext(pool, req);
+  return pool;
+};
+
+
+const textileStock_GeneralSelection = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const {
+      organizationId,
+      searchText = null,
+      minPcs     = null,
+      pageNumber = 1,
+      pageSize   = 50,
+    } = req.body;
+ 
+    const result = await new sql.Request(pool)
+      .input("TenantID",        sql.NVarChar(65),    req.authUser.tenantId || null)
+      .input("OrganizationID",  sql.NVarChar(65),    organizationId        || null)
+      .input("SearchText",      sql.NVarChar(200),   searchText            || null)
+      .input("MinPcs",          sql.Decimal(18, 3),  minPcs                ?? null)
+      .input("PageNumber",      sql.Int,             pageNumber)
+      .input("PageSize",        sql.Int,             pageSize)
+      .execute("usp_Stock_GeneralSelection");
+ 
+    const items     = result.recordsets[0] ?? [];
+    const totalRows = items[0]?.TotalRows  ?? 0;
+ 
+    return res.status(200).json({
+      message: "General selection loaded successfully.",
+      data: {
+        items,
+        pagination: {
+          pageNumber,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize),
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Stock_GeneralSelection ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ------------------------------------------------------------
+//  1.2  Stock – Specific Selection
+//       POST /api/textile/stock/specific-selection
+//       Body: { organizationId, searchText?, lotNo?, designNo?,
+//               colorNo?, pageNumber?, pageSize? }
+// ------------------------------------------------------------
+const textileStock_SpecificSelection = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const {
+      organizationId,
+      searchText = null,
+      lotNo      = null,
+      designNo   = null,
+      colorNo    = null,
+      pageNumber = 1,
+      pageSize   = 100,
+    } = req.body;
+ 
+    const result = await new sql.Request(pool)
+      .input("TenantID",        sql.NVarChar(65),  req.authUser.tenantId || null)
+      .input("OrganizationID",  sql.NVarChar(65),  organizationId        || null)
+      .input("SearchText",      sql.NVarChar(200), searchText            || null)
+      .input("LotNo",           sql.NVarChar(50),  lotNo                 || null)
+      .input("DesignNo",        sql.NVarChar(50),  designNo              || null)
+      .input("ColorNo",         sql.NVarChar(50),  colorNo               || null)
+      .input("PageNumber",      sql.Int,           pageNumber)
+      .input("PageSize",        sql.Int,           pageSize)
+      .execute("usp_Stock_SpecificSelection");
+ 
+    const items     = result.recordsets[0] ?? [];
+    const totalRows = items[0]?.TotalRows  ?? 0;
+ 
+    return res.status(200).json({
+      message: "Specific selection loaded successfully.",
+      data: {
+        items,
+        pagination: {
+          pageNumber,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize),
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Stock_SpecificSelection ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ============================================================
+//  SECTION 2 – ORDER CRUD
+// ============================================================
+ 
+// ------------------------------------------------------------
+//  2.1  Order – Save (Create or Update)
+//       POST /api/textile/order/save
+//
+//  Body (new order):  { organizationId, customerName, ...financials, items: [] }
+//  Body (update):     { orderId, organizationId, customerName, ...financials, items: [] }
+//
+//  items[] shape:
+//    { lineId?, stockInItemId?, stockInId?, itemDesc, designNo, colorNo,
+//      supplierName, availPcs, availMTS, availYDS,
+//      orderQtyPcs, orderQtyMTS, orderQtyYDS, unitCost, unitPrice }
+// ------------------------------------------------------------
+const textileOrder_Save = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const {
+      orderId          = null,
+      organizationId,
+      customerId       = null,
+      customerName     = null,
+      shippingAddress  = null,
+      orderDate,
+      currency         = "AED",
+      subtotal         = 0,
+      discountType     = null,
+      discountValue    = 0,
+      discountAmt      = 0,
+      afterDiscount    = 0,
+      vatType          = "5",
+      vatRate          = 0.05,
+      vatAmount        = 0,
+      totalSales       = 0,
+      totalCost        = 0,
+      status           = "Draft",
+      notes            = null,
+      items            = [],
+    } = req.body;
+ 
+    // Validate required fields
+    if (!organizationId) return res.status(400).json({ message: "organizationId is required." });
+    if (!orderDate)      return res.status(400).json({ message: "orderDate is required." });
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ message: "items array is required and must not be empty." });
+ 
+    // Serialise items to JSON for the stored procedure
+    const itemsJSON = JSON.stringify(
+      items.map((i) => ({
+        LineID:        i.lineId        ?? "",
+        StockInItemID: i.stockInItemId ?? "",
+        StockInID:     i.stockInId     ?? "",
+        ItemDesc:      i.itemDesc      ?? "",
+        DesignNo:      i.designNo      ?? "",
+        ColorNo:       i.colorNo       ?? "",
+        SupplierName:  i.supplierName  ?? "",
+        AvailPcs:      i.availPcs      ?? 0,
+        AvailMTS:      i.availMTS      ?? 0,
+        AvailYDS:      i.availYDS      ?? 0,
+        OrderQtyPcs:   i.orderQtyPcs   ?? 0,
+        OrderQtyMTS:   i.orderQtyMTS   ?? 0,
+        OrderQtyYDS:   i.orderQtyYDS   ?? 0,
+        UnitCost:      i.unitCost      ?? 0,
+        UnitPrice:     i.unitPrice     ?? 0,
+      }))
+    );
+ 
+    const request = new sql.Request(pool);
+ 
+    // Register OUTPUT parameters
+    request.output("OutOrderID", sql.NVarChar(65));
+    request.output("OutMessage", sql.NVarChar(500));
+ 
+    const result = await request
+      .input("OrderID",         sql.NVarChar(65),    orderId         || null)
+      .input("TenantID",        sql.NVarChar(65),    req.authUser.tenantId  || null)
+      .input("OrganizationID",  sql.NVarChar(65),    organizationId)
+      .input("CustomerID",      sql.NVarChar(65),    customerId      || null)
+      .input("CustomerName",    sql.NVarChar(200),   customerName    || null)
+      .input("ShippingAddress", sql.NVarChar(500),   shippingAddress || null)
+      .input("OrderDate",       sql.Date,            new Date(orderDate))
+      .input("Currency",        sql.NVarChar(10),    currency)
+      .input("Subtotal",        sql.Decimal(18, 4),  subtotal)
+      .input("DiscountType",    sql.NVarChar(10),    discountType    || null)
+      .input("DiscountValue",   sql.Decimal(18, 4),  discountValue)
+      .input("DiscountAmt",     sql.Decimal(18, 4),  discountAmt)
+      .input("AfterDiscount",   sql.Decimal(18, 4),  afterDiscount)
+      .input("VATType",         sql.NVarChar(20),    vatType)
+      .input("VATRate",         sql.Decimal(6, 4),   vatRate)
+      .input("VATAmount",       sql.Decimal(18, 4),  vatAmount)
+      .input("TotalSales",      sql.Decimal(18, 4),  totalSales)
+      .input("TotalCost",       sql.Decimal(18, 4),  totalCost)
+      .input("Status",          sql.NVarChar(30),    status)
+      .input("Notes",           sql.NVarChar(1000),  notes           || null)
+      .input("ActionBy",        sql.NVarChar(100),   req.authUser.email || req.authUser.userId || null)
+      .input("ItemsJSON",       sql.NVarChar(sql.MAX), itemsJSON)
+      .execute("usp_Order_Save");
+ 
+    const outOrderID = result.output.OutOrderID;
+    const outMessage = result.output.OutMessage;
+ 
+    if (!outOrderID) {
+      return res.status(400).json({ message: outMessage || "Order save failed." });
+    }
+ 
+    return res.status(200).json({
+      message: outMessage,
+      data: { orderId: outOrderID },
+    });
+  } catch (err) {
+    console.error("Order_Save ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ------------------------------------------------------------
+//  2.2  Order – Update Status
+//       PATCH /api/textile/order/update-status
+//       Body: { orderId, newStatus }
+//       newStatus: Draft | Confirmed | DO_Created | Cancelled
+// ------------------------------------------------------------
+const textileOrder_UpdateStatus = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const { orderId, newStatus } = req.body;
+ 
+    if (!orderId)   return res.status(400).json({ message: "orderId is required." });
+    if (!newStatus) return res.status(400).json({ message: "newStatus is required." });
+ 
+    const VALID_STATUSES = ["Draft", "Confirmed", "DO_Created", "Cancelled"];
+    if (!VALID_STATUSES.includes(newStatus)) {
+      return res.status(400).json({
+        message: `Invalid status. Allowed: ${VALID_STATUSES.join(", ")}.`,
+      });
+    }
+ 
+    const request = new sql.Request(pool);
+    request.output("OutMessage", sql.NVarChar(500));
+ 
+    const result = await request
+      .input("OrderID",   sql.NVarChar(65),  orderId)
+      .input("TenantID",  sql.NVarChar(65),  req.authUser.tenantId || null)
+      .input("NewStatus", sql.NVarChar(30),  newStatus)
+      .input("ActionBy",  sql.NVarChar(100), req.authUser.email || req.authUser.userId || null)
+      .execute("usp_Order_UpdateStatus");
+ 
+    const outMessage = result.output.OutMessage;
+ 
+    return res.status(200).json({ message: outMessage });
+  } catch (err) {
+    console.error("Order_UpdateStatus ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ------------------------------------------------------------
+//  2.3  Order – Soft Delete
+//       DELETE /api/textile/order/delete
+//       Body: { orderId }
+// ------------------------------------------------------------
+const textileOrder_Delete = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const { orderId } = req.body;
+ 
+    if (!orderId) return res.status(400).json({ message: "orderId is required." });
+ 
+    const request = new sql.Request(pool);
+    request.output("OutMessage", sql.NVarChar(500));
+ 
+    const result = await request
+      .input("OrderID",  sql.NVarChar(65),  orderId)
+      .input("TenantID", sql.NVarChar(65),  req.authUser.tenantId || null)
+      .input("ActionBy", sql.NVarChar(100), req.authUser.email || req.authUser.userId || null)
+      .execute("usp_Order_Delete");
+ 
+    const outMessage = result.output.OutMessage;
+ 
+    return res.status(200).json({ message: outMessage });
+  } catch (err) {
+    console.error("Order_Delete ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ------------------------------------------------------------
+//  2.4  Order – Get List (paginated)
+//       POST /api/textile/order/list
+//       Body: { organizationId?, customerId?, status?, dateFrom?,
+//               dateTo?, searchText?, pageNumber?, pageSize? }
+// ------------------------------------------------------------
+const textileOrder_GetList = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const {
+      organizationId = null,
+      customerId     = null,
+      status         = null,
+      dateFrom       = null,
+      dateTo         = null,
+      searchText     = null,
+      pageNumber     = 1,
+      pageSize       = 30,
+    } = req.body;
+ 
+    const result = await new sql.Request(pool)
+      .input("TenantID",       sql.NVarChar(65),  req.authUser.tenantId || null)
+      .input("OrganizationID", sql.NVarChar(65),  organizationId        || null)
+      .input("CustomerID",     sql.NVarChar(65),  customerId            || null)
+      .input("Status",         sql.NVarChar(30),  status                || null)
+      .input("DateFrom",       sql.Date,          dateFrom ? new Date(dateFrom) : null)
+      .input("DateTo",         sql.Date,          dateTo   ? new Date(dateTo)   : null)
+      .input("SearchText",     sql.NVarChar(200), searchText            || null)
+      .input("PageNumber",     sql.Int,           pageNumber)
+      .input("PageSize",       sql.Int,           pageSize)
+      .execute("usp_Order_GetList");
+ 
+    const orders    = result.recordsets[0] ?? [];
+    const totalRows = orders[0]?.TotalRows ?? 0;
+ 
+    return res.status(200).json({
+      message: "Order list loaded successfully.",
+      data: {
+        orders,
+        pagination: {
+          pageNumber,
+          pageSize,
+          totalRows,
+          totalPages: Math.ceil(totalRows / pageSize),
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Order_GetList ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+// ------------------------------------------------------------
+//  2.5  Order – Get By ID (header + lines)
+//       POST /api/textile/order/details
+//       Body: { orderId }
+// ------------------------------------------------------------
+const textileOrder_GetByID = async (req, res) => {
+  let pool;
+  try {
+    pool = await getPool(req);
+ 
+    const { orderId } = req.body;
+ 
+    if (!orderId) return res.status(400).json({ message: "orderId is required." });
+ 
+    const result = await new sql.Request(pool)
+      .input("OrderID",  sql.NVarChar(65), orderId)
+      .input("TenantID", sql.NVarChar(65), req.authUser.tenantId || null)
+      .execute("usp_Order_GetByID");
+ 
+    const header = result.recordsets[0]?.[0] ?? null;
+    const items  = result.recordsets[1]       ?? [];
+ 
+    if (!header) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+ 
+    return res.status(200).json({
+      message: "Order details loaded successfully.",
+      data: { header, items },
+    });
+  } catch (err) {
+    console.error("Order_GetByID ERROR:", err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+ 
+ 
+
+
+
+module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockInSaveUpdate,getTextileInventoryStockDetails,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, textileStockOutSaveUpdate, textileStockTransferSaveUpdate , getPODetails,getTextileStockItems,getTextileInventoryGRNItems,
+  // Stock selection
+  textileStock_GeneralSelection,
+  textileStock_SpecificSelection,
+ 
+  // Order CRUD
+  textileOrder_Save,
+  textileOrder_UpdateStatus,
+  textileOrder_Delete,
+  textileOrder_GetList,
+  textileOrder_GetByID,
+
+} ;

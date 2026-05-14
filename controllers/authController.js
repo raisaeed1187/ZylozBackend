@@ -378,6 +378,9 @@ const signIn = async (req,res)=>{
                         }
                     }
                     // return user;
+                    console.log('user.TenantId');
+                    console.log(user.TenantId);
+
 
                     const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId, agencyId : user?.AgencyId,
                         fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
