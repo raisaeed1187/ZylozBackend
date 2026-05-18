@@ -525,7 +525,7 @@ const getTableDetailsById = async (req, res) => {
     } 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser?.database || client || 'Zyloz'));
+        store.dispatch(setCurrentDatabase(req.authUser?.database || client || 'Allbiz'));
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 

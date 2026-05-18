@@ -656,23 +656,22 @@ const textileStock_GeneralSelection = async (req, res) => {
  
     const {
       organizationId,
-      searchTerms    = null,   // comma-separated: "CLR-NB01, DGN-882, cotton"
-      minPcs         = null,
-      excludeOrderId = null,   // pass current OrderID when editing so own reservations aren't counted
-      pageNumber     = 1,
-      pageSize       = 50,
+      searchTerms = null,   // comma-separated string: "CLR-NB01, DGN-882, cotton"
+      minPcs      = null,
+      pageNumber  = 1,
+      pageSize    = 50,
     } = req.body;
  
+    // Normalise: if caller sends an array, join it; otherwise use as-is
     const termsString = Array.isArray(searchTerms)
       ? searchTerms.join(", ")
       : (searchTerms || null);
  
     const result = await new sql.Request(pool)
-      .input("TenantID",        sql.NVarChar(65),    req.authUser.tenantId  || null)
-      .input("OrganizationID",  sql.NVarChar(65),    organizationId         || null)
+      .input("TenantID",        sql.NVarChar(65),    req.authUser.tenantId || null)
+      .input("OrganizationID",  sql.NVarChar(65),    organizationId        || null)
       .input("SearchTerms",     sql.NVarChar(500),   termsString)
-      .input("MinPcs",          sql.Decimal(18, 3),  minPcs                 ?? null)
-      .input("ExcludeOrderID",  sql.NVarChar(65),    excludeOrderId         || null)
+      .input("MinPcs",          sql.Decimal(18, 3),  minPcs                ?? null)
       .input("PageNumber",      sql.Int,             pageNumber)
       .input("PageSize",        sql.Int,             pageSize)
       .execute("usp_Stock_GeneralSelection");
@@ -712,13 +711,12 @@ const textileStock_SpecificSelection = async (req, res) => {
  
     const {
       organizationId,
-      searchTerms    = null,   // comma-separated: "silk, CLR-CH02, LOT-092"
-      lotNo          = null,
-      designNo       = null,
-      colorNo        = null,
-      excludeOrderId = null,   // pass current OrderID when editing
-      pageNumber     = 1,
-      pageSize       = 100,
+      searchTerms = null,   // comma-separated string: "silk, CLR-CH02, LOT-092"
+      lotNo       = null,
+      designNo    = null,
+      colorNo     = null,
+      pageNumber  = 1,
+      pageSize    = 100,
     } = req.body;
  
     const termsString = Array.isArray(searchTerms)
@@ -726,13 +724,12 @@ const textileStock_SpecificSelection = async (req, res) => {
       : (searchTerms || null);
  
     const result = await new sql.Request(pool)
-      .input("TenantID",        sql.NVarChar(65),  req.authUser.tenantId  || null)
-      .input("OrganizationID",  sql.NVarChar(65),  organizationId         || null)
+      .input("TenantID",        sql.NVarChar(65),  req.authUser.tenantId || null)
+      .input("OrganizationID",  sql.NVarChar(65),  organizationId        || null)
       .input("SearchTerms",     sql.NVarChar(500), termsString)
-      .input("LotNo",           sql.NVarChar(50),  lotNo                  || null)
-      .input("DesignNo",        sql.NVarChar(50),  designNo               || null)
-      .input("ColorNo",         sql.NVarChar(50),  colorNo                || null)
-      .input("ExcludeOrderID",  sql.NVarChar(65),  excludeOrderId         || null)
+      .input("LotNo",           sql.NVarChar(50),  lotNo                 || null)
+      .input("DesignNo",        sql.NVarChar(50),  designNo              || null)
+      .input("ColorNo",         sql.NVarChar(50),  colorNo               || null)
       .input("PageNumber",      sql.Int,           pageNumber)
       .input("PageSize",        sql.Int,           pageSize)
       .execute("usp_Stock_SpecificSelection");
@@ -757,7 +754,6 @@ const textileStock_SpecificSelection = async (req, res) => {
     return res.status(400).json({ message: err.message });
   }
 };
- 
  
 // ============================================================
 //  SECTION 2 – ORDER CRUD
@@ -857,7 +853,7 @@ const textileOrder_Save = async (req, res) => {
       .input("TotalCost",       sql.Decimal(18, 4),  totalCost)
       .input("Status",          sql.NVarChar(30),    status)
       .input("Notes",           sql.NVarChar(1000),  notes           || null)
-      .input("ActionBy",        sql.NVarChar(100),   req.authUser.username || req.authUser.userId || null)
+      .input("ActionBy",        sql.NVarChar(100),   req.authUser.email || req.authUser.userId || null)
       .input("ItemsJSON",       sql.NVarChar(sql.MAX), itemsJSON)
       .execute("usp_Order_Save");
  

@@ -204,10 +204,14 @@ const getItemsList = async (req, res) => {
         let query = '';
             await setTenantContext(pool,req);
          
-        query = `exec MaterialItem_GetList `;   
-         
-        const apiResponse = await pool.request().query(query); 
+        // query = `exec MaterialItem_GetList `;   
+        const request = new sql.Request(pool);
         
+        const apiResponse = await request 
+              .input("TenantID", sql.NVarChar(65),  req.authUser.tenantId || null) 
+              .execute("MaterialItem_GetList");
+         
+          
         res.status(200).json({
             message: `Items List loaded successfully!`,
             data:  apiResponse.recordset
@@ -232,9 +236,16 @@ const getItemVariationsList = async (req, res) => {
         let query = '';
             await setTenantContext(pool,req);
          
-        query = `exec ItemVariation_Get  ${itemId}`;   
+        // query = `exec ItemVariation_Get  ${itemId}`;   
+
+        const request = new sql.Request(pool);
+        
+        const apiResponse = await request 
+              .input("ItemId", sql.NVarChar(65),  itemId || null) 
+              .input("TenantID", sql.NVarChar(65),  req.authUser.tenantId || null) 
+              .execute("ItemVariation_Get");
          
-        const apiResponse = await pool.request().query(query); 
+        // const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
             message: `Item Variations List loaded successfully!`,
@@ -249,21 +260,28 @@ const getItemVariationsList = async (req, res) => {
 // end of getItemVariationsList
 
 const getItemsWithVariations = async (req, res) => {  
-    const {client,areaId} = req.body; // user data sent from client
+    const {client,areaId,t} = req.body; // user data sent from client
 
     try {
 
-        store.dispatch(setCurrentDatabase(req.authUser?.database || client || 'Zyloz'));
+        store.dispatch(setCurrentDatabase(req.authUser?.database || client || 'Allbiz'));
         store.dispatch(setCurrentUser(req.authUser || 'System')); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
-        await setTenantContext(pool,req);
+        // await setTenantContext(pool,req);
+        const request = new sql.Request(pool);
 
         // Fetch all items
         // const apiResponse = await pool.request().query(`exec MaterialItem_Get`);
-       const apiResponse = await pool.request()
-                .input('areaId', sql.VarChar, areaId)
-                .query(`exec MaterialItem_Get  Null, '${areaId}'`);
+    //    const apiResponse = await pool.request()
+    //             .input('areaId', sql.VarChar, areaId)
+    //             .input('TenantId', sql.VarChar, t) 
+    //             .query(`exec MaterialItem_Get  Null, '${areaId}'`);
+
+        const apiResponse = await request 
+              .input("areaId", sql.NVarChar(65),  areaId || null) 
+              .input("TenantId", sql.NVarChar(65),  t || null) 
+              .execute("MaterialItem_Get");        
 
         const allItems = apiResponse.recordset || [];
 
@@ -272,10 +290,16 @@ const getItemsWithVariations = async (req, res) => {
         // Loop through each item
         for (const item of allItems) {
             // Fetch variations for this item
-            const itemQueryApiResponse = await pool.request()
-                .input('itemId', sql.VarChar, item.ID2)
-                .input('areaId', sql.VarChar, areaId)
-                .query(`exec ItemVariation_Get '${item.ID2}','${areaId}'`);
+            // const itemQueryApiResponse = await pool.request()
+            //     .input('itemId', sql.VarChar, item.ID2)
+            //     .input('areaId', sql.VarChar, areaId)
+            //     .query(`exec ItemVariation_Get '${item.ID2}','${areaId}'`);
+            const variationRequest = new sql.Request(pool);
+            const itemQueryApiResponse = await variationRequest 
+              .input("itemId", sql.NVarChar(65),  item.ID2 || null) 
+              .input("areaId", sql.NVarChar(65),  areaId || null) 
+              .input("TenantId", sql.NVarChar(65),  t || null) 
+              .execute("ItemVariation_Get");        
             
             const itemVariations = itemQueryApiResponse.recordset || [];
 
