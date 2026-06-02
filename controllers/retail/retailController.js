@@ -1,0 +1,442 @@
+const sql = require("mssql");
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+require("dotenv").config(); 
+const store = require('../../store'); 
+const { setCurrentDatabase,setCurrentUser } = require('../../constents').actions;
+const fs = require("fs");
+const crypto = require('crypto');
+const multer = require("multer");
+const { BlobServiceClient } = require("@azure/storage-blob"); 
+const constentsSlice = require("../../constents");
+
+
+const SECRET_KEY = process.env.SECRET_KEY;
+
+const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const CONTAINER_NAME = "documents";
+const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+
+// ------------------------- LAUNDRY ITEMS -------------------------
+const retailItemSaveUpdate = async (req, res) => {
+    const formData = req.body;  
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;  
+
+        const pool = await sql.connect(config);
+
+        await pool.request()
+            .input('ID2', sql.NVarChar(65), formData.ID2 || null)
+            .input('ItemName', sql.NVarChar(150), formData.ItemName)
+            .input('Description', sql.NVarChar(255), formData.Description || null)
+            .input('IsActive', sql.Bit, formData.IsActive ?? true)
+            .input('User', sql.NVarChar(100), formData.User || null)
+            .execute('RetailItems_SaveOrUpdate');
+
+        res.status(200).json({ message: 'Retail item saved/updated successfully', data: null });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY SERVICES -------------------------
+const retailServiceSaveUpdate = async (req, res) => {
+    const formData = req.body;  
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;  
+
+        const pool = await sql.connect(config);
+
+        await pool.request()
+            .input('ID2', sql.NVarChar(65), formData.ID2 || null)
+            .input('ServiceName', sql.NVarChar(100), formData.ServiceName)
+            .input('Description', sql.NVarChar(255), formData.Description || null)
+            .input('IsActive', sql.Bit, formData.IsActive ?? true)
+            .input('User', sql.NVarChar(100), formData.User || null)
+            .execute('RetailServices_SaveOrUpdate');
+
+        res.status(200).json({ message: 'Retail service saved/updated successfully', data: null });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY ORDERS -------------------------
+const retailOrderSaveUpdate = async (req, res) => {
+    const formData = req.body;  
+
+    try {
+
+        store.dispatch(setCurrentDatabase(formData.client));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
+        const config = store.getState().constents.config;  
+
+        const pool = await sql.connect(config);
+
+        const customerResult = await pool.request()
+            .input('ID2', sql.NVarChar(350), formData.ID2 || null) 
+            .input('FullName', sql.NVarChar(255), formData.CustomerName)
+            .input('DisplayName', sql.NVarChar(255), formData.CustomerName)
+            .input('CompanyName', sql.NVarChar(255), formData.CustomerName) 
+            .input('Phone', sql.NVarChar(50), formData.Phone)
+            .input('Address', sql.NVarChar(250), formData.Address)  
+            .input('Latitude', sql.NVarChar(250), formData.locationLat)  
+            .input('Longitude', sql.NVarChar(250), formData.locationLang)  
+            .input('MapLocation', sql.NVarChar(250), formData.locationName)   
+            .input('TenantId', sql.NVarChar(250), formData.t)  
+            .input('OrganizationId', sql.NVarChar(250), formData.t+'org')    
+
+            .output('ID', sql.NVarChar(100))
+            .execute('Retail_Customer_Save_Update');
+
+            const customerId = customerResult.output.ID;
+        console.log(formData);
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), formData.ID2 || null)
+            .input('CustomerId', sql.NVarChar(65), customerId || null)
+            .input('OrderNo', sql.NVarChar(100), formData.OrderNo || formData.orderNo ||  null)
+            .input('CustomerName', sql.NVarChar(100), formData.CustomerName)
+            .input('Phone', sql.NVarChar(20), formData.Phone)
+            .input('Address', sql.NVarChar(255), formData.Address || null)
+            .input('UseCurrentLocation', sql.Bit, parseBoolean(formData.UseCurrentLocation) ?? false)
+            .input('ExpressService', sql.Bit, parseBoolean(formData.ExpressService)  ?? false)
+            .input('PickupService', sql.Bit, parseBoolean(formData.PickupService) ?? true)
+            .input('TotalItems', sql.Int, formData.TotalItems || 0)
+            .input('SubTotal', sql.Decimal(10,5), formData.SubTotal || 0)
+            .input('VatRate', sql.Decimal(5,2), formData.VatRate || 5)
+            .input('VatAmount', sql.Decimal(10,5), formData.VatAmount || 0)
+            .input('ShippingCharges', sql.Decimal(10,5), formData.ShippingCharges || 0)
+            .input('Status', sql.NVarChar(50), formData.Status || 'Order Booked')
+            .input('User', sql.NVarChar(100), formData.User || null)
+            .input('AreaId', sql.NVarChar(65), formData.AreaId)  
+            .input('AreaName', sql.NVarChar(100), formData.AreaName)  
+            .input('TenantId', sql.NVarChar(250), formData.t)    
+            .output('ID', sql.NVarChar(100))
+            .execute('RetailOrders_SaveOrUpdate');
+
+            const newID = result.output.ID;
+
+            if(formData.orderItems){ 
+                await retailOrderItemSaveUpdate(req,newID);  
+            }
+
+        res.status(200).json({ 
+            message: 'Retail order saved/updated successfully', 
+            data: formData 
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY ORDER ITEMS ------------------------- 
+
+async function retailOrderItemSaveUpdate(req,orderId){
+    const formData = req.body; 
+    const orderItems = JSON.parse(formData.orderItems);   
+
+    try {
+        store.dispatch(setCurrentDatabase(formData.client));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
+        const config = store.getState().constents.config;  
+
+        const pool = await sql.connect(config);
+        if (orderItems) {
+            for (let item of orderItems) {  
+                console.log(item);
+                if(item.ItemId){ 
+                await pool.request()
+                    .input('ID2', sql.NVarChar(65), item.ID2 || null)
+                    .input('OrderId', sql.NVarChar(65), orderId)
+                    .input('ItemId', sql.NVarChar(65), item.ItemId)
+                    .input('ServiceId', sql.NVarChar(65), item.ServiceId)
+                    .input('Quantity', sql.Int, item.Quantity || 1)
+                    .input('UnitPrice', sql.Decimal(10,5), item.UnitPrice)
+                    .input('User', sql.NVarChar(100), formData.user || null)
+                    .input('TenantId', sql.NVarChar(250), formData.t)    
+                    .execute('RetailOrderItems_SaveOrUpdate');
+                }
+            }
+        }
+
+        // res.status(200).json({ message: 'Retail order item saved/updated successfully', data: null });
+
+    } catch (error) { 
+        throw new Error(error.message);
+
+    }
+};
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return Boolean(value); // handles 0, 1, null, undefined
+}
+
+const retailChangeOrderStatus = async (req, res) => {
+    const formData = req.body;  
+
+    try {
+
+        store.dispatch(setCurrentDatabase(formData.client));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
+        const config = store.getState().constents.config;  
+
+        const pool = await sql.connect(config);
+
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(350), formData.orderId) 
+            .input('OrderNo', sql.NVarChar(255), formData.orderNo)
+            .input('Status', sql.NVarChar(255), formData.newStatus)
+            .input('StatusID', sql.NVarChar(255), formData.newStatusId || null) 
+            .input('ChangedBy', sql.NVarChar(255), formData.ChangedBy || 'System')  
+            .execute('Retail_Order_Change_Status');
+ 
+        res.status(200).json({ 
+            message: 'Retail order status changed successfully', 
+            data: result 
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+const getRetailCustomerDetails = async (req, res) => {
+    const { phone,client } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'System'));  
+
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('Phone', sql.NVarChar(65), phone || null)
+            .execute('Retail_Customer_Details');
+
+        res.status(200).json({
+            message: 'Retail customer Details loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of get customer details
+
+const deleteOrderItem = async (req, res) => {
+    const { id,orderID,ID2,client } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'System'));  
+
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('OrderID', sql.NVarChar(65), orderID || null)
+            .input('ItemID', sql.NVarChar(65), ID2 || null)
+            .execute('Delete_Order_item');
+
+        res.status(200).json({
+            message: 'Retail order item deleted  successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of deleteOrderItem
+
+
+// ------------------------- LAUNDRY ITEMS -------------------------
+const getRetailItems = async (req, res) => {
+    const { ID2 } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), ID2 || null)
+            .execute('RetailItems_Get');
+
+        res.status(200).json({
+            message: 'Retail items loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY SERVICES -------------------------
+const getRetailServices = async (req, res) => {
+    const { ID2 } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), ID2 || null)
+            .execute('RetailServices_Get');
+
+        res.status(200).json({
+            message: 'Retail services loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY PRICE LIST -------------------------
+const getRetailPriceList = async (req, res) => {
+    const { ID2, ItemId, ServiceId } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), ID2 || null)
+            .input('ItemId', sql.NVarChar(65), ItemId || null)
+            .input('ServiceId', sql.NVarChar(65), ServiceId || null)
+            .execute('RetailPriceList_Get');
+
+        res.status(200).json({
+            message: 'Retail price list loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY ORDERS -------------------------
+const getRetailOrders = async (req, res) => {
+    const { ID2, CustomerId,isWeb, client,t } = req.body;
+
+    try {
+        // console.log('client');
+        // console.log(client);
+
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
+        const config = store.getState().constents.config;
+        // console.log(config);
+        const pool = await sql.connect(config);
+
+        const result = await pool.request()
+            .input('ID2', sql.NVarChar(65), ID2 || null) 
+            .input('isWeb', sql.Bit, isWeb ? 1 : 0 || null)  
+            .input('TenantId', sql.NVarChar(65), req.authUser.tenantId || t)  
+            .execute('RetailOrders_Get');
+
+        res.status(200).json({
+            message: 'Retail orders loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+const getRetailOrderDetails = async (req, res) => {
+    const { ID2, CustomerId,isWeb, client } = req.body;
+
+    try { 
+
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'System')); 
+        const config = store.getState().constents.config;
+        // console.log(config);
+        const pool = await sql.connect(config);
+
+        const orderResult = await pool.request()
+            .input('ID2', sql.NVarChar(65), ID2 || null) 
+            .input('isWeb', sql.Bit, isWeb ? 1 : 0 || null)  
+            .execute('RetailOrder_Details');
+
+
+        const itemsResult = await pool.request()
+            .input('OrderId', sql.NVarChar(65), ID2 || null)  
+            .execute('RetailOrderItems_Details');
+
+         
+        const data = {
+            orderDetails: orderResult.recordset[0],
+            orderItems: itemsResult.recordset,  
+        }
+            
+
+        res.status(200).json({
+            message: 'Retail order details loaded successfully',
+            data: data
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+// ------------------------- LAUNDRY ORDER ITEMS -------------------------
+const getRetailOrderItems = async (req, res) => {
+    const { OrderId,client,t } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(client));
+        store.dispatch(setCurrentUser(req.authUser || 'system')); 
+        const config = store.getState().constents.config;
+
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .input('OrderId', sql.NVarChar(65), OrderId || null)
+            .execute('RetailOrderItems_Get');
+
+        res.status(200).json({
+            message: 'Retail order items loaded successfully',
+            data: result.recordset
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message, data: null });
+    }
+};
+
+
+module.exports = {
+    retailItemSaveUpdate,retailChangeOrderStatus,  retailServiceSaveUpdate,  retailOrderSaveUpdate,  retailOrderItemSaveUpdate,
+    // ------
+    deleteOrderItem,getRetailCustomerDetails,getRetailItems,  getRetailServices,  getRetailPriceList, getRetailOrders,getRetailOrderDetails,  getRetailOrderItems
+
+};

@@ -95,6 +95,11 @@ const {laundryItemSaveUpdate,  laundryServiceSaveUpdate,  laundryOrderSaveUpdate
     getLaundryItems,getLaundryCustomerDetails,deleteOrderItem,  getLaundryServices,  getLaundryPriceList, getLaundryOrders,getLaundryOrderDetails,  getLaundryOrderItems
 } = require('./controllers/laundry/laundryController'); 
 
+const {retailItemSaveUpdate,  retailServiceSaveUpdate,  retailOrderSaveUpdate,retailChangeOrderStatus,  retailOrderItemSaveUpdate,
+    getRetailItems,getRetailCustomerDetails,  getRetailServices,  getRetailPriceList, getRetailOrders,getRetailOrderDetails,  getRetailOrderItems
+} = require('./controllers/retail/retailController'); 
+
+
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
 
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
@@ -810,7 +815,22 @@ app.post('/api/laundry/order-items',authenticateToken,express.json(),getLaundryO
 app.post('/api/laundry/customer-details',authenticateToken,express.json(),getLaundryCustomerDetails );
 app.post('/api/laundry/order/delete-item',authenticateToken,express.json(),deleteOrderItem );
 
+// end of laundry module
 
+
+  
+app.post('/api/retail/order/save-update',authenticateToken,express.json(),upload,retailOrderSaveUpdate ); 
+app.post('/api/retail/order/change-status',authenticateToken,express.json(),upload,retailChangeOrderStatus ); 
+
+app.post('/api/retail/orders',authenticateToken,express.json(),getRetailOrders );
+app.post('/api/retail/order',authenticateToken,express.json(),getRetailOrders );
+app.post('/api/retail/order-details',authenticateToken,express.json(),getRetailOrderDetails );
+
+app.post('/api/retail/order-items',authenticateToken,express.json(),getRetailOrderItems );
+app.post('/api/retail/customer-details',authenticateToken,express.json(),getRetailCustomerDetails );
+app.post('/api/retail/order/delete-item',authenticateToken,express.json(),deleteOrderItem );
+
+// end of retail
 
 // biometric attendance
 
