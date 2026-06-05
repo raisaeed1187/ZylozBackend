@@ -358,7 +358,7 @@ const getRetailOrders = async (req, res) => {
         const result = await pool.request()
             .input('ID2', sql.NVarChar(65), ID2 || null) 
             .input('isWeb', sql.Bit, isWeb ? 1 : 0 || null)  
-            .input('TenantId', sql.NVarChar(65), req.authUser.tenantId || t)  
+            .input('TenantId', sql.NVarChar(65), req.authUser?.tenantId || t)  
             .execute('RetailOrders_Get');
 
         res.status(200).json({
@@ -421,6 +421,7 @@ const getRetailOrderItems = async (req, res) => {
         const pool = await sql.connect(config);
         const result = await pool.request()
             .input('OrderId', sql.NVarChar(65), OrderId || null)
+            // .input('TenantId', sql.NVarChar(65), req.authUser?.tenantId || t)  
             .execute('RetailOrderItems_Get');
 
         res.status(200).json({
