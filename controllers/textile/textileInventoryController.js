@@ -1047,7 +1047,336 @@ const textileOrder_GetByID = async (req, res) => {
   }
 };
  
+// ----------------start of dispatch order creation
+
+const delivery_List = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const {
+      status     = null,
+      search     = null,
+      pageNumber = 1,
+      pageSize   = 50,
+    } = req.body;
  
+    const result = await new sql.Request(pool)
+      .input('TenantID', sql.NVarChar(65),  req.authUser.tenantId)
+      .input('Status',   sql.NVarChar(30),  status || null)
+      .input('Search',   sql.NVarChar(200), search || null)
+      .input('PageNo',   sql.Int,           Number(pageNumber) || 1)
+      .input('PageSize', sql.Int,           Number(pageSize)   || 50)
+      .execute('usp_DO_List');
+ 
+    return res.status(200).json({ data: { orders: result.recordset } });
+  } catch (err) {
+    console.error('delivery_List ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ 
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2.  DETAIL
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Fetches full header + line items for one order by its SALES ORDER ID.
+ *
+ * SP returns 3 result sets:
+ *   recordsets[0][0]  Combined SO + DO header (DOxxx fields are null if no DO yet)
+ *   recordsets[1]     SO line items — OrderQtyPcs reference (read-only in UI)
+ *   recordsets[2]     DO line items — real dispatched rolls (empty if no DO yet)
+ *
+ * Request body:  { orderId: string }   ← TextileOrders.ID2
+ *
+ * Response:
+ *   {
+ *     data: {
+ *       ...header,
+ *       OrderItems: [ ...soLines ],   // SO lines – OrderQty reference
+ *       Items:      [ ...doLines ],   // DO lines – real rolls dispatched
+ *     }
+ *   }
+ */
+const delivery_Detail = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { orderId } = req.body;
+    if (!orderId) return res.status(400).json({ message: 'orderId is required.' });
+ 
+    const result = await new sql.Request(pool)
+      .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)
+      .input('OrderID',  sql.NVarChar(65), orderId)
+      .execute('usp_DO_GetDetail');
+ 
+    const header     = result.recordsets[0]?.[0] ?? null;
+    const orderItems = result.recordsets[1]       ?? [];   // SO lines (read-only)
+    const doItems    = result.recordsets[2]        ?? [];   // DO lines (editable)
+ 
+    if (!header)
+      return res.status(404).json({ message: 'Order not found or not in DO_Created status.' });
+ 
+    return res.status(200).json({
+      data: { ...header, OrderItems: orderItems, Items: doItems },
+    });
+  } catch (err) {
+    console.error('delivery_Detail ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ 
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// 3.  SAVE  (create or update)
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Creates or updates a delivery order with all its line items.
+ *
+ * items[] contains two types of rows:
+ *   Placeholder row  — LotNo/CtnNo empty, DOQtyPcs = 0
+ *                      Sent when a fabric has no real rolls yet.
+ *                      Carries OrderQtyPcs so the SP can store it.
+ *   Real roll        — LotNo + CtnNo populated, DOQtyPcs = 1
+ *                      One roll = one PCS dispatched.
+ *
+ * ItemDeliveryStatus is derived by the SP per line:
+ *   DOQtyPcs = 0                → 'Pending'
+ *   0 < DOQtyPcs < OrderQtyPcs  → 'Partial Delivered'
+ *   DOQtyPcs >= OrderQtyPcs     → 'Delivered'
+ *
+ * The SP also clamps DOQty ≤ OrderQty as an extra safety net.
+ *
+ * Request body:
+ *   {
+ *     doid?:           string   // omit to create new
+ *     orderId:         string
+ *     orderNo:         string
+ *     organizationId:  string
+ *     customerName?:   string
+ *     customerPhone?:  string
+ *     shippingAddress?: string
+ *     carrierType?:    string   // default 'Internal Fleet'
+ *     carrierName?:    string
+ *     vehicleNo?:      string
+ *     driverName?:     string
+ *     driverContact?:  string
+ *     driverNotes?:    string
+ *     status?:         string   // default 'Pending'
+ *     items: [{
+ *       stockInItemID: string
+ *       lotNo:         string   // '' for placeholder rows
+ *       ctnNo:         string   // '' for placeholder rows
+ *       itemDesc:      string
+ *       designNo:      string
+ *       colorNo:       string
+ *       supplierName:  string
+ *       orderQtyPcs:   number   // from sales order — FIXED
+ *       orderQtyMTS:   number
+ *       orderQtyYDS:   number
+ *       doQtyPcs:      number   // 1 for real roll, 0 for placeholder
+ *       doQtyMTS:      number
+ *       doQtyYDS:      number
+ *       unitPrice:     number
+ *     }]
+ *   }
+ *
+ * Response:  { message: string, data: { doid: string } }
+ */
+const delivery_Save = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const {
+      doid            = null,
+      orderId,
+      orderNo         = '',
+      organizationId,
+      customerName    = null,
+      customerPhone   = null,
+      shippingAddress = null,
+      carrierType     = 'Internal Fleet',
+      carrierName     = null,
+      vehicleNo       = null,
+      driverName      = null,
+      driverContact   = null,
+      driverNotes     = null,
+      status          = 'Pending',
+      items           = [],
+    } = req.body;
+ 
+    if (!orderId)        return res.status(400).json({ message: 'orderId is required.' });
+    if (!organizationId) return res.status(400).json({ message: 'organizationId is required.' });
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ message: 'items array is required and must not be empty.' });
+ 
+    const itemsJSON = JSON.stringify(
+      items.map((i) => ({
+        StockInItemID: i.stockInItemID  ?? '',
+        LotNo:         i.lotNo          ?? '',
+        CtnNo:         i.ctnNo          ?? '',
+        ItemDesc:      i.itemDesc        ?? '',
+        DesignNo:      i.designNo        ?? '',
+        ColorNo:       i.colorNo         ?? '',
+        SupplierName:  i.supplierName    ?? '',
+        // Sales-order reference (fixed, comes from SO line)
+        OrderQtyPcs:   Number(i.orderQtyPcs ?? 0),
+        OrderQtyMTS:   Number(i.orderQtyMTS ?? 0),
+        OrderQtyYDS:   Number(i.orderQtyYDS ?? 0),
+        // DO qty: 1 per real roll, 0 for placeholder (SP clamps to ≤ OrderQty)
+        DOQtyPcs:      Number(i.doQtyPcs    ?? 0),
+        DOQtyMTS:      Number(i.doQtyMTS    ?? 0),
+        DOQtyYDS:      Number(i.doQtyYDS    ?? 0),
+        UnitPrice:     Number(i.unitPrice   ?? 0),
+      }))
+    );
+ 
+    const request = new sql.Request(pool);
+    request.output('OutDOID',    sql.NVarChar(65));
+    request.output('OutMessage', sql.NVarChar(500));
+ 
+    const result = await request
+      .input('DOID',            sql.NVarChar(65),      doid            || null)
+      .input('TenantID',        sql.NVarChar(65),      req.authUser.tenantId)
+      .input('OrganizationID',  sql.NVarChar(65),      organizationId)
+      .input('OrderID',         sql.NVarChar(65),      orderId)
+      .input('OrderNo',         sql.NVarChar(65),      orderNo)
+      .input('CustomerName',    sql.NVarChar(200),     customerName    || null)
+      .input('CustomerPhone',   sql.NVarChar(50),      customerPhone   || null)
+      .input('ShippingAddress', sql.NVarChar(500),     shippingAddress || null)
+      .input('CarrierType',     sql.NVarChar(50),      carrierType     || 'Internal Fleet')
+      .input('CarrierName',     sql.NVarChar(200),     carrierName     || null)
+      .input('VehicleNo',       sql.NVarChar(100),     vehicleNo       || null)
+      .input('DriverName',      sql.NVarChar(200),     driverName      || null)
+      .input('DriverContact',   sql.NVarChar(50),      driverContact   || null)
+      .input('Status',          sql.NVarChar(30),      status)
+      .input('DriverNotes',     sql.NVarChar(1000),    driverNotes     || null)
+      .input('ActionBy',        sql.NVarChar(100),     req.authUser.username || req.authUser.userId || null)
+      .input('ItemsJSON',       sql.NVarChar(sql.MAX), itemsJSON)
+      .execute('usp_DO_Save');
+ 
+    const outDOID    = result.output.OutDOID;
+    const outMessage = result.output.OutMessage;
+ 
+    if (!outDOID) {
+      // SP caught an error internally and returned it via OutMessage
+      console.error('delivery_Save SP error:', outMessage);
+      return res.status(400).json({ message: outMessage || 'Delivery order save failed.' });
+    }
+ 
+    return res.status(200).json({ message: outMessage, data: { doid: outDOID } });
+  } catch (err) {
+    console.error('delivery_Save ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ 
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// 4.  UPDATE STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Changes the DO header status only (no line changes).
+ * Auto-stamps DispatchDate when → 'Dispatched', DeliveryDate when → 'Delivered'.
+ *
+ * Request body:  { doid: string, newStatus: string }
+ * Response:      { message: string }
+ */
+const delivery_UpdateStatus = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { doid, newStatus } = req.body;
+ 
+    if (!doid)      return res.status(400).json({ message: 'doid is required.' });
+    if (!newStatus) return res.status(400).json({ message: 'newStatus is required.' });
+ 
+    const VALID = ['Pending', 'Processing', 'Partial Delivered', 'Dispatched', 'Delivered', 'Cancelled'];
+    if (!VALID.includes(newStatus))
+      return res.status(400).json({ message: `Invalid status. Allowed: ${VALID.join(', ')}` });
+ 
+    const request = new sql.Request(pool);
+    request.output('OutMessage', sql.NVarChar(500));
+ 
+    const result = await request
+      .input('TenantID',  sql.NVarChar(65),  req.authUser.tenantId)
+      .input('DOID',      sql.NVarChar(65),  doid)
+      .input('NewStatus', sql.NVarChar(30),  newStatus)
+      .input('ActionBy',  sql.NVarChar(100), req.authUser.username || req.authUser.userId || null)
+      .execute('usp_DO_UpdateStatus');
+ 
+    return res.status(200).json({ message: result.output.OutMessage || 'Status updated.' });
+  } catch (err) {
+    console.error('delivery_UpdateStatus ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ 
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// 5.  AVAILABLE INVENTORY  (for the "Add Rolls" modal)
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Returns stock rolls that are available for dispatch:
+ *   • Physical stock minus active sales-order reservations
+ *   • Rolls already on a non-terminal DO are excluded entirely
+ *
+ * Filters:
+ *   designNo + colorNo   Supply BOTH for the per-row "Add Rolls" button
+ *                        (restricts results to that specific fabric group).
+ *   searchTerms          Comma-separated multi-term search via fn_SplitAndTrim.
+ *   lotNo                Optional exact-match filter.
+ *
+ * Response columns include:
+ *   StockInItemID, OrderNo, LotNo, CtnNo, FabricName, DesignNo, ColorNo,
+ *   TotalPcs, TotalMTS, TotalYDS,
+ *   ReservedPcs, ReservedMTS,
+ *   AvailablePcs, AvailableMTS, AvailableYDS,
+ *   UnitPrice, StockStatus ('Available'|'LowStock'), MatchCount, TotalRows
+ *
+ * Request body:
+ *   {
+ *     organizationId: string
+ *     searchTerms?:   string   // comma-separated e.g. "CL-04, LOT-882"
+ *     designNo?:      string   // exact match
+ *     colorNo?:       string   // exact match
+ *     lotNo?:         string   // exact match
+ *     pageNumber?:    number
+ *     pageSize?:      number
+ *   }
+ *
+ * Response:  { data: { items: [...] } }
+ */
+const delivery_AvailableInventory = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const {
+      organizationId,
+      searchTerms = null,
+      designNo    = null,
+      colorNo     = null,
+      lotNo       = null,
+      pageNumber  = 1,
+      pageSize    = 100,
+    } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+ 
+    const result = await new sql.Request(pool)
+      .input('TenantID',       sql.NVarChar(65),  req.authUser.tenantId)
+      .input('OrganizationID', sql.NVarChar(65),  organizationId)
+      .input('SearchTerms',    sql.NVarChar(500), searchTerms || null)
+      .input('LotNo',          sql.NVarChar(50),  lotNo       || null)
+      .input('DesignNo',       sql.NVarChar(50),  designNo    || null)
+      .input('ColorNo',        sql.NVarChar(50),  colorNo     || null)
+      .input('PageNumber',     sql.Int,           Number(pageNumber) || 1)
+      .input('PageSize',       sql.Int,           Number(pageSize)   || 100)
+      .execute('usp_Inventory_GetAvailable');
+ 
+    return res.status(200).json({ data: { items: result.recordset } });
+  } catch (err) {
+    console.error('delivery_AvailableInventory ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 
 
 
@@ -1062,5 +1391,12 @@ module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockI
   textileOrder_Delete,
   textileOrder_GetList,
   textileOrder_GetByID,
+
+  delivery_List,
+  delivery_Detail,
+  delivery_Save,
+  delivery_UpdateStatus,
+  delivery_AvailableInventory,
+  
 
 } ;

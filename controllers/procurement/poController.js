@@ -415,7 +415,63 @@ const getPurchaseReport = async (req, res) => {
 };
 // end of getPurchaseReport
 
+ const procurementConfigurationSaveUpdate = async (req, res) => {
+    try {
+        const { ID2, poCodePrefix, organizationId, createdBy } = req.body;
  
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        console.log('procurementConfigurationSaveUpdate body');
+        console.log(req.body);
+
+        await pool.request()
+            .input('ID2',           sql.VarChar(50),    ID2 || '0')
+            .input('POCodePrefix',  sql.NVarChar(50),   poCodePrefix || '')
+            .input('OrganizationId',sql.NVarChar(65),  organizationId)
+            .input('TenantId',sql.NVarChar(65),  req.authUser.tenantId)
+            .input('CreatedBy',     sql.NVarChar(100),  req.authUser.username)
+            .execute('SP_ProcurementConfiguration_SaveUpdate');
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Procurement configuration saved successfully.',
+        });
+    } catch (error) {
+        console.error('SP_ProcurementConfiguration_SaveUpdate error:', error);
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+const getProcurementConfiguration = async (req, res) => {
+    try {
+        const { organizationId } = req.body;
+
+         store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+
+        const result = await pool.request()
+            .input('OrganizationId', sql.NVarChar(65), organizationId)
+            .input('TenantId',sql.NVarChar(65),  req.authUser.tenantId)
+
+            .execute('SP_ProcurementConfiguration_Get');
+
+        const configuration = result.recordset.length > 0 ? result.recordset[0] : null;
+
+        return res.status(200).json({
+            status: 'success',
+            data: { configuration },
+        });
+    } catch (error) {
+        console.error('SP_ProcurementConfiguration_Get error:', error);
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
 
 
-module.exports =  {getPurchaseReport,poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem} ;
+
+module.exports =  {getPurchaseReport,poSaveUpdate,getPOsList,getPODetails,getGRNPOItems,getPOItems,deletePOItem,
+    procurementConfigurationSaveUpdate,getProcurementConfiguration} ;

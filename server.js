@@ -34,14 +34,15 @@ const {getContractPaymentSchedule, getPurchaseContractLocations,getPurchaseContr
 const {vendorSaveUpdate,getVendorDetails,getVendorsList} = require('./controllers/procurement/vendorController'); 
 const {itemSaveUpdate,getItemDetails,getItemsList,getItemVariationsList,getItemsWithVariations} = require('./controllers/procurement/itemController'); 
 const {prSaveUpdate,getPRDetails,getPRItems,getPRsList} = require('./controllers/procurement/prController'); 
-const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport} = require('./controllers/procurement/poController'); 
+const {poSaveUpdate,getPODetails,getGRNPOItems,getPOItems,deletePOItem,getPOsList,getPurchaseReport,procurementConfigurationSaveUpdate,getProcurementConfiguration} = require('./controllers/procurement/poController'); 
 const {rfqSaveUpdate,getRFQDetails,getRFQsList,rfqChangeStatus,getRFQPOsList,deleteRFQItem} = require('./controllers/procurement/rfqController'); 
 const {grnSaveUpdate,getGRNDetails,getGRNItems,getGRNsList,getPOPreviousGRns} = require('./controllers/procurement/grnController'); 
 const {getInventoryGRNItems,getStockItems, stockOutSaveUpdate,stockTransferSaveUpdate,getInventoryStockTransfers, getInventoryStockOuts, getInventoryStockDetails, getInventoryStockOutDetails} = require('./controllers/procurement/inventoryController'); 
 
 const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate, getTextileStockItems,textileStockOutSaveUpdate,textileStockTransferSaveUpdate,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, getTextileInventoryStockDetails, getTextileInventoryStockOutDetails,
 textileStock_GeneralSelection,  textileStock_SpecificSelection,  textileOrder_Save,  textileOrder_UpdateStatus,
-  textileOrder_Delete,  textileOrder_GetList,  textileOrder_GetByID,
+  textileOrder_Delete,  textileOrder_GetList,  textileOrder_GetByID,delivery_List,
+  delivery_Detail,  delivery_Save,  delivery_UpdateStatus, delivery_AvailableInventory,
 
 } = require('./controllers/textile/textileInventoryController'); 
 
@@ -342,6 +343,14 @@ app.post('/api/grn/po-items',authenticateToken,express.json(),getGRNPOItems );
 
 app.post('/api/pos',authenticateToken,express.json(),getPOsList );
 app.post('/api/procurement/purchase-report',authenticateToken,express.json(),getPurchaseReport );
+
+app.post('/api/procurement/purchase-report',authenticateToken,express.json(),getPurchaseReport );
+
+
+router.post('/procurement/configuration/save-update',authenticateToken,express.json(),upload,procurementConfigurationSaveUpdate);
+router.post('/procurement/configuration', authenticateToken,express.json(),getProcurementConfiguration);
+
+
 //end po controller
 
 // inventory
@@ -382,6 +391,13 @@ app.post ("/api/textile/order/update-status", authenticateToken,express.json(), 
 app.post("/api/textile/order/delete",        authenticateToken,express.json(), textileOrder_Delete);
 app.post("/api/textile/order/list",          authenticateToken,express.json(), textileOrder_GetList);
 app.post("/api/textile/order/details",       authenticateToken,express.json(), textileOrder_GetByID);
+
+app.post("/api/textile/delivery/list",       authenticateToken,express.json(), delivery_List);
+app.post("/api/textile/delivery/detail",       authenticateToken,express.json(), delivery_Detail);
+app.post("/api/textile/delivery/save",       authenticateToken,express.json(), delivery_Save);
+app.post("/api/textile/delivery/update-status",       authenticateToken,express.json(), delivery_UpdateStatus);
+app.post("/api/textile/delivery/available-inventory",       authenticateToken,express.json(), delivery_AvailableInventory);
+
 
 
 // end of textile inventory

@@ -65,6 +65,8 @@ const rfqSaveUpdate = async (req, res) => {
             .input('DeliveryLocation', sql.NVarChar(100), formData.deliveryLocation || null) 
             .input('OrderNo', sql.NVarChar(100), formData.orderNo || null) 
             .input('TenantId', sql.NVarChar(100), req.authUser.tenantId )  
+            .input('Currency', sql.NVarChar(100), formData.currency || null) 
+            .input('BaseCurrencyRate', sql.NVarChar(100), formData.baseCurrencyRate || null) 
             
             .output('ID', sql.NVarChar(100))
             .execute('RFQ_SaveOrUpdate');
