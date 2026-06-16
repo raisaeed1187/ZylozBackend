@@ -409,9 +409,15 @@ const getBranchesList = async (req, res) => {
         
         await setTenantContext(pool,req);
 
-        const query = `exec Branch_Get Null,'${organizationId}'`;  
-        const apiResponse = await pool.request().query(query); 
+        // const query = `exec Branch_Get Null,'${organizationId}'`;  
+        // const apiResponse = await pool.request().query(query); 
           
+         const apiResponse = await pool.request()
+                .input('ID2', sql.NVarChar(65), null)
+                .input('OrganizationId', sql.NVarChar(65), organizationId) 
+                .input('TenantId', sql.NVarChar(65), req.authUser.tenantId)  
+                .execute('Branch_Get');
+
         res.status(200).json({
             message: `Branch loaded successfully!`,
             data: apiResponse.recordset

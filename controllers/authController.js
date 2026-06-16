@@ -319,6 +319,8 @@ const signIn = async (req,res)=>{
             const config =  store.getState().constents.config;  
 
            
+            // console.log('config');
+            // console.log(config);
 
             // console.log('config login');
             // console.log(config);

@@ -35,6 +35,7 @@ const states = {
             trustServerCertificate:true,
             trustedConnection:false,
             enableArithAbort:true,
+            encrypt: true,
             // instancename:"SQLEXPRESS", 
             connectionTimeout: 60000,  
             requestTimeout: 600000, 

@@ -1377,6 +1377,120 @@ const delivery_AvailableInventory = async (req, res) => {
   }
 };
 
+// start of inventory summary and list
+
+const textile_inventory_Summary = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+ 
+    const result = await new sql.Request(pool)
+      .input('TenantID',       sql.NVarChar(65), req.authUser.tenantId)
+      .input('OrganizationID', sql.NVarChar(65), organizationId)
+      .execute('usp_Inventory_Summary');
+ 
+    const row = result.recordset?.[0] ?? {};
+    return res.status(200).json({ data: row });
+  } catch (err) {
+    console.error('textile_inventory_Summary ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+  
+const textile_inventory_List = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const {
+      organizationId,
+      search     = null,
+      category   = null,
+      status     = null,
+      location   = null,
+      pageNumber = 1,
+      pageSize   = 20,
+    } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+ 
+    const pn = Number(pageNumber) || 1;
+    const ps = Number(pageSize)   || 20;
+ 
+    const result = await new sql.Request(pool)
+      .input('TenantID',       sql.NVarChar(65),  req.authUser.tenantId)
+      .input('OrganizationID', sql.NVarChar(65),  organizationId)
+      .input('Search',         sql.NVarChar(200), search   || null)
+      .input('Category',       sql.NVarChar(100), category || null)
+      .input('Status',         sql.NVarChar(30),  status   || null)
+      .input('Location',       sql.NVarChar(100), location || null)
+      .input('PageNumber',     sql.Int,           pn)
+      .input('PageSize',       sql.Int,           ps)
+      .execute('usp_Inventory_List');
+ 
+    const items     = result.recordset || [];
+    const totalRows = items[0]?.TotalRows ?? 0;
+    const totalPages = Math.ceil(totalRows / ps) || 1;
+ 
+    return res.status(200).json({
+      data: {
+        items,
+        pagination: { totalRows, totalPages, pageNumber: pn, pageSize: ps },
+      },
+    });
+  } catch (err) {
+    console.error('inventory_List ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+  
+const textile_inventory_Rolls = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const {
+      organizationId,
+      search     = null,
+      category   = null,
+      status     = null,
+      location   = null,
+      pageNumber = 1,
+      pageSize   = 20,
+    } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+ 
+    const pn = Number(pageNumber) || 1;
+    const ps = Number(pageSize)   || 20;
+ 
+    const result = await new sql.Request(pool)
+      .input('TenantID',       sql.NVarChar(65),  req.authUser.tenantId)
+      .input('OrganizationID', sql.NVarChar(65),  organizationId)
+      .input('Search',         sql.NVarChar(200), search   || null)
+      .input('Category',       sql.NVarChar(100), category || null)
+      .input('Status',         sql.NVarChar(30),  status   || null)
+      .input('Location',       sql.NVarChar(100), location || null)
+      .input('PageNumber',     sql.Int,           pn)
+      .input('PageSize',       sql.Int,           ps)
+      .execute('usp_Inventory_Rolls');
+ 
+    const items      = result.recordset || [];
+    const totalRows  = items[0]?.TotalRows ?? 0;
+    const totalPages = Math.ceil(totalRows / ps) || 1;
+ 
+    return res.status(200).json({
+      data: {
+        items,
+        pagination: { totalRows, totalPages, pageNumber: pn, pageSize: ps },
+      },
+    });
+  } catch (err) {
+    console.error('inventory_Rolls ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
 
 
 
@@ -1392,11 +1506,9 @@ module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockI
   textileOrder_GetList,
   textileOrder_GetByID,
 
-  delivery_List,
-  delivery_Detail,
-  delivery_Save,
-  delivery_UpdateStatus,
-  delivery_AvailableInventory,
+  delivery_List,  delivery_Detail,  delivery_Save,  delivery_UpdateStatus,  delivery_AvailableInventory,
+
+  textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls
   
 
 } ;

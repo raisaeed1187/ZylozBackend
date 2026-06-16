@@ -43,6 +43,7 @@ const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate,
 textileStock_GeneralSelection,  textileStock_SpecificSelection,  textileOrder_Save,  textileOrder_UpdateStatus,
   textileOrder_Delete,  textileOrder_GetList,  textileOrder_GetByID,delivery_List,
   delivery_Detail,  delivery_Save,  delivery_UpdateStatus, delivery_AvailableInventory,
+   textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls
 
 } = require('./controllers/textile/textileInventoryController'); 
 
@@ -397,7 +398,10 @@ app.post("/api/textile/delivery/detail",       authenticateToken,express.json(),
 app.post("/api/textile/delivery/save",       authenticateToken,express.json(), delivery_Save);
 app.post("/api/textile/delivery/update-status",       authenticateToken,express.json(), delivery_UpdateStatus);
 app.post("/api/textile/delivery/available-inventory",       authenticateToken,express.json(), delivery_AvailableInventory);
-
+app.post("/api/textile/inventory/summary",       authenticateToken,express.json(), textile_inventory_Summary);
+app.post("/api/textile/inventory/list",       authenticateToken,express.json(), textile_inventory_List);
+app.post("/api/textile/inventory/rolls",       authenticateToken,express.json(), textile_inventory_Rolls);
+ 
 
 
 // end of textile inventory
