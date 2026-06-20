@@ -254,7 +254,7 @@ const getPODetails = async (req, res) => {
 // end of getPODetails
 
 const getPOItems = async (req, res) => {  
-    const {Id} = req.body; // user data sent from client
+    const {Id,poId,organizationId} = req.body; // user data sent from client
       
     try {
          
@@ -266,14 +266,20 @@ const getPOItems = async (req, res) => {
             await setTenantContext(pool,req);
  
        
-        const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
-        console.log('itemsQuery');
-        console.log(itemsQuery);
+        // const itemsQuery = `exec PurchaseItem_Get '${Id}',1`;   
+        // console.log('itemsQuery');
+        // console.log(itemsQuery);
 
-        const itemsApiResponse = await pool.request().query(itemsQuery); 
+        // const itemsApiResponse = await pool.request().query(itemsQuery); 
           
+        const itemsApiResponse = await pool.request()
+                .input('PoId', sql.NVarChar(65), poId)
+                .input('OrganizationId', sql.NVarChar(65), organizationId || null)
+                .input('TenantId', sql.NVarChar(65), req.authUser.tenantId)
+                .execute('PurchaseOrderItem_Get_new');
+
         res.status(200).json({
-            message: `PO details loaded successfully!`,
+            message: `PO items loaded successfully!`,
             data: itemsApiResponse.recordset
         });
          
@@ -285,7 +291,7 @@ const getPOItems = async (req, res) => {
 // end of getPOItems
 
 const getGRNPOItems = async (req, res) => {  
-    const {poID} = req.body; // user data sent from client
+    const {poID,organizationId} = req.body; // user data sent from client
       
     try {
          
@@ -297,11 +303,13 @@ const getGRNPOItems = async (req, res) => {
  
             await setTenantContext(pool,req);
        
+
         const itemsQuery = `exec GRNPurchaseOrderItem_Get '${poID}'`;   
         console.log('itemsQuery');
-        console.log(itemsQuery);
-
+        console.log(itemsQuery); 
         const itemsApiResponse = await pool.request().query(itemsQuery); 
+
+    
           
         res.status(200).json({
             message: `GRN PO items loaded successfully!`,

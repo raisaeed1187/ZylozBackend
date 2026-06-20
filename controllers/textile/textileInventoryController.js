@@ -24,12 +24,10 @@ const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
  
   
  
-// Save Header & Items
+// Save Header & Items -- in side this stock in code, need to change from gitbub
 const textileStockOutSaveUpdate = async (req, res) => {
   const formData = req.body;
-
-  let pool;
-  let transaction;
+  let pool, transaction;
 
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
@@ -37,52 +35,84 @@ const textileStockOutSaveUpdate = async (req, res) => {
     const config = store.getState().constents.config;
 
     pool = await sql.connect(config);
-    await setTenantContext(pool,req);
+    await setTenantContext(pool, req);
 
     transaction = new sql.Transaction(pool);
     await transaction.begin();
 
+    // ── Parse items & compute totals ──────────────────────
+    const items = JSON.parse(formData.items || '[]');
+
+    const totalRows      = items.length;
+    const totalPCS       = items.reduce((s, i) => s + (parseFloat(i.pcsNo)     || 0), 0);
+    const totalLengthMTS = items.reduce((s, i) => s + (parseFloat(i.lengthMts) || 0), 0);
+    const totalLengthYDS = items.reduce((s, i) => s + (parseFloat(i.lengthYds) || 0), 0);
+    const totalValueUSD  = items.reduce(
+      (s, i) => s + (parseFloat(i.pcsNo) || 0) * (parseFloat(i.unitPrice) || 0), 0
+    );
+    const exchangeRate   = parseFloat(formData.exchangeRate) || 3.67;
+    const totalValueAED  = totalValueUSD * exchangeRate;
+
+    // ── Save header ───────────────────────────────────────
     const headerRequest = new sql.Request(transaction);
+    const headerResult  = await headerRequest
+      .input('ID2',             sql.NVarChar(65),      formData.ID2        || null)
+      .input('OrganizationID',  sql.NVarChar(65),      formData.organizationId)
+      .input('TenantID',        sql.NVarChar(65),      req.authUser.tenantId)
+      .input('WarehouseID',     sql.NVarChar(65),      formData.warehouseId)
+      .input('VendorID',        sql.NVarChar(65),      formData.vendorId   || null)
+      .input('PurchaseOrderID', sql.NVarChar(65),      formData.poId       || null)
+      .input('ReferenceNo',     sql.NVarChar(50),      formData.reference  || null)
+      .input('EntryType',       sql.NVarChar(30),      formData.entryType  || null)
+      .input('EntryDate',       sql.Date,              formData.date       || null)
+      .input('Notes',           sql.NVarChar(sql.MAX), formData.notes      || null)
+      .input('CurrencyCode',    sql.NVarChar(10),      formData.currencyCode || 'AED')
+      .input('ExchangeRate',    sql.Decimal(18, 6),    exchangeRate)
+      .input('TotalRows',       sql.Int,               totalRows)
+      .input('TotalPCS',        sql.Decimal(18, 3),    totalPCS)
+      .input('TotalLengthMTS',  sql.Decimal(18, 3),    totalLengthMTS)
+      .input('TotalLengthYDS',  sql.Decimal(18, 3),    totalLengthYDS)
+      .input('TotalValueUSD',   sql.Decimal(18, 2),    totalValueUSD)
+      .input('TotalValueAED',   sql.Decimal(18, 2),    totalValueAED)
+      .input('StatusID',        sql.Int,               parseInt(formData.statusId) || 1)
+      .input('CreatedBy',       sql.NVarChar(100),     req.authUser.username)
+      .execute('TextileStockIn_SaveUpdate');
 
-    const result = await headerRequest
-      .input("ID2", sql.NVarChar(65), formData.ID2 || "0")
-      .input("TransactionType", sql.NVarChar(65), formData.transactionType)
-      .input("ReferenceNo", sql.NVarChar(100), formData.referenceNo)
-      .input("Date", sql.Date, formData.date)
-      .input("WarehouseID", sql.NVarChar(65), formData.warehouseId)
-      .input("Destination", sql.NVarChar(255), formData.destination)
-      .input("StatusId", sql.Int, formData.statusId)
-      .input("UserName", sql.NVarChar(100), req.authUser.username)
-      .input("OrganizationID", sql.NVarChar(100), formData.organizationId)
-      .input("TenantID", sql.NVarChar(100), req.authUser.tenantId)
+    const stockInId = headerResult.recordset[0]?.ID2;
+    if (!stockInId) throw new Error('Failed to get Stock In ID from header save.');
 
-      .execute("TextileInventoryStockOut_SaveOrUpdate");
-
-    const stockOutId = result.recordset[0]?.StockOutID;
-
-    if (formData.items) {
-      await stockOutItemSaveUpdate(req, stockOutId, transaction);
+    // ── Save items (bulk replace) ─────────────────────────
+    if (items.length > 0) {
+      const itemsRequest = new sql.Request(transaction);
+      await itemsRequest
+        .input('StockInID',      sql.NVarChar(65),      stockInId)
+        .input('OrganizationID', sql.NVarChar(65),      formData.organizationId)
+        .input('TenantID',       sql.NVarChar(65),      req.authUser.tenantId)
+        .input('ReplaceAll',     sql.Bit,               1)
+        .input('ItemsJSON',      sql.NVarChar(sql.MAX), formData.items)  // already stringified JSON
+        .execute('TextileStockInItems_SaveUpdate');
     }
 
     await transaction.commit();
-    console.log("Stock Out COMMITTED!");
+    console.log('Stock In COMMITTED — ID:', stockInId);
 
     res.status(200).json({
-      message: "Stock Out saved/updated successfully",
-      stockOutId: stockOutId,
+      message: 'Stock In saved successfully',
+      stockInId,
+      isSuccess: true,
     });
 
   } catch (err) {
-    console.error("Stock Out ERROR:", err);
-
+    console.error('Stock In Save ERROR:', err);
     if (transaction) {
       await transaction.rollback();
-      console.log("Stock Out ROLLED BACK!");
+      console.log('Stock In ROLLED BACK');
     }
-
     res.status(400).json({ message: err.message });
   }
 };
+
+// end of textileStockInSaveUpdate
 
 async function stockOutItemSaveUpdate(req, stockOutId, transaction) {
   const formData = req.body;
@@ -111,7 +141,7 @@ async function stockOutItemSaveUpdate(req, stockOutId, transaction) {
   }
 }
 
-// end of textileStockOutSaveUpdate
+// end of stockOutItemSaveUpdate
 
 
  
@@ -429,97 +459,87 @@ const getTextileInventoryStockDetails = async (req, res) => {
 
 const textileStockInSaveUpdate = async (req, res) => {
   const formData = req.body;
- 
-  let pool;
-  let transaction;
- 
+  let pool, transaction;
+
   try {
     store.dispatch(setCurrentDatabase(req.authUser.database));
     store.dispatch(setCurrentUser(req.authUser));
     const config = store.getState().constents.config;
- 
+
     pool = await sql.connect(config);
-   
     await setTenantContext(pool, req);
- 
+
     transaction = new sql.Transaction(pool);
     await transaction.begin();
-  
-    const headerRequest = new sql.Request(transaction);
-  
-    const itemsArray = formData.items
-      ? typeof formData.items === "string"
-        ? JSON.parse(formData.items)
-        : formData.items
-      : [];
- 
-    const exchangeRate = Number(formData.exchangeRate || 3.67);
-    const totalRows    = itemsArray.length;
-    const totalPCS     = itemsArray.reduce((s, i) => s + Number(i.pcsNo     || 0), 0);
-    const totalLenMTS  = itemsArray.reduce((s, i) => s + Number(i.lengthMts || 0), 0);
-    const totalLenYDS  = itemsArray.reduce((s, i) => s + Number(i.lengthYds || 0), 0);
-    const totalValUSD  = itemsArray.reduce(
-      (s, i) => s + Number(i.pcsNo || 0) * Number(i.unitPrice || 0), 0
-    );
-    const totalValAED  = totalValUSD * exchangeRate;
-    //  res.status(200).json({
-    //   message:   "Stock In saved/updated successfully",
-    //   stockInId: formData,
-    // });
 
-    const headerResult = await headerRequest
-      .input("ID2",            sql.NVarChar(65),      formData.ID2            || null)
-      .input("OrganizationID", sql.NVarChar(65),      formData.organizationId)
-      .input("TenantID",       sql.NVarChar(65),      req.authUser.tenantId)
-      .input("WarehouseID",    sql.NVarChar(65),      formData.warehouseId    || null)
-      .input("VendorID",       sql.NVarChar(65),      formData.vendorId       || null)
-      .input("PurchaseOrderID",sql.NVarChar(65),      formData.poId|| null)
-      .input("ReferenceNo",    sql.NVarChar(50),      formData.reference      || null)
-      .input("EntryType",      sql.NVarChar(30),      formData.entryType      || null)
-      .input("EntryDate",      sql.Date,              formData.date           || null)
-      .input("Notes",          sql.NVarChar(sql.MAX), formData.notes          || null)
-      .input("CurrencyCode",   sql.NVarChar(10),      formData.currencyCode   || "AED")
-      .input("ExchangeRate",   sql.Decimal(18, 6),    exchangeRate)
-      .input("TotalRows",      sql.Int,               totalRows)
-      .input("TotalPCS",       sql.Decimal(18, 3),    totalPCS)
-      .input("TotalLengthMTS", sql.Decimal(18, 3),    totalLenMTS)
-      .input("TotalLengthYDS", sql.Decimal(18, 3),    totalLenYDS)
-      .input("TotalValueUSD",  sql.Decimal(18, 2),    totalValUSD)
-      .input("TotalValueAED",  sql.Decimal(18, 2),    totalValAED)
-      .input("StatusID",       sql.Int,           formData.statusId || 1)
-      .input("CreatedBy",      sql.NVarChar(100),     req.authUser.username) 
-      .execute("TextileStockIn_SaveUpdate");
- 
+    // ── Parse items & compute totals ──────────────────────
+    const items = JSON.parse(formData.items || '[]');
+
+    const totalRows      = items.length;
+    const totalPCS       = items.reduce((s, i) => s + (parseFloat(i.pcsNo)     || 0), 0);
+    const totalLengthMTS = items.reduce((s, i) => s + (parseFloat(i.lengthMts) || 0), 0);
+    const totalLengthYDS = items.reduce((s, i) => s + (parseFloat(i.lengthYds) || 0), 0);
+    const totalValueUSD  = items.reduce(
+      (s, i) => s + (parseFloat(i.pcsNo) || 0) * (parseFloat(i.unitPrice) || 0), 0
+    );
+    const exchangeRate   = parseFloat(formData.exchangeRate) || 3.67;
+    const totalValueAED  = totalValueUSD * exchangeRate;
+
+    // ── Save header ───────────────────────────────────────
+    const headerRequest = new sql.Request(transaction);
+    const headerResult  = await headerRequest
+      .input('ID2',             sql.NVarChar(65),      formData.ID2        || null)
+      .input('OrganizationID',  sql.NVarChar(65),      formData.organizationId)
+      .input('TenantID',        sql.NVarChar(65),      req.authUser.tenantId)
+      .input('WarehouseID',     sql.NVarChar(65),      formData.warehouseId)
+      .input('VendorID',        sql.NVarChar(65),      formData.vendorId   || null)
+      .input('PurchaseOrderID', sql.NVarChar(65),      formData.poId       || null)
+      .input('ReferenceNo',     sql.NVarChar(50),      formData.reference  || null)
+      .input('EntryType',       sql.NVarChar(30),      formData.entryType  || null)
+      .input('EntryDate',       sql.Date,              formData.date       || null)
+      .input('Notes',           sql.NVarChar(sql.MAX), formData.notes      || null)
+      .input('CurrencyCode',    sql.NVarChar(10),      formData.currencyCode || 'AED')
+      .input('ExchangeRate',    sql.Decimal(18, 6),    exchangeRate)
+      .input('TotalRows',       sql.Int,               totalRows)
+      .input('TotalPCS',        sql.Decimal(18, 3),    totalPCS)
+      .input('TotalLengthMTS',  sql.Decimal(18, 3),    totalLengthMTS)
+      .input('TotalLengthYDS',  sql.Decimal(18, 3),    totalLengthYDS)
+      .input('TotalValueUSD',   sql.Decimal(18, 2),    totalValueUSD)
+      .input('TotalValueAED',   sql.Decimal(18, 2),    totalValueAED)
+      .input('StatusID',        sql.Int,               parseInt(formData.statusId) || 1)
+      .input('CreatedBy',       sql.NVarChar(100),     req.authUser.username)
+      .execute('TextileStockIn_SaveUpdate');
+
     const stockInId = headerResult.recordset[0]?.ID2;
- 
-    if (!stockInId) {
-      throw new Error("Header procedure did not return a StockIn ID.");
+    if (!stockInId) throw new Error('Failed to get Stock In ID from header save.');
+
+    // ── Save items (bulk replace) ─────────────────────────
+    if (items.length > 0) {
+      const itemsRequest = new sql.Request(transaction);
+      await itemsRequest
+        .input('StockInID',      sql.NVarChar(65),      stockInId)
+        .input('OrganizationID', sql.NVarChar(65),      formData.organizationId)
+        .input('TenantID',       sql.NVarChar(65),      req.authUser.tenantId)
+        .input('ReplaceAll',     sql.Bit,               1)
+        .input('ItemsJSON',      sql.NVarChar(sql.MAX), formData.items)  // already stringified JSON
+        .execute('TextileStockInItems_SaveUpdate');
     }
-  
-    if (formData.items && itemsArray.length > 0) {
-      await stockInItemsSaveUpdate(req, stockInId, transaction);
-    }
- 
+
     await transaction.commit();
-    // console.log("Stock In COMMITTED — ID:", stockInId);
- 
+    console.log('Stock In COMMITTED — ID:', stockInId);
+
     res.status(200).json({
-      message:   "Stock In saved/updated successfully",
-      stockInId: stockInId,
+      message: 'Stock In saved successfully',
+      stockInId,
+      isSuccess: true,
     });
- 
+
   } catch (err) {
-    console.error("Stock In ERROR:", err);
- 
+    console.error('Stock In Save ERROR:', err);
     if (transaction) {
-      try {
-        await transaction.rollback();
-        console.log("Stock In ROLLED BACK!");
-      } catch (rollbackErr) {
-        console.error("Rollback failed:", rollbackErr);
-      }
+      await transaction.rollback();
+      console.log('Stock In ROLLED BACK');
     }
- 
     res.status(400).json({ message: err.message });
   }
 };

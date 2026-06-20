@@ -732,7 +732,16 @@ const getRFQPOsList = async (req, res) => {
         const pool = await sql.connect(config);  
         let query = '';
         const logoCache = {};
-            await setTenantContext(pool,req);
+        await setTenantContext(pool,req);
+
+        // const tran = new sql.Transaction(pool);
+        // await tran.begin();
+        
+        // const request = tran.request();
+            
+        // await setTenantContext(request, req);
+
+
 
         const result = await pool.request()
             .input('RFQID', sql.NVarChar(65), rfqId)
