@@ -43,7 +43,13 @@ const {textileStockInGetDetails,textileStockInGetList, textileStockInSaveUpdate,
 textileStock_GeneralSelection,  textileStock_SpecificSelection,  textileOrder_Save,  textileOrder_UpdateStatus,
   textileOrder_Delete,  textileOrder_GetList,  textileOrder_GetByID,delivery_List,
   delivery_Detail,  delivery_Save,  delivery_UpdateStatus, delivery_AvailableInventory,
-   textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls
+   textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls,
+   getTextileSettings,
+  saveTextileGeneralConfig,
+  saveTextileUOMSettings,
+  saveTextileCurrency,
+  toggleTextileCurrency,
+  saveTextileExchangeRate,  deleteTextileExchangeRate,  saveTextileConversionRule,  deleteTextileConversionRule,
 
 } = require('./controllers/textile/textileInventoryController'); 
 
@@ -401,8 +407,18 @@ app.post("/api/textile/delivery/available-inventory",       authenticateToken,ex
 app.post("/api/textile/inventory/summary",       authenticateToken,express.json(), textile_inventory_Summary);
 app.post("/api/textile/inventory/list",       authenticateToken,express.json(), textile_inventory_List);
 app.post("/api/textile/inventory/rolls",       authenticateToken,express.json(), textile_inventory_Rolls);
- 
 
+// textile settings
+app.post("/api/textile/settings",                          authenticateToken, express.json(), getTextileSettings);
+app.post("/api/textile/settings/general-config/save",      authenticateToken, express.json(), saveTextileGeneralConfig);
+app.post("/api/textile/settings/uom/save",                 authenticateToken, express.json(), saveTextileUOMSettings);
+app.post("/api/textile/settings/currency/save",            authenticateToken, express.json(), saveTextileCurrency);
+app.post("/api/textile/settings/currency/toggle",          authenticateToken, express.json(), toggleTextileCurrency);
+app.post("/api/textile/settings/exchange-rate/save",       authenticateToken, express.json(), saveTextileExchangeRate);
+app.post("/api/textile/settings/exchange-rate/delete",     authenticateToken, express.json(), deleteTextileExchangeRate);
+app.post("/api/textile/settings/conversion-rule/save",     authenticateToken, express.json(), saveTextileConversionRule);
+app.post("/api/textile/settings/conversion-rule/delete",   authenticateToken, express.json(), deleteTextileConversionRule);
+// end of textile settings
 
 // end of textile inventory
 

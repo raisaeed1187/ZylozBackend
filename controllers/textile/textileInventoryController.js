@@ -1514,6 +1514,260 @@ const textile_inventory_Rolls = async (req, res) => {
 
 
 
+// ============================================================
+//  TEXTILE SETTINGS
+// ============================================================
+
+// POST /api/textile/settings
+const getTextileSettings = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',    sql.NVarChar(100), organizationId)
+      .input('TenantId', sql.NVarChar(100), req.authUser.tenantId || null)
+      .execute('sp_GetTextileSettings');
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        generalConfig:   result.recordsets[0]?.[0] ?? null,
+        currencies:      result.recordsets[1]       ?? [],
+        exchangeRates:   result.recordsets[2]       ?? [],
+        conversionRules: result.recordsets[3]       ?? [],
+        rateHistory:     result.recordsets[4]       ?? [],
+      },
+    });
+  } catch (err) {
+    console.error('getTextileSettings ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/general-config/save
+const saveTextileGeneralConfig = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, baseCurrency, dateFormat, timezone, baseUOM, costUOM, pcsConversion } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',          sql.NVarChar(100),   organizationId)
+      .input('OrganizationId', sql.NVarChar(100),   organizationId)
+      .input('TenantId',       sql.NVarChar(100),   req.authUser.tenantId || null)
+      .input('BaseCurrency',   sql.NVarChar(10),    baseCurrency  || 'AED')
+      .input('DateFormat',     sql.NVarChar(20),    dateFormat    || 'DD-MMM-YYYY')
+      .input('Timezone',       sql.NVarChar(60),    timezone      || 'Asia/Dubai')
+      .input('BaseUOM',        sql.NVarChar(10),    baseUOM       || 'MTS')
+      .input('CostUOM',        sql.NVarChar(10),    costUOM       || 'YDS')
+      .input('PCSConversion',  sql.Decimal(18, 6),  parseFloat(pcsConversion) || 1)
+      .input('UpdatedBy',      sql.NVarChar(100),   req.authUser.username || null)
+      .execute('sp_SaveTextileGeneralConfig');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Save failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('saveTextileGeneralConfig ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/uom/save
+const saveTextileUOMSettings = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, baseUOM, costUOM, pcsConversion } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',          sql.NVarChar(100),   organizationId)
+      .input('OrganizationId', sql.NVarChar(100),   organizationId)
+      .input('TenantId',       sql.NVarChar(100),   req.authUser.tenantId || null)
+      .input('BaseUOM',        sql.NVarChar(10),    baseUOM      || 'MTS')
+      .input('CostUOM',        sql.NVarChar(10),    costUOM      || 'YDS')
+      .input('PCSConversion',  sql.Decimal(18, 6),  parseFloat(pcsConversion) || 1)
+      .input('UpdatedBy',      sql.NVarChar(100),   req.authUser.username || null)
+      .execute('sp_SaveTextileUOMSettings');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Save failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('saveTextileUOMSettings ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/currency/save
+const saveTextileCurrency = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, currencyCode, currencyName, symbol, isBase = false } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!currencyCode)   return res.status(400).json({ success: false, message: 'currencyCode is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',          sql.NVarChar(100), organizationId)
+      .input('OrganizationId', sql.NVarChar(100), organizationId)
+      .input('TenantId',       sql.NVarChar(100), req.authUser.tenantId || null)
+      .input('CurrencyCode',   sql.NVarChar(10),  currencyCode)
+      .input('CurrencyName',   sql.NVarChar(100), currencyName || currencyCode)
+      .input('Symbol',         sql.NVarChar(10),  symbol       || currencyCode)
+      .input('IsBase',         sql.Bit,           isBase ? 1 : 0)
+      .input('CreatedBy',      sql.NVarChar(100), req.authUser.username || null)
+      .execute('sp_SaveTextileCurrency');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Save failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('saveTextileCurrency ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/currency/toggle
+const toggleTextileCurrency = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, currencyCode, isActive } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!currencyCode)   return res.status(400).json({ success: false, message: 'currencyCode is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',        sql.NVarChar(100), organizationId)
+      .input('CurrencyCode', sql.NVarChar(10),  currencyCode)
+      .input('IsActive',     sql.Bit,           isActive ? 1 : 0)
+      .execute('sp_ToggleTextileCurrency');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Toggle failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('toggleTextileCurrency ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/exchange-rate/save
+const saveTextileExchangeRate = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, fromCurrency, toCurrency, rate, effectiveFrom } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!fromCurrency)   return res.status(400).json({ success: false, message: 'fromCurrency is required.' });
+    if (!toCurrency)     return res.status(400).json({ success: false, message: 'toCurrency is required.' });
+    if (!rate)           return res.status(400).json({ success: false, message: 'rate is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',          sql.NVarChar(100),  organizationId)
+      .input('OrganizationId', sql.NVarChar(100),  organizationId)
+      .input('TenantId',       sql.NVarChar(100),  req.authUser.tenantId || null)
+      .input('FromCurrency',   sql.NVarChar(10),   fromCurrency)
+      .input('ToCurrency',     sql.NVarChar(10),   toCurrency)
+      .input('Rate',           sql.Decimal(18, 6), parseFloat(rate))
+      .input('EffectiveFrom',  sql.NVarChar(20),   effectiveFrom || new Date().toISOString().split('T')[0])
+      .input('ActionBy',       sql.NVarChar(100),  req.authUser.username || null)
+      .execute('sp_SaveTextileExchangeRate');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Save failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('saveTextileExchangeRate ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/exchange-rate/delete
+const deleteTextileExchangeRate = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, rateId } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!rateId)         return res.status(400).json({ success: false, message: 'rateId is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',          sql.NVarChar(100), organizationId)
+      .input('OrganizationId', sql.NVarChar(100), organizationId)
+      .input('TenantId',       sql.NVarChar(100), req.authUser.tenantId || null)
+      .input('RateId',         sql.Int,           parseInt(rateId))
+      .input('DeletedBy',      sql.NVarChar(100), req.authUser.username || null)
+      .execute('sp_DeleteTextileExchangeRate');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Delete failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('deleteTextileExchangeRate ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/conversion-rule/save
+const saveTextileConversionRule = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, fromUOM, toUOM, conversionValue } = req.body;
+
+    if (!organizationId)  return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!fromUOM)         return res.status(400).json({ success: false, message: 'fromUOM is required.' });
+    if (!toUOM)           return res.status(400).json({ success: false, message: 'toUOM is required.' });
+    if (!conversionValue) return res.status(400).json({ success: false, message: 'conversionValue is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',           sql.NVarChar(100),  organizationId)
+      .input('OrganizationId',  sql.NVarChar(100),  organizationId)
+      .input('TenantId',        sql.NVarChar(100),  req.authUser.tenantId || null)
+      .input('FromUOM',         sql.NVarChar(10),   fromUOM)
+      .input('ToUOM',           sql.NVarChar(10),   toUOM)
+      .input('ConversionValue', sql.Decimal(18, 6), parseFloat(conversionValue))
+      .execute('sp_SaveTextileConversionRule');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Save failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('saveTextileConversionRule ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/textile/settings/conversion-rule/delete
+const deleteTextileConversionRule = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, fromUOM, toUOM } = req.body;
+
+    if (!organizationId) return res.status(400).json({ success: false, message: 'organizationId is required.' });
+    if (!fromUOM)        return res.status(400).json({ success: false, message: 'fromUOM is required.' });
+    if (!toUOM)          return res.status(400).json({ success: false, message: 'toUOM is required.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrgId',   sql.NVarChar(100), organizationId)
+      .input('FromUOM', sql.NVarChar(10),  fromUOM)
+      .input('ToUOM',   sql.NVarChar(10),  toUOM)
+      .execute('sp_DeleteTextileConversionRule');
+
+    const row = result.recordset?.[0];
+    if (!row?.Success) return res.status(400).json({ success: false, message: row?.Message || 'Delete failed.' });
+    return res.status(200).json({ success: true, message: row.Message });
+  } catch (err) {
+    console.error('deleteTextileConversionRule ERROR:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockInSaveUpdate,getTextileInventoryStockDetails,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, textileStockOutSaveUpdate, textileStockTransferSaveUpdate , getPODetails,getTextileStockItems,getTextileInventoryGRNItems,
   // Stock selection
   textileStock_GeneralSelection,
@@ -1528,7 +1782,16 @@ module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockI
 
   delivery_List,  delivery_Detail,  delivery_Save,  delivery_UpdateStatus,  delivery_AvailableInventory,
 
-  textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls
-  
+  textile_inventory_Summary,textile_inventory_List,textile_inventory_Rolls,
 
+  // Textile Settings
+  getTextileSettings,
+  saveTextileGeneralConfig,
+  saveTextileUOMSettings,
+  saveTextileCurrency,
+  toggleTextileCurrency,
+  saveTextileExchangeRate,
+  deleteTextileExchangeRate,
+  saveTextileConversionRule,
+  deleteTextileConversionRule,
 } ;
