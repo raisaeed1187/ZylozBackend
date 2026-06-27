@@ -364,17 +364,21 @@ const getPOsList = async (req, res) => {
             await setTenantContext(pool,req);
 
         let query = '';
+        let  apiResponse;
         if (grn) {
             query = `exec PurchaseOrder_FOR_GRN_Get  '${organizationId}' `;   
-        }else  if (vendorId) {
-            query = `exec PurchaseOrder_Get Null,'${organizationId}','${vendorId}' `;   
-        } else{
-            query = `exec PurchaseOrder_Get Null,'${organizationId}' `;   
+             apiResponse = await pool.request().query(query);  
+        }else {
+            // query = `exec PurchaseOrder_Get Null,'${organizationId}' `;  
+            apiResponse = await pool.request()
+                    .input('ID2', sql.NVarChar(65), null)
+                    .input('OrganizationId', sql.NVarChar(65), organizationId)
+                    .input('VendorId', sql.NVarChar(65), vendorId)
+                    .execute('PurchaseOrder_Get'); 
         }
             
 
          
-        const apiResponse = await pool.request().query(query); 
         
         res.status(200).json({
             message: `POs List loaded successfully!`,

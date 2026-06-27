@@ -13,6 +13,7 @@ const constentsSlice = require("../../constents");
 const { sendEmail } = require("../../services/mailer");
 const { getPOSentTemplate } = require("../../utils/poSentTemplate");
 const { setTenantContext } = require("../../helper/db/sqlTenant");
+const { helper } = require("../../helper");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -1050,12 +1051,21 @@ const textileOrder_GetByID = async (req, res) => {
       .input("TenantID", sql.NVarChar(65), req.authUser.tenantId || null)
       .execute("usp_Order_GetByID");
  
-    const header = result.recordsets[0]?.[0] ?? null;
+    let header = result.recordsets[0]?.[0] ?? null;
     const items  = result.recordsets[1]       ?? [];
  
     if (!header) {
       return res.status(404).json({ message: "Order not found." });
     }
+    // console.log(header);
+    const logoBase64 = await helper.methods.urlToBase64(header.CompanyLogo);
+
+    header = {
+        ...header,
+        CompanyLogo: logoBase64 
+    };
+
+    // console.log(header);
  
     return res.status(200).json({
       message: "Order details loaded successfully.",
