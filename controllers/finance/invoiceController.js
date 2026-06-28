@@ -352,6 +352,7 @@ const getInvoiceDetails = async (req, res) => {
             .input("OrganizationId", sql.NVarChar, organizationId || null)
             .execute("FinInvoice_Get");
 
+            console.log(invoiceResponse.recordset);
         const itemsResponse = await pool
             .request()
             .input("InvoiceID", sql.NVarChar, Id || null)

@@ -1138,13 +1138,21 @@ const delivery_Detail = async (req, res) => {
       .input('OrderID',  sql.NVarChar(65), orderId)
       .execute('usp_DO_GetDetail');
  
-    const header     = result.recordsets[0]?.[0] ?? null;
+    let header     = result.recordsets[0]?.[0] ?? null;
     const orderItems = result.recordsets[1]       ?? [];   // SO lines (read-only)
     const doItems    = result.recordsets[2]        ?? [];   // DO lines (editable)
  
     if (!header)
       return res.status(404).json({ message: 'Order not found or not in DO_Created status.' });
  
+    const logoBase64 = await helper.methods.urlToBase64(header.CompanyLogo);
+
+
+    header = {
+            ...header, 
+          CompanyLogo:logoBase64  
+        };
+
     return res.status(200).json({
       data: { ...header, OrderItems: orderItems, Items: doItems },
     });
@@ -1778,6 +1786,79 @@ const deleteTextileConversionRule = async (req, res) => {
   }
 };
 
+const convertOrderToInvoice = async (req, res) => {
+    let pool, transaction;
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+
+        const { orderId,organizationId,branchId } = req.body; // or req.params depending on your routing
+
+        pool = await sql.connect(config);
+        transaction = new sql.Transaction(pool);
+
+        await setTenantContext(pool, req);
+        await transaction.begin();
+
+        // ── 1. Convert order → invoice header + lines ──────────────────────
+        const convertReq = new sql.Request(transaction);
+
+        const convertResult = await convertReq
+            .input('OrderID',        sql.NVarChar(65),  orderId)
+            .input('TenantID',       sql.NVarChar(65),  req.authUser.tenantId)
+            .input('OrganizationID', sql.NVarChar(65),  organizationId)
+            .input('BranchId',       sql.NVarChar(65),  branchId || null)
+            .input('JournalId',      sql.NVarChar(65),  null)
+            .input('PaymentTerms',   sql.NVarChar(100), null)
+            .input('DueDate',        sql.NVarChar(100), null)
+            .input('ActionBy',       sql.NVarChar(100), req.authUser.username)
+            .output('OutInvoiceID',  sql.NVarChar(65))
+            .output('OutMessage',    sql.NVarChar(500))
+            .execute('usp_ConvertOrderToInvoice');
+
+        const newInvoiceID = convertResult.output.OutInvoiceID;
+        const outMessage   = convertResult.output.OutMessage;
+
+        // SP signals failure via NULL OutInvoiceID (guard errors, duplicates, etc.)
+        if (!newInvoiceID) {
+            await transaction.rollback();
+            return res.status(400).json({ success: false, message: outMessage });
+        }
+
+        // ── 2. Create journal entries (same pattern as your existing save) ──
+        const journalReq = new sql.Request(transaction);
+
+        await journalReq
+            .input('InvoiceId', sql.NVarChar(65), newInvoiceID)
+            .execute('Invoice_Create_JournalEntries');
+
+        await transaction.commit();
+
+        return res.status(200).json({
+            success:   true,
+            invoiceId: newInvoiceID,
+            message:   outMessage,
+        });
+
+    } catch (err) {
+        if (transaction) {
+            try { await transaction.rollback(); } catch (_) {}
+        }
+        console.error('convertOrderToInvoice error:', err);
+        return res.status(500).json({
+            success: false,
+            message: `ERROR: ${err.message}`,
+        });
+    } finally {
+        if (pool) {
+            try { await pool.close(); } catch (_) {}
+        }
+    }
+};
+
+
 module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockInSaveUpdate,getTextileInventoryStockDetails,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, textileStockOutSaveUpdate, textileStockTransferSaveUpdate , getPODetails,getTextileStockItems,getTextileInventoryGRNItems,
   // Stock selection
   textileStock_GeneralSelection,
@@ -1803,5 +1884,5 @@ module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockI
   saveTextileExchangeRate,
   deleteTextileExchangeRate,
   saveTextileConversionRule,
-  deleteTextileConversionRule,
+  deleteTextileConversionRule,convertOrderToInvoice
 } ;

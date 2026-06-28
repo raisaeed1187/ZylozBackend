@@ -49,7 +49,7 @@ textileStock_GeneralSelection,  textileStock_SpecificSelection,  textileOrder_Sa
   saveTextileUOMSettings,
   saveTextileCurrency,
   toggleTextileCurrency,
-  saveTextileExchangeRate,  deleteTextileExchangeRate,  saveTextileConversionRule,  deleteTextileConversionRule,
+  saveTextileExchangeRate,  deleteTextileExchangeRate,  saveTextileConversionRule,  deleteTextileConversionRule,convertOrderToInvoice
 
 } = require('./controllers/textile/textileInventoryController'); 
 
@@ -407,6 +407,9 @@ app.post("/api/textile/delivery/available-inventory",       authenticateToken,ex
 app.post("/api/textile/inventory/summary",       authenticateToken,express.json(), textile_inventory_Summary);
 app.post("/api/textile/inventory/list",       authenticateToken,express.json(), textile_inventory_List);
 app.post("/api/textile/inventory/rolls",       authenticateToken,express.json(), textile_inventory_Rolls);
+app.post("/api/textile/order-to-invoice",       authenticateToken,express.json(), convertOrderToInvoice);
+
+
 
 // textile settings
 app.post("/api/textile/settings",                          authenticateToken, express.json(), getTextileSettings);
