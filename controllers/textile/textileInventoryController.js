@@ -809,6 +809,8 @@ const textileOrder_Save = async (req, res) => {
       shippingAddress  = null,
       orderDate,
       currency         = "AED",
+      exchangeRate         = "1",
+
       subtotal         = 0,
       discountType     = null,
       discountValue    = 0,
@@ -866,6 +868,7 @@ const textileOrder_Save = async (req, res) => {
       .input("ShippingAddress", sql.NVarChar(500),   shippingAddress || null)
       .input("OrderDate",       sql.Date,            new Date(orderDate))
       .input("Currency",        sql.NVarChar(10),    currency)
+      .input("ExchangeRate",        sql.NVarChar(20),    exchangeRate) 
       .input("Subtotal",        sql.Decimal(18, 4),  subtotal)
       .input("DiscountType",    sql.NVarChar(10),    discountType    || null)
       .input("DiscountValue",   sql.Decimal(18, 4),  discountValue)

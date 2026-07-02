@@ -191,7 +191,7 @@ const enroll = async (req, res) => {
 // ─── Check In ────────────────────────────────────────────────────────────────
 
 const checkIn = async (req, res) => {
-  const { imageBase64, client, location = null } = req.body;
+  const { imageBase64, client,project_id, location = null } = req.body;
   // console.log('inside checkIn');
 
   if (!imageBase64) {
@@ -287,11 +287,12 @@ const checkIn = async (req, res) => {
       .input("empId",    sql.Int,      best.EmployeeId)
       .input("type",     sql.NVarChar, logType)
       .input("location", sql.NVarChar, location)
+      .input("ProjectID", sql.NVarChar, project_id)
       .input("confidence", sql.Float,  parseFloat((1 - minDist).toFixed(4)))
       .query(`
-        INSERT INTO AttendanceLogs (EmployeeId, Type, Location, Confidence, LogTime)
+        INSERT INTO AttendanceLogs (EmployeeId, Type, Location, ProjectID, Confidence, LogTime)
         OUTPUT INSERTED.LogId
-        VALUES (@empId, @type, @location, @confidence, GETUTCDATE())
+        VALUES (@empId, @type, @location, @ProjectID, @confidence, GETUTCDATE())
       `);
 
     const data = [
