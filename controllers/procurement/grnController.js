@@ -32,8 +32,8 @@ const grnSaveUpdate = async (req,res)=>{
             store.dispatch(setCurrentDatabase(req.authUser.database));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
-            console.log('formData');
-            console.log(formData); 
+            // console.log('formData');
+            // console.log(formData); 
               
             pool = await sql.connect(config);
             transaction = new sql.Transaction(pool);
@@ -109,6 +109,10 @@ async function grnItemSaveUpdate(req,grnId,transaction){
                     for (let item of grnItems) {  
                         if(item.itemName){
                             const grnItemRequest = new sql.Request(transaction);  
+                            console.log('grnItem');
+                            console.log(item);
+                            console.log('grnId');
+                            console.log(grnId);
 
                             await grnItemRequest 
                                 .input('ID2', sql.NVarChar(65), item.ID2)

@@ -63,7 +63,7 @@ const {agencySaveUpdate,getAgencyDetails,getAllAgencysList} = require('./control
 
 
 const {contactSaveUpdate,becomePartnerSaveUpdate} = require('./controllers/homeController'); 
-const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
+const {getVatSettingsDetails,vatSettingsSaveUpdate,journalEntrySaveUpdate,getJournalEntrysList,getJournalLedgers,getTrailBalance,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getCustomerInvoiceAging,getVatReturns,vatGenerateNextPeriod,getVatReturnsDetails,getBankTransections,getJournalEntryDetails} = require('./controllers/finance/JournalEntryController'); 
 const {getTaxRate,getOrdersForInvoice,invoiceSaveUpdate,sendInvoice,getInvoicesList,getInvoiceDetails,getCustomerInvoice} = require('./controllers/finance/invoiceController'); 
 const {getAppliedCreditInvoicesList,deleteAppliedInvoiceFromCreditNote, applycreditNoteOnInvoice,creditNoteSaveUpdate,getCreditNotesList,getCreditNoteDetails} = require('./controllers/finance/creditNoteController'); 
 
@@ -249,7 +249,7 @@ app.post('/api/modules-dynamic-screens',authenticateToken,express.json(),getDyna
 
 
 app.post('/api/create-new-table',authenticateToken,express.json(),createNewTable );
-app.post('/api/get-reference',express.json(),getTableDetailsById );
+app.post('/api/get-reference',authenticateToken,express.json(),getTableDetailsById );
 app.post('/api/get-reference-fields',authenticateToken,express.json(),getSpecificTableField );
 
 app.post('/api/save-dynamic-table-data',authenticateToken,express.json(),dynamicFileUpload.single("file"),saveDynamicTableData );
@@ -674,6 +674,7 @@ app.post('/api/finance/bank-transections',authenticateToken,express.json(),getBa
 app.post('/api/finance/vat-settings/save-update',authenticateToken,express.json(),upload,vatSettingsSaveUpdate );
 app.post('/api/finance/vat-settings',authenticateToken,express.json(),upload,getVatSettingsDetails );
 app.post('/api/finance/vat-returns',authenticateToken,express.json(),upload,getVatReturns );
+app.post('/api/finance/vat-generate-next-period',authenticateToken,express.json(),upload,vatGenerateNextPeriod );
 
 
 

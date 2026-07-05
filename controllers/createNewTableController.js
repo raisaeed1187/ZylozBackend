@@ -383,23 +383,20 @@ const saveDynamicTableData = async (req, res) => {
     try { 
         if(dataId == '0' ){ 
             let columns = allFields
-                .map((field) => {
-                    if (field.columnName != 'ID') { 
-                        return  `${field.columnName.replace(/[^a-zA-Z0-9_]/g, '')}`
-                    } 
-                    })
-            .join(', '); 
-            columns = columns.replace(",", ""); 
-            let values = allFields
-                .map((field) => {
-                    if (field.columnName != 'ID') { 
-                        return  `'${field.columnValue}'`
-                    } 
-                    })
+                .filter((field) => field.columnName != 'ID' && field.columnName != 'TenantId')
+                .map((field) => `${field.columnName.replace(/[^a-zA-Z0-9_]/g, '')}`)
             .join(', ');
-            values = values.replace(",", ""); 
-            
-            const query = `INSERT INTO ${tableName} (${columns}) OUTPUT INSERTED.ID VALUES (${values})`;  
+            let values = allFields
+                .filter((field) => field.columnName != 'ID' && field.columnName != 'TenantId')
+                .map((field) => `'${field.columnValue}'`)
+            .join(', ');
+
+            if (tableName === 'ItemCategory' || tableName === 'ItemSubCategory') {
+                columns += ', TenantId';
+                values += `, '${req.authUser.tenantId}'`;
+            }
+
+            const query = `INSERT INTO ${tableName} (${columns}) OUTPUT INSERTED.ID VALUES (${values})`;
             const result = await pool.request().query(query); 
             let newId = result.recordset[0].ID;
             let encryptedId = encryptID(newId);
@@ -543,8 +540,11 @@ const getTableDetailsById = async (req, res) => {
 
         if(getTableNameResponse.recordset.length > 0){
             const newtableName = getTableNameResponse.recordset[0].TableName;
-            const query = `select * from ${newtableName}`; 
-            const apiResponse = await pool.request().query(query); 
+            let query = `select * from ${newtableName}`;
+            if (newtableName === 'ItemCategory' || newtableName === 'ItemSubCategory') {
+                query += ` where TenantId = '${req.authUser.tenantId}'`;
+            }
+            const apiResponse = await pool.request().query(query);
             const formatCreatedAt = (createdAt) => {
                 const date = new Date(createdAt);
                 return date.toLocaleDateString("en-US");

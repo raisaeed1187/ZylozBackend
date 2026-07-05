@@ -656,6 +656,7 @@ const getVatReturns = async (req, res) => {
         const results = await pool
                 .request()
                 .input("OrganizationID", sql.NVarChar, organizationId)
+                .input("TenantID", sql.NVarChar, req.authUser.tenantId)
                 .execute("VATReturnEntrySummary_AllPeriods");
             
         return res.status(200).json({
@@ -672,6 +673,39 @@ const getVatReturns = async (req, res) => {
     }
 };
 
+const vatGenerateNextPeriod = async (req, res) => {
+    const {organizationId} = req.body;
+
+    try {
+        
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser)); 
+        const config = store.getState().constents.config;    
+        const pool = await sql.connect(config); 
+        
+        await setTenantContext(pool,req);
+
+         
+        const results = await pool
+                .request()
+                .input("OrganizationID", sql.NVarChar, organizationId)
+                .input("CreatedBy", sql.NVarChar, req.authUser.username)
+                .execute("VATReturnEntry_GenerateNext");
+            
+        return res.status(200).json({
+            message: "Vat Generate Next Period Data",
+            data: results.recordset, 
+        });
+
+    } catch (error) {
+        console.error("sendOTP Error:", error.message);
+        return res.status(500).json({
+            message: "Failed to send OTP",
+            error: error.message
+        });
+    }
+};
 
 
-module.exports =  {getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getVatReturnsDetails,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;
+
+module.exports =  {vatGenerateNextPeriod, getVatSettingsDetails,vatSettingsSaveUpdate,getBankTransections,getVatReturns,getVatReturnsDetails,getTrailBalance,getCustomerInvoiceAging,getProfitAndLoss,getCostCenterReport,getBalanceSheet,getJournalLedgers,journalEntrySaveUpdate,getJournalEntrysList,getJournalEntryDetails,getJournalEntryItems} ;

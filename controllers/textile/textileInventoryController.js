@@ -583,7 +583,7 @@ const textileStockInGetList = async (req, res) => {
  
     const {
       organizationId
-    } = req.query;
+    } = req.body;
  
     const request = new sql.Request(pool);
  
@@ -807,6 +807,8 @@ const textileOrder_Save = async (req, res) => {
       customerId       = null,
       customerName     = null,
       shippingAddress  = null,
+      shippingCity  = null,
+      paymentTerm  = null, 
       orderDate,
       currency         = "AED",
       exchangeRate         = "1",
@@ -1090,6 +1092,7 @@ const delivery_List = async (req, res) => {
       search     = null,
       pageNumber = 1,
       pageSize   = 50,
+      organizationId=null
     } = req.body;
  
     const result = await new sql.Request(pool)
@@ -1098,6 +1101,7 @@ const delivery_List = async (req, res) => {
       .input('Search',   sql.NVarChar(200), search || null)
       .input('PageNo',   sql.Int,           Number(pageNumber) || 1)
       .input('PageSize', sql.Int,           Number(pageSize)   || 50)
+      .input('OrganizationID', sql.NVarChar(65), organizationId || null)
       .execute('usp_DO_List');
  
     return res.status(200).json({ data: { orders: result.recordset } });
