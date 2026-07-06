@@ -843,6 +843,8 @@ const textileOrder_Save = async (req, res) => {
         ItemDesc:      i.itemDesc      ?? "",
         DesignNo:      i.designNo      ?? "",
         ColorNo:       i.colorNo       ?? "",
+        LotNo:       i.lotNo       ?? "",
+        CtnNo:       i.ctnNo       ?? "",
         SupplierName:  i.supplierName  ?? "",
         AvailPcs:      i.availPcs      ?? 0,
         AvailMTS:      i.availMTS      ?? 0,
