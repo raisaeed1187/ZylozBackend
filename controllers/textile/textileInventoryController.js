@@ -1257,6 +1257,7 @@ const delivery_Save = async (req, res) => {
     const itemsJSON = JSON.stringify(
       items.map((i) => ({
         StockInItemID: i.stockInItemID  ?? '',
+        OrderLineID: i.orderLineID  ?? '', 
         LotNo:         i.lotNo          ?? '',
         CtnNo:         i.ctnNo          ?? '',
         ItemDesc:      i.itemDesc        ?? '',
