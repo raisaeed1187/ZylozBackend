@@ -870,6 +870,8 @@ const textileOrder_Save = async (req, res) => {
       .input("CustomerID",      sql.NVarChar(65),    customerId      || null)
       .input("CustomerName",    sql.NVarChar(200),   customerName    || null)
       .input("ShippingAddress", sql.NVarChar(500),   shippingAddress || null)
+      .input("ShippingCity", sql.NVarChar(100),   shippingCity || null)
+      .input("PaymentTerm", sql.NVarChar(100),   paymentTerm || null)
       .input("OrderDate",       sql.Date,            new Date(orderDate))
       .input("Currency",        sql.NVarChar(10),    currency)
       .input("ExchangeRate",        sql.NVarChar(20),    exchangeRate) 
