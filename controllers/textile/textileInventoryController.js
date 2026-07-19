@@ -1871,6 +1871,88 @@ const convertOrderToInvoice = async (req, res) => {
 };
 
 
+const textile_Order_Aging = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+ 
+    const result = await new sql.Request(pool)
+    .input('OrganizationId', sql.NVarChar(65), organizationId)
+      .input('TenantId',       sql.NVarChar(65), req.authUser.tenantId)
+      .execute('GetTextileOrderAgingSummary');
+    
+    const data = result.recordset ?? {};
+    
+    // console.log('textile_Order_Aging result:', data);
+    return res.status(200).json({ data: data });
+  } catch (err) {
+    console.error('textile_Order_Aging ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ // end of textile order aging
+
+const textile_Order_AgingDetails = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId,Id } = req.body;
+ 
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+    if (!Id)
+      return res.status(400).json({ message: 'Id is required.' });
+ 
+    const result = await new sql.Request(pool)
+      .input('OrganizationId', sql.NVarChar(65), organizationId)
+      .input('TenantId',       sql.NVarChar(65), req.authUser.tenantId)
+      .input('CustomerId',             sql.NVarChar(65), Id)
+      .execute('GetTextileOrderAgingDetails');
+ 
+    const data = result.recordset ?? {};
+    // console.log('textile_Order_AgingDetails result:', data);
+    return res.status(200).json({ data: data });
+  } catch (err) {
+    console.error('textile_Order_AgingDetails ERROR:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
+ // end of textile order aging
+
+
+const textile_Order_ReceivedPayment = async (req, res) => {
+  try {
+    const pool = await getPool(req);
+    const { organizationId, orderId, amount } = req.body;
+
+    if (!organizationId)
+      return res.status(400).json({ message: 'organizationId is required.' });
+    if (!orderId)
+      return res.status(400).json({ message: 'orderId is required.' });
+    if (!amount || Number(amount) <= 0)
+      return res.status(400).json({ message: 'amount must be greater than 0.' });
+
+    const result = await new sql.Request(pool)
+      .input('OrderId', sql.NVarChar(65), orderId)
+      .input('ReceivedAmount', sql.Decimal(18, 4), Number(amount))
+      .input('OrganizationID', sql.NVarChar(65), organizationId)
+      .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)
+      .input('ReceivedBy', sql.NVarChar(100), req.authUser.username)
+      .execute('usp_TextileOrder_ReceivePayment');
+
+    const data = result.recordset?.[0] ?? null;
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.error('textile_Order_ReceivedPayment ERROR:', err);
+    return res.status(400).json({ message: err.message });
+  }
+};
+// end of textile_Order_ReceivedPayment
+
+ 
+
 module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockInSaveUpdate,getTextileInventoryStockDetails,getTextileInventoryStockTransfers, getTextileInventoryStockOuts, textileStockOutSaveUpdate, textileStockTransferSaveUpdate , getPODetails,getTextileStockItems,getTextileInventoryGRNItems,
   // Stock selection
   textileStock_GeneralSelection,
@@ -1896,5 +1978,8 @@ module.exports =  {textileStockInGetDetails, textileStockInGetList,textileStockI
   saveTextileExchangeRate,
   deleteTextileExchangeRate,
   saveTextileConversionRule,
-  deleteTextileConversionRule,convertOrderToInvoice
+  deleteTextileConversionRule,convertOrderToInvoice,
+
+  textile_Order_Aging,textile_Order_AgingDetails,textile_Order_ReceivedPayment
+
 } ;
