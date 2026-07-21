@@ -86,7 +86,7 @@ function initDb(formData, req= null) {
 // ─── Enroll ──────────────────────────────────────────────────────────────────
 
 const enroll = async (req, res) => {
-  const { name, employeeCode,ID2, department = "", images, client } = req.body;
+  const { name, employeeCode, department = "", images, client } = req.body;
 
   if (!name || !employeeCode) {
     return res.status(400).json({ message: "name and employeeCode are required", data: null });
@@ -100,6 +100,20 @@ const enroll = async (req, res) => {
   try {
     const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
+
+    // Look up ID2 from the Employee table using employeeCode
+    const employeeLookup = await pool.request()
+      .input("employeeId", sql.NVarChar, employeeCode)
+      .query("SELECT ID2 FROM Employee WHERE employeeId = @employeeId");
+
+    if (employeeLookup.recordset.length === 0) {
+      return res.status(400).json({
+        message: `Employee code '${employeeCode}' not found`,
+        data: null,
+      });
+    }
+
+    const ID2 = employeeLookup.recordset[0].ID2;
 
     // Check for duplicate employee code
     const existing = await pool.request()
@@ -119,10 +133,11 @@ const enroll = async (req, res) => {
       .input("code",       sql.NVarChar, employeeCode)
       .input("dept",       sql.NVarChar, department)
       .input("id2",        sql.NVarChar, ID2)
+      .input("tenantId",   sql.NVarChar, req?.authUser?.tenantId ?? 'Tenant1')  // Use tenantId from authUser or default
       .query(`
-        INSERT INTO AttendanceEmployees (Name, EmployeeCode, Department,EmployeeID2, IsActive, CreatedAt)
+        INSERT INTO AttendanceEmployees (Name, EmployeeCode, Department,EmployeeID2, TenantId, IsActive, CreatedAt)
         OUTPUT INSERTED.EmployeeId
-        VALUES (@name, @code, @dept, @id2, 1, GETDATE())
+        VALUES (@name, @code, @dept, @id2, @tenantId, 1, GETDATE())
       `);
 
     const employeeId = result.recordset[0].EmployeeId;
@@ -226,7 +241,7 @@ const checkIn = async (req, res) => {
 
     // 3. Load all embeddings (paginated for large tenants)
     const rows = await pool.request().query(`
-      SELECT e.EmployeeId, e.Name, e.EmployeeCode, f.Embedding
+      SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
       FROM   AttendanceEmployees e
       JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
       WHERE  e.IsActive = 1
@@ -285,14 +300,17 @@ const checkIn = async (req, res) => {
     // 7. Write attendance log
     const logResult = await pool.request()
       .input("empId",    sql.Int,      best.EmployeeId)
+      .input("id2",      sql.NVarChar, best.EmployeeID2)
+      .input("tenantId", sql.NVarChar, best.TenantId)
       .input("type",     sql.NVarChar, logType)
+      .input("method",   sql.NVarChar, "Face")
       .input("location", sql.NVarChar, location)
       .input("ProjectID", sql.NVarChar, project_id)
       .input("confidence", sql.Float,  parseFloat((1 - minDist).toFixed(4)))
       .query(`
-        INSERT INTO AttendanceLogs (EmployeeId, Type, Location, ProjectID, Confidence, LogTime)
+        INSERT INTO AttendanceLogs (EmployeeId, EmployeeID2, TenantId, Type, Method, Location, ProjectID, Confidence, LogTime)
         OUTPUT INSERTED.LogId
-        VALUES (@empId, @type, @location, @ProjectID, @confidence, GETUTCDATE())
+        VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @confidence, GETUTCDATE())
       `);
 
     const data = [
