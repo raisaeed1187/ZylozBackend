@@ -267,7 +267,7 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ message: "No matching employee found", data: null });
     }
 
-     
+    
     const lastLog = await pool.request()
       .input("empId", sql.Int, best.EmployeeId)
       .query(`
@@ -299,22 +299,36 @@ const checkIn = async (req, res) => {
     const logType   = lastType === "IN" ? "OUT" : "IN";
 
    
+    // const logResult = await pool.request()
+    //   .input("empId",    sql.Int,      best.EmployeeId)
+    //   .input("id2",      sql.NVarChar, best.EmployeeID2)
+    //   .input("tenantId", sql.NVarChar, best.TenantId)
+    //   .input("type",     sql.NVarChar, logType)
+    //   .input("method",   sql.NVarChar, "Face")
+    //   .input("location", sql.NVarChar, location)
+    //   .input("ProjectID", sql.NVarChar, project_id)
+    //   .input("latitude", sql.NVarChar, latitude)
+    //   .input("longitude", sql.NVarChar, longitude)
+    //   .input("confidence", sql.Float,  parseFloat((1 - minDist).toFixed(4)))
+    //   .query(`
+    //     INSERT INTO AttendanceLogs (EmployeeId, EmployeeID2, TenantId, Type, Method, Location, ProjectID, Latitude, Longitude, Confidence, LogTime)
+    //     OUTPUT INSERTED.LogId
+    //     VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @latitude, @longitude, @confidence, GETDATE())
+    //   `);
+
     const logResult = await pool.request()
-      .input("empId",    sql.Int,      best.EmployeeId)
-      .input("id2",      sql.NVarChar, best.EmployeeID2)
-      .input("tenantId", sql.NVarChar, best.TenantId)
-      .input("type",     sql.NVarChar, logType)
-      .input("method",   sql.NVarChar, "Face")
-      .input("location", sql.NVarChar, location)
-      .input("ProjectID", sql.NVarChar, project_id)
-      .input("latitude", sql.NVarChar, latitude)
-      .input("longitude", sql.NVarChar, longitude)
-      .input("confidence", sql.Float,  parseFloat((1 - minDist).toFixed(4)))
-      .query(`
-        INSERT INTO AttendanceLogs (EmployeeId, EmployeeID2, TenantId, Type, Method, Location, ProjectID, Latitude, Longitude, Confidence, LogTime)
-        OUTPUT INSERTED.LogId
-        VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @latitude, @longitude, @confidence, GETUTCDATE())
-      `);
+    .input("EmployeeId",  sql.Int,      best.EmployeeId)
+    .input("EmployeeID2", sql.NVarChar, best.EmployeeID2)
+    .input("TenantId",    sql.NVarChar, best.TenantId)
+    .input("Type",        sql.NVarChar, logType)
+    .input("Method",      sql.NVarChar, "Face")
+    .input("Location",    sql.NVarChar, location)
+    .input("ProjectID",   sql.NVarChar, project_id)
+    .input("Latitude",    sql.NVarChar, latitude)
+    .input("Longitude",   sql.NVarChar, longitude)
+    .input("Confidence",  sql.Float,    parseFloat((1 - minDist).toFixed(4)))
+    .execute("usp_InsertAttendanceLog");
+
 
     const data = [
       {
