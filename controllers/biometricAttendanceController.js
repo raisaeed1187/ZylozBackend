@@ -207,7 +207,7 @@ const enroll = async (req, res) => {
 // ─── Check In ────────────────────────────────────────────────────────────────
 
 const checkIn = async (req, res) => {
-  const { imageBase64, client,project_id, location = null } = req.body;
+  const { imageBase64, client,project_id, location = null,latitude,longitude } = req.body;
   // console.log('inside checkIn');
 
   if (!imageBase64) {
@@ -267,7 +267,7 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ message: "No matching employee found", data: null });
     }
 
-    // 5. Cooldown check
+     
     const lastLog = await pool.request()
       .input("empId", sql.Int, best.EmployeeId)
       .query(`
@@ -294,11 +294,11 @@ const checkIn = async (req, res) => {
       
     }
 
-    // 6. Determine IN / OUT toggle
+     
     const lastType  = lastLog.recordset[0]?.Type;
     const logType   = lastType === "IN" ? "OUT" : "IN";
 
-    // 7. Write attendance log
+   
     const logResult = await pool.request()
       .input("empId",    sql.Int,      best.EmployeeId)
       .input("id2",      sql.NVarChar, best.EmployeeID2)
@@ -307,11 +307,13 @@ const checkIn = async (req, res) => {
       .input("method",   sql.NVarChar, "Face")
       .input("location", sql.NVarChar, location)
       .input("ProjectID", sql.NVarChar, project_id)
+      .input("latitude", sql.NVarChar, latitude)
+      .input("longitude", sql.NVarChar, longitude)
       .input("confidence", sql.Float,  parseFloat((1 - minDist).toFixed(4)))
       .query(`
-        INSERT INTO AttendanceLogs (EmployeeId, EmployeeID2, TenantId, Type, Method, Location, ProjectID, Confidence, LogTime)
+        INSERT INTO AttendanceLogs (EmployeeId, EmployeeID2, TenantId, Type, Method, Location, ProjectID, Latitude, Longitude, Confidence, LogTime)
         OUTPUT INSERTED.LogId
-        VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @confidence, GETUTCDATE())
+        VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @latitude, @longitude, @confidence, GETUTCDATE())
       `);
 
     const data = [
