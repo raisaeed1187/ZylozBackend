@@ -99,7 +99,8 @@ const enroll = async (req, res) => {
 
   try {
     const config = initDb(req.body, req);
-    const pool   = await sql.connect(config);
+    const pool   = await sql.connect(config); 
+    await setTenantContext(pool,req);
 
     // Look up ID2 from the Employee table using employeeCode
     const employeeLookup = await pool.request()
@@ -216,8 +217,8 @@ const checkIn = async (req, res) => {
   try {
     const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
-    // await setTenantContext(pool,req);
-
+    // await setTenantContext(pool,req); 
+    await setTenantContext(pool,req);
 
     // console.log('imageBase64');
     // console.log(imageBase64);
