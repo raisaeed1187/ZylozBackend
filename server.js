@@ -879,8 +879,8 @@ app.post('/api/retail/order/delete-item',authenticateToken,express.json(),delete
 
 // const attendanceRouter = express.Router();
 
-app.post('/api/attendance/biometric/enroll',enroll );   
-app.post('/api/attendance/biometric/check-in', checkIn);
+app.post('/api/attendance/biometric/enroll',authenticateToken,enroll );   
+app.post('/api/attendance/biometric/check-in', authenticateToken, checkIn);
 // app.post('/api/biometric/check-in',authenticateToken,express.json(),upload,checkIn ); 
 
 app.post('/api/attendance/dashboard/summary',authenticateToken,express.json(), getAttendanceSummary);
