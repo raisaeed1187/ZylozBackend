@@ -241,11 +241,13 @@ const checkIn = async (req, res) => {
     const inputEmb = aiRes.embedding;
 
     // 3. Load all embeddings (paginated for large tenants)
-    const rows = await pool.request().query(`
+    const rows = await pool.request()
+      .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
+      .query(`
       SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
       FROM   AttendanceEmployees e
       JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
-      WHERE  e.IsActive = 1
+      WHERE  e.IsActive = 1 and e.TenantId = @tenantId
     `);
 
     // 4. Find best match
