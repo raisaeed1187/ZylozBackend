@@ -32,16 +32,25 @@ const userCreation = async (req,res)=>{
             }
              
             console.log(req.authUser.database); 
-            store.dispatch(setCurrentDatabase(req.authUser.database || 'VPSZyloz')); 
+            store.dispatch(setCurrentDatabase(req.authUser.database || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
             await setTenantContext(pool,req);
-            const plainPassword = generateStrongPassword(8); 
+            // const plainPassword = generateStrongPassword(8); 
             // const plainPassword = '12345'; 
 
             // console.log('plainPassword');
             // console.log(plainPassword); 
+ 
+
+            const email = formData.email || `${formData.employeeCode}@allbiz.ae`;
+            const plainPassword = formData.employeeCode ? formData.employeeCode : generateStrongPassword(8);
+
+            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+            const username = getUsernameFromEmail(email);
+
 
             const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -71,13 +80,16 @@ const userCreation = async (req,res)=>{
             const text = `Welcome to Allbiz – Your account is ready to go`;
  
             console.log('Sending email to:', formData.email);
-            await sendEmail(
-                formData.email,
-                "Welcome to Allbiz – Your Account Is Ready",
-                text,
-                html
-            );
-            console.log('Email sent successfully to:', formData.email);
+            if (formData.email) {
+                await sendEmail(
+                    formData.email,
+                    "Welcome to Allbiz – Your Account Is Ready",
+                    text,
+                    html
+                ); 
+                console.log('Email sent successfully to:', formData.email);
+            }  
+            
 
             
 
