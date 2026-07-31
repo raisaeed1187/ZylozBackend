@@ -52,9 +52,9 @@ const userCreation = async (req,res)=>{
             const username = getUsernameFromEmail(email);
 
 
-            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+            // const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-            const username = getUsernameFromEmail(formData.email);
+            // const username = getUsernameFromEmail(formData.email);
 
             const request = pool.request();
             request.input("ID2", sql.NVarChar(100), formData.ID2);
