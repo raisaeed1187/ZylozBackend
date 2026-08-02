@@ -1925,7 +1925,7 @@ const textile_Order_AgingDetails = async (req, res) => {
 const textile_Order_ReceivedPayment = async (req, res) => {
   try {
     const pool = await getPool(req);
-    const { organizationId, orderId, amount } = req.body;
+    const { organizationId, orderId, amount,paymentMode } = req.body;
 
     if (!organizationId)
       return res.status(400).json({ message: 'organizationId is required.' });
@@ -1940,6 +1940,7 @@ const textile_Order_ReceivedPayment = async (req, res) => {
       .input('OrganizationID', sql.NVarChar(65), organizationId)
       .input('TenantID', sql.NVarChar(65), req.authUser.tenantId)
       .input('ReceivedBy', sql.NVarChar(100), req.authUser.username)
+      .input('PaymentMode', sql.NVarChar(100), paymentMode)  
       .execute('usp_TextileOrder_ReceivePayment');
 
     const data = result.recordset?.[0] ?? null;
