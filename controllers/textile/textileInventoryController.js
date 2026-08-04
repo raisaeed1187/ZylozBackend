@@ -737,11 +737,14 @@ const textileStock_SpecificSelection = async (req, res) => {
       lotNo          = null,
       designNo       = null,
       colorNo        = null,
+      orderNo        = null,   // NEW
+      ctnNo          = null,   // NEW
+      fabricName     = null,   // NEW
       excludeOrderId = null,   // pass current OrderID when editing
       pageNumber     = 1,
       pageSize       = 100,
     } = req.body;
- 
+  
     const termsString = Array.isArray(searchTerms)
       ? searchTerms.join(", ")
       : (searchTerms || null);
@@ -753,6 +756,9 @@ const textileStock_SpecificSelection = async (req, res) => {
       .input("LotNo",           sql.NVarChar(50),  lotNo                  || null)
       .input("DesignNo",        sql.NVarChar(50),  designNo               || null)
       .input("ColorNo",         sql.NVarChar(50),  colorNo                || null)
+      .input("OrderNo",         sql.NVarChar(50),  orderNo                || null)   // NEW
+      .input("CtnNo",           sql.NVarChar(50),  ctnNo                  || null)   // NEW
+      .input("FabricName",      sql.NVarChar(200), fabricName             || null)   // NEW
       .input("ExcludeOrderID",  sql.NVarChar(65),  excludeOrderId         || null)
       .input("PageNumber",      sql.Int,           pageNumber)
       .input("PageSize",        sql.Int,           pageSize)
