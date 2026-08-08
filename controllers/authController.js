@@ -26,10 +26,18 @@ const SECRET_KEY = process.env.SECRET_KEY;
 const userCreation = async (req,res)=>{ 
     const formData = req.body;  
 
-    try {
-            if (!formData.email || !formData.fullName) {
-                return res.status(400).json({ message: 'Enter required fields!' });
+    try {   
+        
+            if (!formData.uniqueId){
+                if (!formData.email || !formData.fullName) {
+                    return res.status(400).json({ message: 'Enter required fields!' });
+                } 
+            }else{
+                if ( !formData.fullName) {
+                    return res.status(400).json({ message: 'Enter Full Name !' });
+                } 
             }
+        
              
             console.log(req.authUser.database); 
             store.dispatch(setCurrentDatabase(req.authUser.database || 'Allbiz')); 
@@ -44,8 +52,8 @@ const userCreation = async (req,res)=>{
             // console.log(plainPassword); 
  
 
-            const email = formData.email || `${formData.employeeCode}@allbiz.ae`;
-            const plainPassword = formData.employeeCode ? formData.employeeCode : generateStrongPassword(8);
+            const email = formData.email || `${formData.uniqueId}@allbiz.ae`;
+            const plainPassword = formData.uniqueId ? formData.password : generateStrongPassword(8);
 
             const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -60,7 +68,7 @@ const userCreation = async (req,res)=>{
             request.input("ID2", sql.NVarChar(100), formData.ID2);
             request.input("username", sql.NVarChar(100), username);
             request.input("fullName", sql.NVarChar(100), formData.fullName); 
-            request.input("email", sql.NVarChar(100), formData.email);
+            request.input("email", sql.NVarChar(100), email);
             request.input("password", sql.NVarChar(255), hashedPassword);
             request.input("client", sql.NVarChar(50), req.authUser.database);
             request.input("employeeId", sql.NVarChar(100), formData.employeeId || null);
@@ -70,7 +78,20 @@ const userCreation = async (req,res)=>{
             request.output('ID', sql.NVarChar(100))   
             await request.execute("User_Registeration");
  
+            if (formData.uniqueId) { 
+                const organizationRequest = pool.request();
+                organizationRequest.input("OrganizationId", sql.NVarChar(100), formData.organizationId || null);
+                organizationRequest.input("CreatedBy", sql.NVarChar(100), username);
+                organizationRequest.input("userId", sql.NVarChar(100), null);  
+                await organizationRequest.execute("Assign_Organization_To_User"); 
 
+                const roleRequest = pool.request();
+                roleRequest.input("RoleId", sql.NVarChar(100), null);
+                roleRequest.input("CreatedBy", sql.NVarChar(100), username);
+                roleRequest.input("userId", sql.NVarChar(100), null);  
+                await roleRequest.execute("Assign_Role_To_User"); 
+
+            }
  
             const html = await getUserCreationTemplate(
                 formData.fullName,

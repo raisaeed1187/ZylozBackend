@@ -861,6 +861,7 @@ const getPendingFingerprintEnrollments = async (req, res) => {
 
     const result = await pool.request()
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('UserId', sql.NVarChar(65), req?.authUser?.ID2) 
       .execute('usp_Fingerprint_PendingEnrollment');
 
     res.status(200).json({
@@ -883,6 +884,7 @@ const getAllFingerprintTemplates = async (req, res) => {
 
     const result = await pool.request()
       .input('TenantId', sql.NVarChar(65), req?.authUser?.tenantId)
+      .input('UserId', sql.NVarChar(65), req?.authUser?.ID2)
       .execute('usp_Fingerprint_GetAllTemplates');
 
     res.status(200).json({

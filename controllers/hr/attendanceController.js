@@ -239,7 +239,8 @@ const getAttendanceReport = async (req, res) => {
                 ${project ? `'${project}'` : 'NULL'},
                 ${location ? `'${location}'` : 'NULL'},
                 ${shift ? `'${shift}'` : 'NULL'},
-                ${employeeCategory ? `'${employeeCategory}'` : 'NULL'}
+                ${employeeCategory ? `'${employeeCategory}'` : 'NULL'},
+                '${req.authUser.tenantId}'
 
             `;
 
