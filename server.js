@@ -95,7 +95,8 @@ const {getLicensesList,licenseSaveUpdate,getLicenseDetails, deleteLicenseDocumen
 const {getVisasList,visaSaveUpdate,getVisaDetails, deleteVisaDocument,getVisaSummary} = require('./controllers/licanceManagement/visaController'); 
 
 
-const {landSaveUpdate,getLandsList, landDevFeasibilitySave,landDevFeasibilityGet,landDevFeasibilityList} = require('./controllers/propertyManagement/landController'); 
+const {landSaveUpdate,getLandsList, landDevFeasibilitySave,landDevFeasibilityGet,landDevFeasibilityList} = require('./controllers/propertyManagement/landController');
+const {getDldBuildings,getDldTransactions,getDldTransactionGroups,getDldTransactionProcedures} = require('./controllers/propertyManagement/dubaiDataController');
 
 
 
@@ -108,7 +109,16 @@ const {retailItemSaveUpdate,  retailServiceSaveUpdate,  retailOrderSaveUpdate,re
 } = require('./controllers/retail/retailController'); 
 
 
-const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController'); 
+const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController');
+
+const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr } = require('./controllers/mazdoor/agencyController');
+const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails } = require('./controllers/mazdoor/agentController');
+const { manpowerRequestSaveUpdate, getManpowerRequestsList, getManpowerRequestDetails, deleteManpowerRequest } = require('./controllers/mazdoor/manpowerRequestController');
+const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline } = require('./controllers/mazdoor/agentTradeAssignmentController');
+const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMazdoorCandidatesList, deleteCandidate:deleteMazdoorCandidate, candidateStageUpdate, getOnboardingScreensList, onboardingScreenSaveUpdate } = require('./controllers/mazdoor/candidateController');
+const { interviewScheduleSaveUpdate, getInterviewSchedule } = require('./controllers/mazdoor/interviewScheduleController');
+const { portalSignup, portalLogin, getPortalProfile } = require('./controllers/mazdoor/portalController');
+const { authenticatePortalToken } = require('./controllers/mazdoor/_shared');
 
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
 saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
@@ -195,6 +205,18 @@ const documentUpload = multer({
 
 
 const dynamicFileUpload = multer({ dest: "uploads/" });
+
+// Mazdoor forms use varying file field names (documents, attachments, photo,
+// passportDoc, attachment) across screens, so .any() + req.files.find/filter
+// by fieldname (see controllers/mazdoor/_shared.js) is simpler than listing
+// every field explicitly like the shared `upload` config above.
+const mazdoorUpload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 10 * 1024 * 1024,
+        fieldSize: 10 * 1024 * 1024
+    }
+}).any();
 
 
 
@@ -844,6 +866,10 @@ app.post('/api/land/dev-feasibility/save-update',authenticateToken,express.json(
 app.post('/api/land/dev-feasibility',authenticateToken,express.json(),landDevFeasibilityGet );
 app.post('/api/land/dev-feasibilities',authenticateToken,express.json(),landDevFeasibilityList );
 
+app.get('/api/dubai/dld-buildings',authenticateToken,getDldBuildings );
+app.get('/api/dubai/dld-transactions',authenticateToken,getDldTransactions );
+app.get('/api/dubai/dld-transaction-groups',authenticateToken,getDldTransactionGroups );
+app.get('/api/dubai/dld-transaction-procedures',authenticateToken,getDldTransactionProcedures );
 
 
   
@@ -874,6 +900,51 @@ app.post('/api/retail/customer-details',authenticateToken,express.json(),getReta
 app.post('/api/retail/order/delete-item',authenticateToken,express.json(),deleteOrderItem );
 
 // end of retail
+
+// ── Mazdoor module ──────────────────────────────────────────────────────
+// Internal-staff screens (Agency/Agent/Candidate/Manpower Request/Interview
+// Schedule admin) run under the normal internal JWT (authenticateToken),
+// same as every other module above. Only the self-service portal's signup
+// and login are public (no session exists yet); the portal's own actions
+// (profile, MPR/Sub-MPR accept-decline) run under the separate portal JWT
+// (authenticatePortalToken) so an internal-staff token can never be used to
+// act as an Agency/Agent and vice versa.
+
+app.post('/api/mazdoor/agency/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgencySaveUpdate );
+app.post('/api/mazdoor/agencies',authenticateToken,express.json(),getMazdoorAgenciesList );
+app.post('/api/mazdoor/agency',authenticateToken,express.json(),getMazdoorAgencyDetails );
+app.post('/api/mazdoor/agency/mpr-decision',authenticatePortalToken,express.json(),agencyAcceptDeclineMpr );
+
+app.post('/api/mazdoor/agent/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgentSaveUpdate );
+app.post('/api/mazdoor/agents',authenticateToken,express.json(),getMazdoorAgentsList );
+app.post('/api/mazdoor/agent',authenticateToken,express.json(),getMazdoorAgentDetails );
+app.post('/api/mazdoor/sub-mpr/decision',authenticatePortalToken,express.json(),subMprAcceptDecline );
+
+app.post('/api/mazdoor/manpower-request/save-update',authenticateToken,express.json(),mazdoorUpload,manpowerRequestSaveUpdate );
+app.post('/api/mazdoor/manpower-requests',authenticateToken,express.json(),getManpowerRequestsList );
+app.post('/api/mazdoor/manpower-request',authenticateToken,express.json(),getManpowerRequestDetails );
+app.post('/api/mazdoor/manpower-request/delete',authenticateToken,express.json(),deleteManpowerRequest );
+
+app.post('/api/mazdoor/agent-trade-assignment/save-update',authenticateToken,express.json(),mazdoorUpload,agentTradeAssignmentSaveUpdate );
+app.post('/api/mazdoor/agent-trade-assignments',authenticateToken,express.json(),getMazdoorAgentTradeAssignments );
+app.post('/api/mazdoor/agent-trade-assignment/delete',authenticateToken,express.json(),deleteAgentTradeAssignment );
+app.post('/api/mazdoor/sub-mpr/generate',authenticateToken,express.json(),subMprGenerate );
+
+app.post('/api/mazdoor/candidate/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorCandidateSaveUpdate );
+app.post('/api/mazdoor/candidates',authenticateToken,express.json(),getMazdoorCandidatesList );
+app.post('/api/mazdoor/candidate/delete',authenticateToken,express.json(),deleteMazdoorCandidate );
+app.post('/api/mazdoor/candidate/stage-update',authenticateToken,express.json(),mazdoorUpload,candidateStageUpdate );
+app.post('/api/mazdoor/onboarding-screens',authenticateToken,express.json(),getOnboardingScreensList );
+app.post('/api/mazdoor/onboarding-screen/save-update',authenticateToken,express.json(),onboardingScreenSaveUpdate );
+
+app.post('/api/mazdoor/interview-schedule/save-update',authenticateToken,express.json(),interviewScheduleSaveUpdate );
+app.post('/api/mazdoor/interview-schedule',authenticateToken,express.json(),getInterviewSchedule );
+
+app.post('/api/mazdoor/portal/signup',express.json(),mazdoorUpload,portalSignup );
+app.post('/api/mazdoor/portal/login',express.json(),portalLogin );
+app.post('/api/mazdoor/portal/profile',authenticatePortalToken,express.json(),getPortalProfile );
+
+// end of Mazdoor module
 
 // biometric attendance
 
