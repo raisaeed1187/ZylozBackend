@@ -1,5 +1,5 @@
 const {
-    sql, uploadDocument, filesByField, newId,
+    sql, bcrypt, uploadDocument, filesByField, newId,
     getTenantPool, getPortalAuthedPool,
 } = require("./_shared");
 
@@ -140,10 +140,22 @@ const getAgencyDetails = async (req, res) => {
             .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
             .execute("dbo.usp_Mazdoor_Agency_Details");
 
+        // No proc covers this lookup, so it's a plain query alongside the
+        // proc call (same pattern as the document-attachment inserts) — lets
+        // AgencyCreation.jsx show whether this agency already has a portal
+        // login instead of the admin finding out only when Grant fails.
+        const portalUser = await pool.request()
+            .input("AgencyID", sql.NVarChar(65), Id)
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .query(`SELECT TOP 1 [ID2], [Email], [Status], [LastLoginAt]
+                    FROM [dbo].[MazdoorPortalUser]
+                    WHERE [AgencyID] = @AgencyID AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+
         res.status(200).json({
             message: "Agency details loaded successfully!",
             data: (result.recordsets[0] || []).map(toDetailsRow),
             documents: result.recordsets[1],
+            portalAccess: portalUser.recordset[0] || null,
         });
     } catch (error) {
         return res.status(400).json({ message: error.message, data: null });
@@ -172,4 +184,50 @@ const agencyAcceptDeclineMpr = async (req, res) => {
 };
 // end of agencyAcceptDeclineMpr
 
-module.exports = { agencySaveUpdate, getAgenciesList, getAgencyDetails, agencyAcceptDeclineMpr };
+// Lets an internal admin create login credentials for an agency they created
+// directly (AgencyCreation.jsx) rather than one that self-registered via the
+// portal — those never get a MazdoorPortalUser row otherwise (see
+// usp_Mazdoor_Portal_Signup's header comment: creating one is a separate call
+// from creating the Agency master record). Re-running this for an agency that
+// already has portal access fails cleanly via the proc's own "email already
+// exists" check — no extra guard needed here.
+const grantAgencyPortalAccess = async (req, res) => {
+    const { agencyId, email, password } = req.body;
+
+    try {
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters.", data: null });
+        }
+
+        const pool = await getTenantPool(req);
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        await pool.request()
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .input("PrincipalType", sql.NVarChar(10), "agency")
+            .input("AgencyID", sql.NVarChar(65), agencyId)
+            .input("Email", sql.NVarChar(150), email)
+            .input("PasswordHash", sql.NVarChar(255), passwordHash)
+            .execute("dbo.usp_Mazdoor_Portal_Signup");
+
+        // usp_Mazdoor_Portal_Signup always inserts Status='Pending' (it's
+        // written for the self-registration flow, approved separately by an
+        // admin afterward). Here the admin IS the one granting access, so
+        // there's nothing left to approve — activate it immediately.
+        await pool.request()
+            .input("Email", sql.NVarChar(150), email)
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .query(`UPDATE [dbo].[MazdoorPortalUser] SET [Status] = 'Active'
+                    WHERE [Email] = @Email AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+
+        res.status(200).json({ message: "Portal access granted successfully!", data: { agencyId, email } });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of grantAgencyPortalAccess
+
+module.exports = {
+    agencySaveUpdate, getAgenciesList, getAgencyDetails, agencyAcceptDeclineMpr,
+    grantAgencyPortalAccess,
+};

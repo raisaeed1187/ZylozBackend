@@ -111,8 +111,8 @@ const {retailItemSaveUpdate,  retailServiceSaveUpdate,  retailOrderSaveUpdate,re
 
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController');
 
-const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr } = require('./controllers/mazdoor/agencyController');
-const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails } = require('./controllers/mazdoor/agentController');
+const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr, grantAgencyPortalAccess } = require('./controllers/mazdoor/agencyController');
+const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails, grantAgentPortalAccess } = require('./controllers/mazdoor/agentController');
 const { manpowerRequestSaveUpdate, getManpowerRequestsList, getManpowerRequestDetails, deleteManpowerRequest } = require('./controllers/mazdoor/manpowerRequestController');
 const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline } = require('./controllers/mazdoor/agentTradeAssignmentController');
 const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMazdoorCandidatesList, deleteCandidate:deleteMazdoorCandidate, candidateStageUpdate, getOnboardingScreensList, onboardingScreenSaveUpdate } = require('./controllers/mazdoor/candidateController');
@@ -914,10 +914,12 @@ app.post('/api/mazdoor/agency/save-update',authenticateToken,express.json(),mazd
 app.post('/api/mazdoor/agencies',authenticateToken,express.json(),getMazdoorAgenciesList );
 app.post('/api/mazdoor/agency',authenticateToken,express.json(),getMazdoorAgencyDetails );
 app.post('/api/mazdoor/agency/mpr-decision',authenticatePortalToken,express.json(),agencyAcceptDeclineMpr );
+app.post('/api/mazdoor/agency/grant-portal-access',authenticateToken,express.json(),grantAgencyPortalAccess );
 
 app.post('/api/mazdoor/agent/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgentSaveUpdate );
 app.post('/api/mazdoor/agents',authenticateToken,express.json(),getMazdoorAgentsList );
 app.post('/api/mazdoor/agent',authenticateToken,express.json(),getMazdoorAgentDetails );
+app.post('/api/mazdoor/agent/grant-portal-access',authenticateToken,express.json(),grantAgentPortalAccess );
 app.post('/api/mazdoor/sub-mpr/decision',authenticatePortalToken,express.json(),subMprAcceptDecline );
 
 app.post('/api/mazdoor/manpower-request/save-update',authenticateToken,express.json(),mazdoorUpload,manpowerRequestSaveUpdate );

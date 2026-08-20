@@ -96,6 +96,36 @@ async function getPortalTenant(req) {
     return { pool, tenantId };
 }
 
+// Login-specific tenant resolution: unlike signup (a brand new visitor with
+// no existing row, so subdomain is the only signal available), a portal user
+// logging in already has a MazdoorPortalUser row carrying the correct
+// TenantID from whenever it was created (self-signup or an admin's Grant
+// Portal Access) — looking it up directly by email is both more reliable
+// than subdomain matching and works from any host, including localhost,
+// where getSubdomain() always returns null (no dots to split on).
+async function getPortalTenantByEmail(req, email) {
+    store.dispatch(setCurrentDatabase(req.body.from || PORTAL_DEFAULT_DATABASE));
+    const config = store.getState().constents.config;
+    const pool = await sql.connect(config);
+
+    const result = await pool
+        .request()
+        .input("Email", sql.NVarChar, email)
+        .query(`SELECT TOP 1 [TenantID] FROM [dbo].[MazdoorPortalUser] WHERE [Email] = @Email AND [IsDeleted] = 0`);
+
+    const tenantId = result.recordset?.[0]?.TenantID;
+    if (!tenantId) {
+        throw new Error("No account found with this email.");
+    }
+
+    await pool
+        .request()
+        .input("tenantId", sql.NVarChar, tenantId)
+        .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+
+    return { pool, tenantId };
+}
+
 // DB connection for an already-logged-in portal user (Agency/Agent), driven
 // by the portal JWT payload instead of the internal req.authUser.
 async function getPortalAuthedPool(req) {
@@ -148,6 +178,7 @@ module.exports = {
     newId,
     getTenantPool,
     getPortalTenant,
+    getPortalTenantByEmail,
     getPortalAuthedPool,
     authenticatePortalToken,
     SECRET_KEY,

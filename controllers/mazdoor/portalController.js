@@ -6,7 +6,7 @@
 const {
     sql, jwt, bcrypt, SECRET_KEY,
     uploadDocument, filesByField, newId,
-    getPortalTenant, getPortalAuthedPool,
+    getPortalTenant, getPortalTenantByEmail, getPortalAuthedPool,
 } = require("./_shared");
 
 async function saveAgency(pool, tenantId, formData, email) {
@@ -117,7 +117,9 @@ const portalLogin = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const { pool, tenantId } = await getPortalTenant(req);
+        // Resolved from the existing MazdoorPortalUser row by email, not the
+        // request's subdomain — see getPortalTenantByEmail's comment.
+        const { pool, tenantId } = await getPortalTenantByEmail(req, email);
 
         const result = await pool.request()
             .input("TenantID", sql.NVarChar(65), tenantId)

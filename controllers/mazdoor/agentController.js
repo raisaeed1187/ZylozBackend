@@ -1,4 +1,4 @@
-const { sql, getTenantPool } = require("./_shared");
+const { sql, bcrypt, getTenantPool } = require("./_shared");
 
 // AgentsList.jsx / AgentCreation.jsx read camelCase fields (and, on the list
 // screen specifically, `name` rather than `agentName`) but the stored procs
@@ -86,11 +86,63 @@ const getAgentDetails = async (req, res) => {
             .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
             .execute("dbo.usp_Mazdoor_Agent_Details");
 
-        res.status(200).json({ message: "Agent details loaded successfully!", data: result.recordset.map(toDetailsRow) });
+        // Same plain lookup as getAgencyDetails — no proc covers this, and it
+        // lets AgentCreation.jsx show whether this agent already has a portal
+        // login instead of the admin finding out only when Grant fails.
+        const portalUser = await pool.request()
+            .input("AgentID", sql.NVarChar(65), Id)
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .query(`SELECT TOP 1 [ID2], [Email], [Status], [LastLoginAt]
+                    FROM [dbo].[MazdoorPortalUser]
+                    WHERE [AgentID] = @AgentID AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+
+        res.status(200).json({
+            message: "Agent details loaded successfully!",
+            data: result.recordset.map(toDetailsRow),
+            portalAccess: portalUser.recordset[0] || null,
+        });
     } catch (error) {
         return res.status(400).json({ message: error.message, data: null });
     }
 };
 // end of getAgentDetails
 
-module.exports = { agentSaveUpdate, getAgentsList, getAgentDetails };
+// Mirrors grantAgencyPortalAccess in agencyController.js — same gap, same
+// fix, for agents created directly via AgentCreation.jsx instead of via
+// portal self-registration.
+const grantAgentPortalAccess = async (req, res) => {
+    const { agentId, email, password } = req.body;
+
+    try {
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters.", data: null });
+        }
+
+        const pool = await getTenantPool(req);
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        await pool.request()
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .input("PrincipalType", sql.NVarChar(10), "agent")
+            .input("AgentID", sql.NVarChar(65), agentId)
+            .input("Email", sql.NVarChar(150), email)
+            .input("PasswordHash", sql.NVarChar(255), passwordHash)
+            .execute("dbo.usp_Mazdoor_Portal_Signup");
+
+        // See the identical note in grantAgencyPortalAccess: the proc always
+        // inserts Status='Pending'; the admin granting access here has
+        // already effectively approved it, so activate immediately.
+        await pool.request()
+            .input("Email", sql.NVarChar(150), email)
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .query(`UPDATE [dbo].[MazdoorPortalUser] SET [Status] = 'Active'
+                    WHERE [Email] = @Email AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+
+        res.status(200).json({ message: "Portal access granted successfully!", data: { agentId, email } });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of grantAgentPortalAccess
+
+module.exports = { agentSaveUpdate, getAgentsList, getAgentDetails, grantAgentPortalAccess };
