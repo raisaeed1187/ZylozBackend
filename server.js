@@ -111,14 +111,13 @@ const {retailItemSaveUpdate,  retailServiceSaveUpdate,  retailOrderSaveUpdate,re
 
 const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantController');
 
-const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr, grantAgencyPortalAccess } = require('./controllers/mazdoor/agencyController');
-const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails, grantAgentPortalAccess } = require('./controllers/mazdoor/agentController');
-const { manpowerRequestSaveUpdate, getManpowerRequestsList, getManpowerRequestDetails, deleteManpowerRequest } = require('./controllers/mazdoor/manpowerRequestController');
-const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline } = require('./controllers/mazdoor/agentTradeAssignmentController');
+const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr, grantAgencyPortalAccess, getAgenciesForAssignment } = require('./controllers/mazdoor/agencyController');
+const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails, grantAgentPortalAccess, getAgentsForAssignment } = require('./controllers/mazdoor/agentController');
+const { manpowerRequestSaveUpdate, getManpowerRequestsList, getManpowerRequestsForAgency, getManpowerRequestDetails, deleteManpowerRequest } = require('./controllers/mazdoor/manpowerRequestController');
+const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline, getAgentSubMprs } = require('./controllers/mazdoor/agentTradeAssignmentController');
 const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMazdoorCandidatesList, deleteCandidate:deleteMazdoorCandidate, candidateStageUpdate, getOnboardingScreensList, onboardingScreenSaveUpdate } = require('./controllers/mazdoor/candidateController');
 const { interviewScheduleSaveUpdate, getInterviewSchedule } = require('./controllers/mazdoor/interviewScheduleController');
 const { portalSignup, portalLogin, getPortalProfile } = require('./controllers/mazdoor/portalController');
-const { authenticatePortalToken } = require('./controllers/mazdoor/_shared');
 
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
 saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
@@ -902,28 +901,33 @@ app.post('/api/retail/order/delete-item',authenticateToken,express.json(),delete
 // end of retail
 
 // ── Mazdoor module ──────────────────────────────────────────────────────
-// Internal-staff screens (Agency/Agent/Candidate/Manpower Request/Interview
-// Schedule admin) run under the normal internal JWT (authenticateToken),
-// same as every other module above. Only the self-service portal's signup
-// and login are public (no session exists yet); the portal's own actions
-// (profile, MPR/Sub-MPR accept-decline) run under the separate portal JWT
-// (authenticatePortalToken) so an internal-staff token can never be used to
-// act as an Agency/Agent and vice versa.
+// All Mazdoor endpoints — internal-staff admin screens AND the self-service
+// Agency/Agent portal alike — run under the standard internal JWT
+// (authenticateToken) now. Portal login (see portalController.js) registers
+// Agency/Agent principals as regular Users-table rows and issues the same
+// kind of token internal staff get, so there's no separate portal auth
+// scheme anymore. Handlers that portal users can reach (mpr-decision,
+// sub-mpr/decision) verify req.authUser.agencyId/agentId themselves so one
+// agency/agent can't act on another's requests. Only signup and login stay
+// public — no session exists yet at that point.
 
 app.post('/api/mazdoor/agency/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgencySaveUpdate );
 app.post('/api/mazdoor/agencies',authenticateToken,express.json(),getMazdoorAgenciesList );
+app.post('/api/mazdoor/agencies/for-assignment',authenticateToken,express.json(),getAgenciesForAssignment );
 app.post('/api/mazdoor/agency',authenticateToken,express.json(),getMazdoorAgencyDetails );
-app.post('/api/mazdoor/agency/mpr-decision',authenticatePortalToken,express.json(),agencyAcceptDeclineMpr );
+app.post('/api/mazdoor/agency/mpr-decision',authenticateToken,express.json(),agencyAcceptDeclineMpr );
 app.post('/api/mazdoor/agency/grant-portal-access',authenticateToken,express.json(),grantAgencyPortalAccess );
 
 app.post('/api/mazdoor/agent/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgentSaveUpdate );
 app.post('/api/mazdoor/agents',authenticateToken,express.json(),getMazdoorAgentsList );
+app.post('/api/mazdoor/agents/for-assignment',authenticateToken,express.json(),getAgentsForAssignment );
 app.post('/api/mazdoor/agent',authenticateToken,express.json(),getMazdoorAgentDetails );
 app.post('/api/mazdoor/agent/grant-portal-access',authenticateToken,express.json(),grantAgentPortalAccess );
-app.post('/api/mazdoor/sub-mpr/decision',authenticatePortalToken,express.json(),subMprAcceptDecline );
+app.post('/api/mazdoor/sub-mpr/decision',authenticateToken,express.json(),subMprAcceptDecline );
 
 app.post('/api/mazdoor/manpower-request/save-update',authenticateToken,express.json(),mazdoorUpload,manpowerRequestSaveUpdate );
 app.post('/api/mazdoor/manpower-requests',authenticateToken,express.json(),getManpowerRequestsList );
+app.post('/api/mazdoor/manpower-requests/for-agency',authenticateToken,express.json(),getManpowerRequestsForAgency );
 app.post('/api/mazdoor/manpower-request',authenticateToken,express.json(),getManpowerRequestDetails );
 app.post('/api/mazdoor/manpower-request/delete',authenticateToken,express.json(),deleteManpowerRequest );
 
@@ -931,6 +935,7 @@ app.post('/api/mazdoor/agent-trade-assignment/save-update',authenticateToken,exp
 app.post('/api/mazdoor/agent-trade-assignments',authenticateToken,express.json(),getMazdoorAgentTradeAssignments );
 app.post('/api/mazdoor/agent-trade-assignment/delete',authenticateToken,express.json(),deleteAgentTradeAssignment );
 app.post('/api/mazdoor/sub-mpr/generate',authenticateToken,express.json(),subMprGenerate );
+app.post('/api/mazdoor/agent/sub-mprs',authenticateToken,express.json(),getAgentSubMprs );
 
 app.post('/api/mazdoor/candidate/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorCandidateSaveUpdate );
 app.post('/api/mazdoor/candidates',authenticateToken,express.json(),getMazdoorCandidatesList );
@@ -944,7 +949,7 @@ app.post('/api/mazdoor/interview-schedule',authenticateToken,express.json(),getI
 
 app.post('/api/mazdoor/portal/signup',express.json(),mazdoorUpload,portalSignup );
 app.post('/api/mazdoor/portal/login',express.json(),portalLogin );
-app.post('/api/mazdoor/portal/profile',authenticatePortalToken,express.json(),getPortalProfile );
+app.post('/api/mazdoor/portal/profile',authenticateToken,express.json(),getPortalProfile );
 
 // end of Mazdoor module
 

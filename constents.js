@@ -35,6 +35,7 @@ const states = {
             trustServerCertificate:true,
             trustedConnection:false,
             enableArithAbort:true,
+            
             encrypt: true,
             // instancename:"SQLEXPRESS", 
             connectionTimeout: 60000,  
@@ -66,7 +67,7 @@ const constentsSlice = createSlice({
                     trustServerCertificate:true,
                     trustedConnection:false,
                     enableArithAbort:true,
-                    // encrypt: true,
+                    encrypt: true,
                     // instancename:"SQLEXPRESS", 
                 }
             };
@@ -83,6 +84,8 @@ const constentsSlice = createSlice({
                     trustServerCertificate:true,
                     trustedConnection:false,
                     enableArithAbort:true, 
+                    encrypt: true,
+
                 }
             }; 
             const pool = new sql.ConnectionPool(config);

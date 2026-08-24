@@ -1,19 +1,32 @@
 // Public (pre-login) and portal-authenticated endpoints for the Mazdoor
-// Agency/Agent self-service portal. Signup/login have no internal JWT to
-// resolve a tenant from, so they use getPortalTenant()'s subdomain lookup —
-// the same mechanism sendOTP()'s VendorVerification flow uses elsewhere in
-// this app for anonymous, multi-tenant requests.
+// Agency/Agent self-service portal. Login and signup credential creation now
+// go through the app's standard authentication process (Users table,
+// User_Registeration, User_login, GetUserModulesMenus — see _shared.js's
+// registerPortalUser/ensureMazdoorPortalRole) instead of a separate
+// MazdoorPortalUser table/JWT.
+//
+// Multi-tenancy model: an Agency/Agent an admin creates directly
+// (agencyController.js/agentController.js's grantAgencyPortalAccess /
+// grantAgentPortalAccess) stays private to that admin's own tenant. One that
+// self-registers here instead gets its OWN brand-new tenant (createPortalTenant)
+// — it isn't "owned" by whichever Requester happens to look at it first, and
+// can be discovered/assigned work by any Requester tenant (see the
+// marketplace visibility queries in agencyController.js/agentController.js's
+// *ForAssignment functions). That's also why signup no longer needs
+// subdomain-based tenant resolution: it makes its own tenant instead of
+// joining an existing one.
 const {
     sql, jwt, bcrypt, SECRET_KEY,
     uploadDocument, filesByField, newId,
-    getPortalTenant, getPortalTenantByEmail, getPortalAuthedPool,
+    getPortalPool, createPortalTenant, getTenantPool, registerPortalUser,
+    PORTAL_DEFAULT_DATABASE, setCurrentDatabase, store,
 } = require("./_shared");
 
-async function saveAgency(pool, tenantId, formData, email) {
+async function saveAgency(pool, tenantId, organizationId, formData, email) {
     const result = await pool.request()
         .input("ID2", sql.NVarChar(65), null)
         .input("TenantID", sql.NVarChar(65), tenantId)
-        .input("OrganizationID", sql.NVarChar(65), formData.organizationId || null)
+        .input("OrganizationID", sql.NVarChar(65), organizationId || null)
         .input("AgencyName", sql.NVarChar(200), formData.agencyName)
         .input("AgencyType", sql.NVarChar(50), formData.agencyType || null)
         .input("LicenseNumber", sql.NVarChar(100), formData.licenseNumber || formData.licenseNo)
@@ -39,11 +52,11 @@ async function saveAgency(pool, tenantId, formData, email) {
     return result.recordset[0].ID2;
 }
 
-async function saveAgent(pool, tenantId, formData, email) {
+async function saveAgent(pool, tenantId, organizationId, formData, email) {
     const result = await pool.request()
         .input("ID2", sql.NVarChar(65), null)
         .input("TenantID", sql.NVarChar(65), tenantId)
-        .input("OrganizationID", sql.NVarChar(65), formData.organizationId || null)
+        .input("OrganizationID", sql.NVarChar(65), organizationId || null)
         .input("AgentName", sql.NVarChar(150), formData.agentName)
         .input("Country", sql.NVarChar(100), formData.country || formData.agentCountry || null)
         .input("Phone", sql.NVarChar(30), formData.phone || formData.agentPhone)
@@ -62,13 +75,27 @@ const portalSignup = async (req, res) => {
         if (formData.role !== "agency" && formData.role !== "agent") {
             return res.status(400).json({ message: "role must be agency or agent.", data: null });
         }
+        if (!formData.password || formData.password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters.", data: null });
+        }
 
-        const { pool, tenantId } = await getPortalTenant(req);
+        const pool = await getPortalPool(req);
         const email = formData.email || formData.agencyEmail || formData.agentEmail;
 
+        const { tenantId, organizationId } = await createPortalTenant(pool, {
+            tenantName: formData.role === "agency" ? formData.agencyName : formData.agentName,
+            email,
+            phone: formData.phone || formData.agencyPhone || formData.agentPhone,
+            country: formData.countryOfRegistration || formData.opCountry || formData.country || formData.agentCountry,
+            city: formData.city || formData.agentCity,
+            createdBy: email,
+        });
+
         let principalId;
+        let fullName;
         if (formData.role === "agency") {
-            principalId = await saveAgency(pool, tenantId, formData, email);
+            principalId = await saveAgency(pool, tenantId, organizationId, formData, email);
+            fullName = formData.contactPerson || formData.agencyName;
 
             const documents = filesByField(req, "documents");
             if (documents.length > 0) {
@@ -85,23 +112,24 @@ const portalSignup = async (req, res) => {
                 }
             }
         } else {
-            principalId = await saveAgent(pool, tenantId, formData, email);
+            principalId = await saveAgent(pool, tenantId, organizationId, formData, email);
+            fullName = formData.agentName;
         }
 
-        // Login credentials are only created once a password is supplied — the
-        // Agency/Agent master record above is created either way (see
-        // usp_Mazdoor_Portal_Signup's header comment on the two-call flow).
-        if (formData.password) {
-            const passwordHash = await bcrypt.hash(formData.password, 10);
-            await pool.request()
-                .input("TenantID", sql.NVarChar(65), tenantId)
-                .input("PrincipalType", sql.NVarChar(10), formData.role)
-                .input("AgencyID", sql.NVarChar(65), formData.role === "agency" ? principalId : null)
-                .input("AgentID", sql.NVarChar(65), formData.role === "agent" ? principalId : null)
-                .input("Email", sql.NVarChar(150), email)
-                .input("PasswordHash", sql.NVarChar(255), passwordHash)
-                .execute("dbo.usp_Mazdoor_Portal_Signup");
-        }
+        // Login credentials via the standard Users table — see
+        // registerPortalUser's comment. The MazdoorAgency/MazdoorAgent record
+        // above is created either way; this is what actually lets them log in.
+        await registerPortalUser(pool, {
+            tenantId,
+            organizationId,
+            database: req.body.from || PORTAL_DEFAULT_DATABASE,
+            email,
+            password: formData.password,
+            fullName,
+            agencyId: formData.role === "agency" ? principalId : null,
+            agentId: formData.role === "agent" ? principalId : null,
+            createdBy: email,
+        });
 
         res.status(200).json({
             message: "Registration submitted — pending admin approval",
@@ -117,35 +145,97 @@ const portalLogin = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Resolved from the existing MazdoorPortalUser row by email, not the
-        // request's subdomain — see getPortalTenantByEmail's comment.
-        const { pool, tenantId } = await getPortalTenantByEmail(req, email);
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required.", data: null });
+        }
 
+        store.dispatch(setCurrentDatabase(req.body.from || PORTAL_DEFAULT_DATABASE));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+
+        // User_login resolves the tenant itself (by email, within the
+        // connected database) — same as the internal app's own signIn, no
+        // subdomain lookup needed.
         const result = await pool.request()
-            .input("TenantID", sql.NVarChar(65), tenantId)
-            .input("Email", sql.NVarChar(150), email)
-            .execute("dbo.usp_Mazdoor_Portal_Login");
+            .input("email", sql.NVarChar, email)
+            .execute("User_login");
 
         const user = result.recordset[0];
         if (!user) {
-            return res.status(400).json({ message: "No account found with this email.", data: null });
+            return res.status(400).json({ message: "Invalid email", data: null });
         }
 
-        const isMatch = await bcrypt.compare(password || "", user.PasswordHash);
+        const isMatch = await bcrypt.compare(password, user.Password);
         if (!isMatch) {
-            return res.status(400).json({ message: "Invalid email or password.", data: null });
+            return res.status(400).json({ message: "Invalid password", data: null });
+        }
+
+        await pool.request()
+            .input("tenantId", sql.NVarChar, user.TenantId)
+            .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
+
+        // User_login's SELECT doesn't include AgencyId (only AgentId) — a
+        // plain follow-up query rather than a proc change.
+        const agencyRow = await pool.request()
+            .input("Id", sql.NVarChar, user.ID2)
+            .query(`SELECT [AgencyId] FROM [dbo].[Users] WHERE [ID2] = @Id`);
+        const agencyId = agencyRow.recordset[0]?.AgencyId || null;
+        const agentId = user.AgentId || null;
+
+        if (!agencyId && !agentId) {
+            return res.status(400).json({ message: "This account is not registered as a Mazdoor Agency/Agent.", data: null });
+        }
+        const principalType = agencyId ? "agency" : "agent";
+
+        // The Organization assigned at signup/grant time (registerPortalUser
+        // in _shared.js) lives in UserOrganization, not a column on Users
+        // itself — same table UserApplicationRole_SaveOrUpdate_Multi wrote it
+        // into. AgencyDashboard.jsx/AgentDashboard.jsx need this on the portal
+        // user (they don't have the internal app's org-selection flow to fall
+        // back on).
+        const orgRow = await pool.request()
+            .input("UserID", sql.NVarChar, user.ID2)
+            .query(`SELECT TOP 1 [OrganizationID] FROM [dbo].[UserOrganization] WHERE [UserID] = @UserID`);
+        const organizationId = orgRow.recordset[0]?.OrganizationID || null;
+
+        const modules = await pool.request()
+            .input("UserID", sql.NVarChar, user.ID2)
+            .execute("GetUserModulesMenus");
+
+        if (modules.recordset.length === 0) {
+            return res.status(400).json({ message: "Your account isn't authorized for portal access yet. Contact your administrator.", data: null });
+        }
+
+        let principalName = null;
+        if (principalType === "agency") {
+            const agencyRes = await pool.request()
+                .input("Id", sql.NVarChar(65), agencyId)
+                .query(`SELECT [AgencyName] FROM [dbo].[MazdoorAgency] WHERE [ID2] = @Id`);
+            principalName = agencyRes.recordset[0]?.AgencyName || null;
+        } else {
+            const agentRes = await pool.request()
+                .input("Id", sql.NVarChar(65), agentId)
+                .query(`SELECT [AgentName] FROM [dbo].[MazdoorAgent] WHERE [ID2] = @Id`);
+            principalName = agentRes.recordset[0]?.AgentName || null;
         }
 
         const userDetails = {
             id: user.ID2,
-            principalType: user.PrincipalType,
+            ID2: user.ID2,
             email: user.Email,
-            agencyId: user.AgencyID || null,
-            agencyName: user.AgencyName || null,
-            agentId: user.AgentID || null,
-            agentName: user.AgentName || null,
-            tenantId,
-            database: req.body.from || "Allbiz",
+            userName: user.UserName,
+            fullName: user.FullName,
+            database: user.databaseName,
+            tenantId: user.TenantId,
+            tenantCode: user.TenantCode,
+            tenantName: user.TenantName,
+            principalType,
+            agencyId,
+            agentId,
+            organizationId,
+            agencyName: principalType === "agency" ? principalName : null,
+            agentName: principalType === "agent" ? principalName : null,
+            client: user.databaseName,
         };
 
         const token = jwt.sign(userDetails, SECRET_KEY, { expiresIn: "12h" });
@@ -160,14 +250,17 @@ const portalLogin = async (req, res) => {
 };
 // end of portalLogin
 
+// Portal-authenticated (standard authenticateToken, same as every other
+// Mazdoor endpoint now) — reads req.authUser.agencyId/agentId, set on the
+// token by portalLogin above.
 const getPortalProfile = async (req, res) => {
     try {
-        const pool = await getPortalAuthedPool(req);
+        const pool = await getTenantPool(req);
 
-        if (req.portalUser.principalType === "agency") {
+        if (req.authUser.principalType === "agency") {
             const result = await pool.request()
-                .input("Id", sql.NVarChar(65), req.portalUser.agencyId)
-                .input("TenantID", sql.NVarChar(65), req.portalUser.tenantId)
+                .input("Id", sql.NVarChar(65), req.authUser.agencyId)
+                .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
                 .execute("dbo.usp_Mazdoor_Agency_Details");
 
             return res.status(200).json({
@@ -178,8 +271,8 @@ const getPortalProfile = async (req, res) => {
         }
 
         const result = await pool.request()
-            .input("Id", sql.NVarChar(65), req.portalUser.agentId)
-            .input("TenantID", sql.NVarChar(65), req.portalUser.tenantId)
+            .input("Id", sql.NVarChar(65), req.authUser.agentId)
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
             .execute("dbo.usp_Mazdoor_Agent_Details");
 
         res.status(200).json({ message: "Profile loaded successfully!", data: result.recordset[0] || null });

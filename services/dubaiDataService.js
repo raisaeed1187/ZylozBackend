@@ -69,4 +69,33 @@ const getDataset = async (entity, datasetName, query = {}, isRetry = false) => {
     }
 };
 
-module.exports = { getAccessToken, getDataset };
+const MAX_PAGE_SIZE = 1000;
+// const MAX_PAGES = 5000; // safety cap (5M records) against runaway loops
+const MAX_PAGES = 10; // safety cap (5M records) against runaway loops
+const REQUEST_INTERVAL_MS = 1100; // stays under the documented 60 req/min limit
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Fetches every page for the given query and merges the results into one array.
+const getFullDataset = async (entity, datasetName, query = {}) => {
+    const pageSize = Number(query.pageSize) || MAX_PAGE_SIZE;
+    let page = Number(query.page) || 1;
+    let allResults = [];
+    let pagesFetched = 0;
+
+    while (pagesFetched < MAX_PAGES) {
+        if (pagesFetched > 0) await sleep(REQUEST_INTERVAL_MS);
+
+        const response = await getDataset(entity, datasetName, { ...query, page, pageSize });
+        const results = response?.results || [];
+        allResults = allResults.concat(results);
+        pagesFetched += 1;
+
+        if (results.length < pageSize) break;
+        page += 1;
+    }
+
+    return { results: allResults, totalRecords: allResults.length };
+};
+
+module.exports = { getAccessToken, getDataset, getFullDataset };

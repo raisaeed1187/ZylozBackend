@@ -1,4 +1,4 @@
-const { sql, bcrypt, getTenantPool } = require("./_shared");
+const { sql, getTenantPool, registerPortalUser } = require("./_shared");
 
 // AgentsList.jsx / AgentCreation.jsx read camelCase fields (and, on the list
 // screen specifically, `name` rather than `agentName`) but the stored procs
@@ -76,6 +76,33 @@ const getAgentsList = async (req, res) => {
 };
 // end of getAgentsList
 
+// Marketplace visibility for the "Assign Agents" picker (AgencyRequestDetail.jsx)
+// — mirrors getAgenciesForAssignment in agencyController.js. Called from an
+// Agency's own portal session (req.authUser.tenantId = that agency's tenant),
+// it surfaces both that tenant's own agents AND self-registered agents from
+// any other tenant (each identified the same way: a Users login whose
+// AgentId/TenantId point back at itself).
+const getAgentsForAssignment = async (req, res) => {
+    try {
+        const pool = await getTenantPool(req);
+        const result = await pool.request()
+            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .query(`SELECT [ID2],[AgentName],[Country],[Phone],[Email],[Specializations],[StatusId],[CreatedAt]
+                    FROM [dbo].[MazdoorAgent] ma
+                    WHERE ma.[IsDeleted] = 0 AND ma.[StatusId] = 'Active'
+                      AND (
+                            ma.[TenantID] = @TenantID
+                            OR EXISTS (SELECT 1 FROM [dbo].[Users] u WHERE u.[AgentId] = ma.[ID2] AND u.[TenantId] = ma.[TenantID])
+                          )
+                    ORDER BY ma.[AgentName]`);
+
+        res.status(200).json({ message: "Agents list loaded successfully!", data: result.recordset.map(toListRow) });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of getAgentsForAssignment
+
 const getAgentDetails = async (req, res) => {
     const { Id } = req.body;
 
@@ -89,17 +116,23 @@ const getAgentDetails = async (req, res) => {
         // Same plain lookup as getAgencyDetails — no proc covers this, and it
         // lets AgentCreation.jsx show whether this agent already has a portal
         // login instead of the admin finding out only when Grant fails.
+        // Portal login is now a standard Users-table row (see
+        // registerPortalUser in _shared.js), so this reads Users instead of
+        // the retired MazdoorPortalUser table.
         const portalUser = await pool.request()
             .input("AgentID", sql.NVarChar(65), Id)
             .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
-            .query(`SELECT TOP 1 [ID2], [Email], [Status], [LastLoginAt]
-                    FROM [dbo].[MazdoorPortalUser]
-                    WHERE [AgentID] = @AgentID AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+            .query(`SELECT TOP 1 [ID2], [Email], [IsActive]
+                    FROM [dbo].[Users]
+                    WHERE [AgentId] = @AgentID AND [TenantId] = @TenantID`);
+        const portalUserRow = portalUser.recordset[0];
 
         res.status(200).json({
             message: "Agent details loaded successfully!",
             data: result.recordset.map(toDetailsRow),
-            portalAccess: portalUser.recordset[0] || null,
+            portalAccess: portalUserRow
+                ? { Email: portalUserRow.Email, Status: portalUserRow.IsActive ? "Active" : "Suspended" }
+                : null,
         });
     } catch (error) {
         return res.status(400).json({ message: error.message, data: null });
@@ -119,24 +152,24 @@ const grantAgentPortalAccess = async (req, res) => {
         }
 
         const pool = await getTenantPool(req);
-        const passwordHash = await bcrypt.hash(password, 10);
 
-        await pool.request()
-            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
-            .input("PrincipalType", sql.NVarChar(10), "agent")
-            .input("AgentID", sql.NVarChar(65), agentId)
-            .input("Email", sql.NVarChar(150), email)
-            .input("PasswordHash", sql.NVarChar(255), passwordHash)
-            .execute("dbo.usp_Mazdoor_Portal_Signup");
+        // Same reasoning as grantAgencyPortalAccess: an admin-created agent
+        // already has an OrganizationID set by agentSaveUpdate — carry it
+        // over to the new login's UserOrganization row.
+        const agentRow = await pool.request()
+            .input("Id", sql.NVarChar(65), agentId)
+            .query(`SELECT [OrganizationID] FROM [dbo].[MazdoorAgent] WHERE [ID2] = @Id`);
+        const organizationId = agentRow.recordset[0]?.OrganizationID || null;
 
-        // See the identical note in grantAgencyPortalAccess: the proc always
-        // inserts Status='Pending'; the admin granting access here has
-        // already effectively approved it, so activate immediately.
-        await pool.request()
-            .input("Email", sql.NVarChar(150), email)
-            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
-            .query(`UPDATE [dbo].[MazdoorPortalUser] SET [Status] = 'Active'
-                    WHERE [Email] = @Email AND [TenantID] = @TenantID AND [IsDeleted] = 0`);
+        await registerPortalUser(pool, {
+            tenantId: req.authUser.tenantId,
+            organizationId,
+            database: req.authUser.database,
+            email,
+            password,
+            agentId,
+            createdBy: req.authUser.username,
+        });
 
         res.status(200).json({ message: "Portal access granted successfully!", data: { agentId, email } });
     } catch (error) {
@@ -145,4 +178,4 @@ const grantAgentPortalAccess = async (req, res) => {
 };
 // end of grantAgentPortalAccess
 
-module.exports = { agentSaveUpdate, getAgentsList, getAgentDetails, grantAgentPortalAccess };
+module.exports = { agentSaveUpdate, getAgentsList, getAgentDetails, grantAgentPortalAccess, getAgentsForAssignment };

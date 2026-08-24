@@ -1,4 +1,4 @@
-const { sql, uploadDocument, fileByField, newId, getTenantPool } = require("./_shared");
+const { sql, uploadDocument, fileByField, newId, getTenantPool, resolveManpowerRequestTenantId } = require("./_shared");
 
 // ManpowerRequestCreation.jsx's trade rows use `name`/`count` (see TradeRow.jsx),
 // but usp_Mazdoor_ManpowerRequest_SaveUpdate's @Requirements JSON parsing reads
@@ -187,14 +187,60 @@ const getManpowerRequestsList = async (req, res) => {
 };
 // end of getManpowerRequestsList
 
+// Cross-tenant view for a self-registered Agency's own portal dashboard
+// (AgencyDashboard.jsx) — usp_Mazdoor_ManpowerRequest_List is tenant-scoped
+// (requires @TenantID), so a Requester's MPR never shows up for an Agency
+// with its own separate tenant (see createPortalTenant in _shared.js) even
+// after it's been assigned. Rather than guess at that proc's exact output
+// shape, this finds which Requester tenant(s) have assigned an MPR to this
+// agency, then re-runs the SAME proc once per tenant and keeps only the rows
+// actually assigned to this agency — same ownership-check pattern already
+// used in agencyController.js's agencyAcceptDeclineMpr.
+const getManpowerRequestsForAgency = async (req, res) => {
+    try {
+        if (!req.authUser.agencyId) {
+            return res.status(403).json({ message: "Only an Agency portal account can view this.", data: null });
+        }
+
+        const pool = await getTenantPool(req);
+
+        const tenantsRes = await pool.request()
+            .input("AgencyID", sql.NVarChar(65), req.authUser.agencyId)
+            .query(`SELECT DISTINCT [TenantID] FROM [dbo].[MazdoorManpowerRequest] WHERE [AgencyID] = @AgencyID AND [IsDeleted] = 0`);
+        const tenantIds = tenantsRes.recordset.map((r) => r.TenantID).filter(Boolean);
+
+        let rows = [];
+        for (const tenantId of tenantIds) {
+            const listResult = await pool.request()
+                .input("TenantID", sql.NVarChar(65), tenantId)
+                .input("OrganizationID", sql.NVarChar(65), null)
+                .input("Status", sql.NVarChar(30), null)
+                .execute("dbo.usp_Mazdoor_ManpowerRequest_List");
+
+            rows = rows.concat(listResult.recordset.filter((r) => r.AgencyID === req.authUser.agencyId));
+        }
+
+        res.status(200).json({ message: "Manpower requests list loaded successfully!", data: rows });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of getManpowerRequestsForAgency
+
 const getManpowerRequestDetails = async (req, res) => {
     const { Id } = req.body;
 
     try {
         const pool = await getTenantPool(req);
+        // req.authUser.tenantId alone only works for the Requester who owns
+        // this MPR — an Agency portal caller usually has its own separate
+        // tenant (see resolveManpowerRequestTenantId in _shared.js), and
+        // without this the proc's @TenantID filter silently returns nothing,
+        // which reads to the frontend as "Request not found".
+        const tenantId = await resolveManpowerRequestTenantId(pool, req, Id);
         const result = await pool.request()
             .input("Id", sql.NVarChar(65), Id)
-            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .input("TenantID", sql.NVarChar(65), tenantId)
             .execute("dbo.usp_Mazdoor_ManpowerRequest_Details");
 
         res.status(200).json({
@@ -232,6 +278,7 @@ const deleteManpowerRequest = async (req, res) => {
 module.exports = {
     manpowerRequestSaveUpdate,
     getManpowerRequestsList,
+    getManpowerRequestsForAgency,
     getManpowerRequestDetails,
     deleteManpowerRequest,
 };
