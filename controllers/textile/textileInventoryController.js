@@ -740,6 +740,7 @@ const textileStock_SpecificSelection = async (req, res) => {
       orderNo        = null,   // NEW
       ctnNo          = null,   // NEW
       fabricName     = null,   // NEW
+      isCtnOpen      = null,  // NEW
       excludeOrderId = null,   // pass current OrderID when editing
       pageNumber     = 1,
       pageSize       = 100,
@@ -759,6 +760,7 @@ const textileStock_SpecificSelection = async (req, res) => {
       .input("OrderNo",         sql.NVarChar(50),  orderNo                || null)   // NEW
       .input("CtnNo",           sql.NVarChar(50),  ctnNo                  || null)   // NEW
       .input("FabricName",      sql.NVarChar(200), fabricName             || null)   // NEW
+      .input("IsCtnOpen",       sql.Bit,           typeof isCtnOpen === "boolean" ? isCtnOpen : null)   // NEW
       .input("ExcludeOrderID",  sql.NVarChar(65),  excludeOrderId         || null)
       .input("PageNumber",      sql.Int,           pageNumber)
       .input("PageSize",        sql.Int,           pageSize)
