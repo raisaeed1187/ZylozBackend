@@ -230,6 +230,16 @@ const getAgentSubMprs = async (req, res) => {
             }
             const mprInfo = mprCache.get(cacheKey);
 
+            // AgentDashboard.jsx needs to know up front whether this Sub-MPR
+            // already has an interview schedule (to show "View Schedule" vs
+            // "Schedule") — usp_Mazdoor_InterviewSchedule_Details is already
+            // the proven-correct way to look one up (see interviewScheduleController.js).
+            const scheduleRes = await pool.request()
+                .input("SubMprCode", sql.NVarChar(30), subMprCode)
+                .input("TenantID", sql.NVarChar(65), entry.tenantId)
+                .execute("dbo.usp_Mazdoor_InterviewSchedule_Details");
+            const hasSchedule = !!scheduleRes.recordsets[0]?.[0];
+
             subMprs.push({
                 id: subMprCode,
                 title: mprInfo.title,
@@ -241,7 +251,7 @@ const getAgentSubMprs = async (req, res) => {
                 status: deriveSubMprStatus(entry.status),
                 parentMPR: mprInfo.parentMPR,
                 parentMPRCode: mprInfo.parentMPRCode,
-
+                hasSchedule,
                 acceptComment: entry.acceptComment,
                 declineComment: entry.declineComment,
             });
@@ -254,6 +264,64 @@ const getAgentSubMprs = async (req, res) => {
 };
 // end of getAgentSubMprs
 
+// Every Sub-MPR generated under one Main MPR, for the internal admin
+// (Requester) side — CandidateOnboardingList.jsx's Sub-MPR rows were driven
+// by a MOCK_SUB_MPRS object keyed by old demo ids, so a real MPR's Sub-MPRs
+// (and the candidates an agent added under them — a different
+// onboardingScreenId than the main MPR's own) were never reachable from the
+// Requester's own login. Reuses usp_Mazdoor_AgentTradeAssignment_List
+// (already proven correct — same proc getMazdoorAgentTradeAssignments calls)
+// and groups its flat trade/agent rows by SubMprCode, same aggregation as
+// getAgentSubMprs above but across every agent on this one MPR rather than
+// one agent across every MPR.
+const getSubMprsForRequest = async (req, res) => {
+    const { manpowerRequestId } = req.body;
+
+    try {
+        const pool = await getTenantPool(req);
+        const tenantId = await resolveManpowerRequestTenantId(pool, req, manpowerRequestId);
+        const result = await pool.request()
+            .input("ManpowerRequestId", sql.NVarChar(65), manpowerRequestId)
+            .input("TenantID", sql.NVarChar(65), tenantId)
+            .execute("dbo.usp_Mazdoor_AgentTradeAssignment_List");
+
+        const bySubMpr = new Map();
+        for (const row of result.recordset) {
+            if (!row.SubMprCode) continue;
+            if (!bySubMpr.has(row.SubMprCode)) {
+                bySubMpr.set(row.SubMprCode, {
+                    id: row.SubMprCode,
+                    agentId: row.AgentID,
+                    agentName: row.AgentName,
+                    status: row.StatusId,
+                    trades: [],
+                    qty: 0,
+                });
+            }
+            const entry = bySubMpr.get(row.SubMprCode);
+            entry.trades.push(row.TradeName);
+            entry.qty += row.AssignedQty;
+        }
+
+        // AgencyDashboard.jsx needs to know up front whether each Sub-MPR
+        // already has an interview schedule (same reasoning/pattern as
+        // getAgentSubMprs above).
+        const subMprs = [];
+        for (const entry of bySubMpr.values()) {
+            const scheduleRes = await pool.request()
+                .input("SubMprCode", sql.NVarChar(30), entry.id)
+                .input("TenantID", sql.NVarChar(65), tenantId)
+                .execute("dbo.usp_Mazdoor_InterviewSchedule_Details");
+            subMprs.push({ ...entry, hasSchedule: !!scheduleRes.recordsets[0]?.[0] });
+        }
+
+        res.status(200).json({ message: "Sub-MPRs loaded successfully!", data: subMprs });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of getSubMprsForRequest
+
 module.exports = {
     agentTradeAssignmentSaveUpdate,
     getMazdoorAgentTradeAssignments,
@@ -261,4 +329,5 @@ module.exports = {
     subMprGenerate,
     subMprAcceptDecline,
     getAgentSubMprs,
+    getSubMprsForRequest,
 };

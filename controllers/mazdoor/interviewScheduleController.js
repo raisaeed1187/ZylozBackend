@@ -1,13 +1,21 @@
-const { sql, getTenantPool } = require("./_shared");
+const { sql, getTenantPool, resolveOnboardingScreenTenantId } = require("./_shared");
 
+// Interview scheduling is always reached from AgentDashboard.jsx, keyed by a
+// SubMprCode — an Agent's own tenant usually isn't the Requester's tenant the
+// Sub-MPR actually lives under (a self-registered agent has its own — see
+// createPortalTenant in _shared.js), so req.authUser.tenantId alone silently
+// scoped both the save and the read-back to the wrong tenant. Reuses
+// resolveOnboardingScreenTenantId's SubMprCode-ownership branch (candidate
+// onboarding screens follow the identical Sub-MPR/Agent ownership model).
 const interviewScheduleSaveUpdate = async (req, res) => {
     const { subMprCode, notes, slots } = req.body;
 
     try {
         const pool = await getTenantPool(req);
+        const tenantId = await resolveOnboardingScreenTenantId(pool, req, subMprCode);
         const result = await pool.request()
             .input("SubMprCode", sql.NVarChar(30), subMprCode)
-            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .input("TenantID", sql.NVarChar(65), tenantId)
             .input("Notes", sql.NVarChar(sql.MAX), notes || null)
             .input("Slots", sql.NVarChar(sql.MAX), slots || null)
             .input("CreatedBy", sql.NVarChar(100), req.authUser.username)
@@ -25,9 +33,10 @@ const getInterviewSchedule = async (req, res) => {
 
     try {
         const pool = await getTenantPool(req);
+        const tenantId = await resolveOnboardingScreenTenantId(pool, req, subMprCode);
         const result = await pool.request()
             .input("SubMprCode", sql.NVarChar(30), subMprCode)
-            .input("TenantID", sql.NVarChar(65), req.authUser.tenantId)
+            .input("TenantID", sql.NVarChar(65), tenantId)
             .execute("dbo.usp_Mazdoor_InterviewSchedule_Details");
 
         const header = result.recordsets[0]?.[0] || null;

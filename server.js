@@ -114,8 +114,8 @@ const {getAppsList,tenantModuleSubscription} = require('./controllers/tenantCont
 const { agencySaveUpdate:mazdoorAgencySaveUpdate, getAgenciesList:getMazdoorAgenciesList, getAgencyDetails:getMazdoorAgencyDetails, agencyAcceptDeclineMpr, grantAgencyPortalAccess, getAgenciesForAssignment } = require('./controllers/mazdoor/agencyController');
 const { agentSaveUpdate:mazdoorAgentSaveUpdate, getAgentsList:getMazdoorAgentsList, getAgentDetails:getMazdoorAgentDetails, grantAgentPortalAccess, getAgentsForAssignment } = require('./controllers/mazdoor/agentController');
 const { manpowerRequestSaveUpdate, getManpowerRequestsList, getManpowerRequestsForAgency, getManpowerRequestDetails, deleteManpowerRequest } = require('./controllers/mazdoor/manpowerRequestController');
-const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline, getAgentSubMprs } = require('./controllers/mazdoor/agentTradeAssignmentController');
-const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMazdoorCandidatesList, deleteCandidate:deleteMazdoorCandidate, candidateStageUpdate, getOnboardingScreensList, onboardingScreenSaveUpdate } = require('./controllers/mazdoor/candidateController');
+const { agentTradeAssignmentSaveUpdate, getMazdoorAgentTradeAssignments, deleteAgentTradeAssignment, subMprGenerate, subMprAcceptDecline, getAgentSubMprs, getSubMprsForRequest } = require('./controllers/mazdoor/agentTradeAssignmentController');
+const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMazdoorCandidatesList, deleteCandidate:deleteMazdoorCandidate, candidateStageUpdate, getOnboardingTrades, getOnboardingScreenInfo, getOnboardingScreensList, onboardingScreenSaveUpdate } = require('./controllers/mazdoor/candidateController');
 const { interviewScheduleSaveUpdate, getInterviewSchedule } = require('./controllers/mazdoor/interviewScheduleController');
 const { portalSignup, portalLogin, getPortalProfile } = require('./controllers/mazdoor/portalController');
 
@@ -936,11 +936,14 @@ app.post('/api/mazdoor/agent-trade-assignments',authenticateToken,express.json()
 app.post('/api/mazdoor/agent-trade-assignment/delete',authenticateToken,express.json(),deleteAgentTradeAssignment );
 app.post('/api/mazdoor/sub-mpr/generate',authenticateToken,express.json(),subMprGenerate );
 app.post('/api/mazdoor/agent/sub-mprs',authenticateToken,express.json(),getAgentSubMprs );
+app.post('/api/mazdoor/sub-mprs/for-request',authenticateToken,express.json(),getSubMprsForRequest );
 
 app.post('/api/mazdoor/candidate/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorCandidateSaveUpdate );
 app.post('/api/mazdoor/candidates',authenticateToken,express.json(),getMazdoorCandidatesList );
 app.post('/api/mazdoor/candidate/delete',authenticateToken,express.json(),deleteMazdoorCandidate );
 app.post('/api/mazdoor/candidate/stage-update',authenticateToken,express.json(),mazdoorUpload,candidateStageUpdate );
+app.post('/api/mazdoor/onboarding-trades',authenticateToken,express.json(),getOnboardingTrades );
+app.post('/api/mazdoor/onboarding-screen-info',authenticateToken,express.json(),getOnboardingScreenInfo );
 app.post('/api/mazdoor/onboarding-screens',authenticateToken,express.json(),getOnboardingScreensList );
 app.post('/api/mazdoor/onboarding-screen/save-update',authenticateToken,express.json(),onboardingScreenSaveUpdate );
 

@@ -254,6 +254,66 @@ async function resolveManpowerRequestTenantId(pool, req, manpowerRequestId) {
     return mpr.TenantID;
 }
 
+// Same idea as resolveManpowerRequestTenantId, but for candidate onboarding —
+// an "onboardingScreenId" (see CandidateOnboarding.jsx) is either the main
+// MPR's own ID2 (reached from AgencyDashboard.jsx/AgencyRequestDetail.jsx, an
+// Agency's own portal session) or a Sub-MPR's SubMprCode (reached from
+// AgentDashboard.jsx, an Agent's own portal session) — both just pass
+// whatever id they already have as onboardingScreenId, so ownership has to be
+// checked against whichever of those two tables actually matches.
+async function resolveOnboardingScreenTenantId(pool, req, onboardingScreenId) {
+    if (!req.authUser.agencyId && !req.authUser.agentId) {
+        // Internal admin caller — always their own tenant.
+        return req.authUser.tenantId;
+    }
+
+    if (req.authUser.agentId) {
+        // Agents only ever onboard candidates for their own assigned Sub-MPR.
+        // Bound wider than the SubMprCode column's real NVarChar(30) — a
+        // mismatched/bogus id here should just fail the ownership check
+        // below, not throw a TDS length-overflow error first.
+        const owner = await pool.request()
+            .input("SubMprCode", sql.NVarChar(65), onboardingScreenId)
+            .query(`SELECT TOP 1 [AgentID], [TenantID] FROM [dbo].[MazdoorAgentTradeAssignment] WHERE [SubMprCode] = @SubMprCode AND [IsDeleted] = 0`);
+        const assignment = owner.recordset[0];
+        if (!assignment || assignment.AgentID !== req.authUser.agentId) {
+            throw new Error("This onboarding screen isn't assigned to you.");
+        }
+        return assignment.TenantID;
+    }
+
+    // Agency caller — onboardingScreenId is usually the main MPR's own ID2,
+    // but AgencyRequestDetail.jsx also lets an agency jump straight into a
+    // specific agent's Sub-MPR onboarding screen, so try that match first and
+    // fall back to resolving the Sub-MPR's parent MPR for ownership.
+    const mprOwner = await pool.request()
+        .input("Id", sql.NVarChar(65), onboardingScreenId)
+        .query(`SELECT [AgencyID], [TenantID] FROM [dbo].[MazdoorManpowerRequest] WHERE [ID2] = @Id AND [IsDeleted] = 0`);
+    const mpr = mprOwner.recordset[0];
+    if (mpr) {
+        if (mpr.AgencyID !== req.authUser.agencyId) {
+            throw new Error("This onboarding screen isn't assigned to your agency.");
+        }
+        return mpr.TenantID;
+    }
+
+    // Same NVarChar(65) reasoning as the agent branch above — onboardingScreenId
+    // already missed the main-MPR match, so it could be any string by now.
+    const subOwner = await pool.request()
+        .input("SubMprCode", sql.NVarChar(65), onboardingScreenId)
+        .query(`
+            SELECT TOP 1 m.[AgencyID], a.[TenantID]
+            FROM [dbo].[MazdoorAgentTradeAssignment] a
+            INNER JOIN [dbo].[MazdoorManpowerRequest] m ON m.[ID2] = a.[ManpowerRequestID]
+            WHERE a.[SubMprCode] = @SubMprCode AND a.[IsDeleted] = 0 AND m.[IsDeleted] = 0
+        `);
+    const sub = subOwner.recordset[0];
+    if (!sub || sub.AgencyID !== req.authUser.agencyId) {
+        throw new Error("This onboarding screen isn't assigned to your agency.");
+    }
+    return sub.TenantID;
+}
+
 module.exports = {
     sql,
     jwt,
@@ -271,6 +331,7 @@ module.exports = {
     createPortalTenant,
     registerPortalUser,
     resolveManpowerRequestTenantId,
+    resolveOnboardingScreenTenantId,
     PORTAL_DEFAULT_DATABASE,
     SECRET_KEY,
 };

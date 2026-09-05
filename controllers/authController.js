@@ -254,12 +254,12 @@ const tenantCreation = async (req,res)=>{
             .input("tenantId", sql.NVarChar(65), tenantId || null)
             .execute("Tenant_OrganizationProfile_Save_Update");
  
-            await sendEmail(
-                formData.email,
-                "Your AllBiz OTP Code",
-                text,
-                otpHtml
-            );
+            // await sendEmail(
+            //     formData.email,
+            //     "Your AllBiz OTP Code",
+            //     text,
+            //     otpHtml
+            // );
 
             await transaction.commit();
 
