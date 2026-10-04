@@ -119,6 +119,15 @@ const { candidateSaveUpdate:mazdoorCandidateSaveUpdate, getCandidatesList:getMaz
 const { interviewScheduleSaveUpdate, getInterviewSchedule } = require('./controllers/mazdoor/interviewScheduleController');
 const { portalSignup, portalLogin, getPortalProfile } = require('./controllers/mazdoor/portalController');
 
+// Salon (barber commission & billing) — SQL in Frontend/sql/Salon
+const { getSalonState, getSalonMonth, saveSalonSettings, initializeSalon } = require('./controllers/salon/stateController');
+const { saveStaff: salonSaveStaff, saveRule: salonSaveRule, saveService: salonSaveService, saveProduct: salonSaveProduct, getCustomer: salonGetCustomer } = require('./controllers/salon/mastersController');
+const { saveBill: salonSaveBill, syncBills: salonSyncBills, listBills: salonListBills, editBill: salonEditBill, cancelBill: salonCancelBill } = require('./controllers/salon/billController');
+const { saveAdjustment: salonSaveAdjustment, deleteAdjustment: salonDeleteAdjustment, saveExpense: salonSaveExpense, deleteExpense: salonDeleteExpense, getClosingExpected: salonClosingExpected, closeDay: salonCloseDay, reopenDay: salonReopenDay, listPayouts: salonListPayouts, markPayoutPaid: salonMarkPayoutPaid, undoPayout: salonUndoPayout } = require('./controllers/salon/financeController');
+const { getDashboard: salonDashboard, reportBarbers: salonReportBarbers, reportServices: salonReportServices, reportProfitLoss: salonReportProfitLoss, reportAuditLog: salonReportAuditLog } = require('./controllers/salon/reportController');
+const { barberLogin: salonBarberLogin, barberHome: salonBarberHome } = require('./controllers/salon/barberController');
+const { authenticateBarber: salonAuthenticateBarber } = require('./controllers/salon/_shared');
+
 const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
 saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
 getAttendanceLogSummary, getAttendanceListView,  getEmployeeLogs,  getProjectMatrix, getEmployeeMatrix,
@@ -910,6 +919,41 @@ app.post('/api/retail/order/delete-item',authenticateToken,express.json(),delete
 // sub-mpr/decision) verify req.authUser.agencyId/agentId themselves so one
 // agency/agent can't act on another's requests. Only signup and login stay
 // public — no session exists yet at that point.
+
+// start of Salon — owner/cashier screens (screen + owner checks in controllers/salon/_shared.js)
+app.post('/api/salon/state',authenticateToken,express.json(),getSalonState );
+app.post('/api/salon/month',authenticateToken,express.json(),getSalonMonth );
+app.post('/api/salon/settings/save',authenticateToken,express.json(),saveSalonSettings );
+app.post('/api/salon/setup/initialize',authenticateToken,express.json(),initializeSalon );
+app.post('/api/salon/staff/save',authenticateToken,express.json(),salonSaveStaff );
+app.post('/api/salon/rule/save',authenticateToken,express.json(),salonSaveRule );
+app.post('/api/salon/service/save',authenticateToken,express.json(),salonSaveService );
+app.post('/api/salon/product/save',authenticateToken,express.json(),salonSaveProduct );
+app.post('/api/salon/customer',authenticateToken,express.json(),salonGetCustomer );
+app.post('/api/salon/bill/save',authenticateToken,express.json(),salonSaveBill );
+app.post('/api/salon/bills/sync',authenticateToken,express.json(),salonSyncBills );
+app.post('/api/salon/bills',authenticateToken,express.json(),salonListBills );
+app.post('/api/salon/bill/edit',authenticateToken,express.json(),salonEditBill );
+app.post('/api/salon/bill/cancel',authenticateToken,express.json(),salonCancelBill );
+app.post('/api/salon/adjustment/save',authenticateToken,express.json(),salonSaveAdjustment );
+app.post('/api/salon/adjustment/delete',authenticateToken,express.json(),salonDeleteAdjustment );
+app.post('/api/salon/expense/save',authenticateToken,express.json(),salonSaveExpense );
+app.post('/api/salon/expense/delete',authenticateToken,express.json(),salonDeleteExpense );
+app.post('/api/salon/closing/expected',authenticateToken,express.json(),salonClosingExpected );
+app.post('/api/salon/closing/close',authenticateToken,express.json(),salonCloseDay );
+app.post('/api/salon/closing/reopen',authenticateToken,express.json(),salonReopenDay );
+app.post('/api/salon/payouts',authenticateToken,express.json(),salonListPayouts );
+app.post('/api/salon/payout/mark-paid',authenticateToken,express.json(),salonMarkPayoutPaid );
+app.post('/api/salon/payout/undo',authenticateToken,express.json(),salonUndoPayout );
+app.post('/api/salon/dashboard',authenticateToken,express.json(),salonDashboard );
+app.post('/api/salon/reports/barbers',authenticateToken,express.json(),salonReportBarbers );
+app.post('/api/salon/reports/services',authenticateToken,express.json(),salonReportServices );
+app.post('/api/salon/reports/profit-loss',authenticateToken,express.json(),salonReportProfitLoss );
+app.post('/api/salon/reports/audit-log',authenticateToken,express.json(),salonReportAuditLog );
+// Salon barber app (/salon-barber) — public login, then barber-only token
+app.post('/api/salon-barber/login',express.json(),salonBarberLogin );
+app.post('/api/salon-barber/home',salonAuthenticateBarber,express.json(),salonBarberHome );
+// end of Salon
 
 app.post('/api/mazdoor/agency/save-update',authenticateToken,express.json(),mazdoorUpload,mazdoorAgencySaveUpdate );
 app.post('/api/mazdoor/agencies',authenticateToken,express.json(),getMazdoorAgenciesList );

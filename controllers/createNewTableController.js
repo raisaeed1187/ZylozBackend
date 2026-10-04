@@ -527,7 +527,8 @@ const getTableDetailsById = async (req, res) => {
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
         var getTableNameQuery
-        if (tableId == '1621580815') {
+        
+         if (tableId == '1621580815') {
             getTableNameQuery = `select * from DynamicCreatedTables where TableName = '${tableName}'`;  
         }else{
             getTableNameQuery = `select * from DynamicCreatedTables where TableId = '${tableId}'`;  
@@ -540,7 +541,13 @@ const getTableDetailsById = async (req, res) => {
 
         if(getTableNameResponse.recordset.length > 0){
             const newtableName = getTableNameResponse.recordset[0].TableName;
-            let query = `select * from ${newtableName}`;
+            let query = null;
+            if (tableId == '1493580359' || tableId == '1621580815' || tableName == 'MainModule' || tableId == '5e5fb8a801c1a186121ce2a9ca56c6d18fd48ce8d6ed169783d4d71a05d20672') {
+                query = `select * from ${newtableName} where isnull(IsHide,0) = 0`;
+            }else{
+                query = `select * from ${newtableName}`;
+            }
+            
             if (newtableName === 'ItemCategory' || newtableName === 'ItemSubCategory') {
                 query += ` where TenantId = '${req.authUser.tenantId}'`;
             }
@@ -595,7 +602,13 @@ const getSpecificTableField = async (req, res) => {
             const newtableName = getTableNameResponse.recordset[0].TableName;
             const tableDetailsQuery = `exec GetTableDetails '${newtableName}'`; 
             pool = await sql.connect(config); 
-            const tableDetailsResponse = await pool.request().query(tableDetailsQuery); 
+            const tableDetailsResponse = await pool.request().query(tableDetailsQuery);
+            // Hide IsHide column for MainModule
+            if (String(newtableName).toLowerCase() === 'mainmodule' || String(newtableName).toLowerCase() === 'transections') {
+                tableDetailsResponse.recordset = tableDetailsResponse.recordset.filter(
+                    (item) => String(item.columnName).toLowerCase() !== 'ishide'
+                );
+            }
             // console.log(tableDetailsResponse);
             if(dataId){
                  pool = await sql.connect(config); 
