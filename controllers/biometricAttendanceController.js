@@ -223,8 +223,24 @@ const checkIn = async (req, res) => {
     // console.log('imageBase64');
     // console.log(imageBase64);
 
-    // 1. Liveness check
-    const liveness = await checkLiveness(imageBase64);
+    // 1-3. Liveness check, embedding extraction and loading stored embeddings
+    // are independent, so run them in parallel instead of one after another.
+    // allSettled keeps the original error priority (liveness → extract → DB).
+    const settled = await Promise.allSettled([
+      checkLiveness(imageBase64),
+      extractEmbedding(imageBase64),
+      pool.request()
+        .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
+        .query(`
+        SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
+        FROM   AttendanceEmployees e
+        JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
+        WHERE  e.IsActive = 1 and e.TenantId = @tenantId
+      `),
+    ]);
+    for (const s of settled) if (s.status === "rejected") throw s.reason;
+    const [liveness, aiRes, rows] = settled.map((s) => s.value);
+
     if (!liveness.is_live) {
       return res.status(400).json({
         message: `Liveness check failed: ${liveness.message}`,
@@ -232,23 +248,11 @@ const checkIn = async (req, res) => {
       });
     }
 
-    // 2. Extract embedding
-    const aiRes = await extractEmbedding(imageBase64);
     if (!aiRes.success) {
       return res.status(400).json({ message: aiRes.message || "Face not detected", data: null });
     }
 
     const inputEmb = aiRes.embedding;
-
-    // 3. Load all embeddings (paginated for large tenants)
-    const rows = await pool.request()
-      .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
-      .query(`
-      SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
-      FROM   AttendanceEmployees e
-      JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
-      WHERE  e.IsActive = 1 and e.TenantId = @tenantId
-    `);
 
     // 4. Find best match
     let best    = null;
@@ -270,12 +274,14 @@ const checkIn = async (req, res) => {
     }
 
     
+    // Last punch of *today* only — first punch of the day is IN, every later one is OUT.
     const lastLog = await pool.request()
       .input("empId", sql.Int, best.EmployeeId)
       .query(`
         SELECT TOP 1 LogTime, Type
         FROM   AttendanceLogs
         WHERE  EmployeeId = @empId
+          AND  CAST(LogTime AS DATE) = CAST(GETDATE() AS DATE)
         ORDER  BY LogTime DESC
       `);
 
@@ -297,8 +303,7 @@ const checkIn = async (req, res) => {
     }
 
      
-    const lastType  = lastLog.recordset[0]?.Type;
-    const logType   = lastType === "IN" ? "OUT" : "IN";
+    const logType   = lastLog.recordset.length > 0 ? "OUT" : "IN";
 
    
     // const logResult = await pool.request()

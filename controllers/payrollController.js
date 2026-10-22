@@ -509,7 +509,7 @@ const payrollConfigurationSave = async (req, res) => {
             .input("payMonthStartDate", sql.NVarChar(255), formData.payMonthStartDate) 
             .input("payMonthEndDate", sql.NVarChar(255), formData.payMonthEndDate) 
             .input("totalPayDays", sql.NVarChar(255), formData.totalPayDays) 
-            .input("isFullCalendar", sql.BIT, formData.isFullCalendar == 'true' ? 1 : 0) 
+            .input("isFullCalendar", sql.BIT, isFullCalendarValue(formData.isFullCalendar) ? 1 : 0)
             .input("OTSalary", sql.NVarChar(255), formData.otSalary)  
             .input("projectLocationAttendanceApplicable", sql.NVarChar(255), formData.projectLocationAttendanceApplicable)  
 
@@ -530,6 +530,18 @@ const payrollConfigurationSave = async (req, res) => {
                 WHERE Id = ${newId}
             `);
         }
+        // payroll cutoff day is saved per organization (PayrollCutoff table)
+        if(formData.organizationId && formData.organizationId != 'null'){
+            const isMonthEnd = isFullCalendarValue(formData.isFullCalendar);
+            await pool.request()
+                .input('OrganizationId', sql.NVarChar(65), formData.organizationId)
+                .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+                .input('IsMonthEnd', sql.Bit, isMonthEnd ? 1 : 0)
+                .input('CutoffDay', sql.Int, isMonthEnd ? null : parseInt(formData.payMonthEndDate, 10) || null)
+                .input('EffectiveFrom', sql.Date, formData.cutoffEffectiveFrom || null)
+                .input('ChangedBy', sql.NVarChar(100), req.authUser.username)
+                .execute('PayrollCutoff_Save');
+        }
         if(formData.workingDays){
             payrollWorkingDaysSaveUpdate(encryptedId,req,pool);
         }
@@ -549,6 +561,12 @@ const payrollConfigurationSave = async (req, res) => {
     }
 };
 // payrollConfigurationSave
+
+// checkbox value can arrive as true / 'true' / 1 / '1'
+function isFullCalendarValue(value) {
+    return value === true || value === 1 || value === 'true' || value === '1';
+}
+
 async function payrollWorkingDaysSaveUpdate (payrollId, req,pool){
     
     const { workingDays, createdBy } = req.body;
@@ -629,8 +647,8 @@ async function payrollPublicHolidaySaveUpdate (payrollId, req,pool){
 }
 // end of payrollPublicHolidaySaveUpdate
 
-const getPayrollConfiguration = async (req, res) => {  
-    const {Id} = req.body;  
+const getPayrollConfiguration = async (req, res) => {
+    const {Id,organizationId} = req.body;
       
     try {
          
@@ -650,10 +668,27 @@ const getPayrollConfiguration = async (req, res) => {
         const apiPublicHolidayResponse = await pool.request().query(queryPublicHoliday);  
          
 
+        // payroll cutoff of the selected organization (month end when not set)
+        let configuration = apiResponse.recordset ? apiResponse.recordset[0] : undefined;
+        if(organizationId && organizationId != 'null'){
+            const cutoffResponse = await pool.request()
+                .input('OrganizationId', sql.NVarChar(65), organizationId)
+                .execute('PayrollCutoff_Get');
+            const cutoff = cutoffResponse.recordset[0];
+            if(cutoff){
+                configuration = {
+                    ...(configuration || {}),
+                    isFullCalendar: cutoff.IsMonthEnd ? true : false,
+                    payMonthEndDate: cutoff.CutoffDay || '',
+                    cutoffEffectiveFrom: cutoff.EffectiveFrom,
+                };
+            }
+        }
+
         let letResponseData = {};
-        if(apiResponse.recordset){ 
+        if(apiResponse.recordset){
             letResponseData =  {
-                configuration: apiResponse.recordset[0],
+                configuration: configuration,
                 workingDays: apiPayrollWorkingDaysResponse.recordset,
                 holidays: apiPublicHolidayResponse.recordset,
             };

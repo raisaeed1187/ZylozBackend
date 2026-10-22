@@ -95,6 +95,77 @@ const attendanceSaveUpdate = async (req,res)=>{
 }
 // end of attendanceSaveUpdate
 
+// Bulk import (Excel): same StaffAttendance_SaveOrUpdate call and parameter bindings as
+// attendanceSaveUpdate, but each row runs in its own transaction and gets its own result,
+// so one bad row doesn't stop the rest.
+const ATTENDANCE_BULK_IMPORT_MAX = 200;
+const attendanceBulkImport = async (req, res) => {
+    const { records } = req.body;
+
+    if (!Array.isArray(records) || records.length === 0) {
+        return res.status(400).json({ message: 'No attendance rows to import', data: null });
+    }
+    if (records.length > ATTENDANCE_BULK_IMPORT_MAX) {
+        return res.status(400).json({ message: `Maximum ${ATTENDANCE_BULK_IMPORT_MAX} rows per request`, data: null });
+    }
+
+    const formatTime = (time) => {
+        if (!time) return '';
+        return time.length === 5 ? `${time}:00` : time;
+    };
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+        await setTenantContext(pool, req);
+
+        const results = [];
+        for (const record of records) {
+            const transaction = new sql.Transaction(pool);
+            try {
+                await transaction.begin();
+                await new sql.Request(transaction)
+                    .input("id", sql.Int, record.id || 0)
+                    .input("staffId", sql.NVarChar(65), record.staffId)
+                    .input("IsConfirmed", sql.Int, record?.IsConfirmed)
+                    .input("staffName", sql.NVarChar(100), record.staffName)
+                    .input("designation", sql.NVarChar(50), record.designation)
+                    .input("projectName", sql.NVarChar(200), record.projectName)
+                    .input("punchIn", sql.NVarChar(50), formatTime(record.punchIn))
+                    .input("punchOut", sql.NVarChar(50), formatTime(record.punchOut))
+                    .input("normalOT", sql.Decimal(5, 2), record.normalOT)
+                    .input("holidayOT", sql.Decimal(5, 2), record.holidayOT)
+                    .input("weeklyOT", sql.Decimal(5, 2), record.weeklyOT)
+                    .input("attendanceStatus", sql.NVarChar(20), record.attendanceStatus)
+                    .input("attendanceDate", sql.Date, record.attendanceDate)
+                    .input("dayStatus", sql.NVarChar(100), record.dayStatus)
+                    .input("isLeaveDelete", sql.Bit, record.isLeaveDelete)
+                    .input("breakTime", sql.NVarChar(100), record.breakTime ? String(record.breakTime) : "")
+                    .input("totalWorkingHours", sql.NVarChar(100), record.totalWorkingHours)
+                    .input("absentType", sql.NVarChar(100), record.absentType)
+                    .input("changedBy", sql.NVarChar(100), req.authUser.username)
+                    .input("projectId", sql.NVarChar(65), record.projectID)
+                    .input("locationId", sql.NVarChar(65), record.locationId)
+                    .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+                    .execute("dbo.StaffAttendance_SaveOrUpdate");
+                await transaction.commit();
+                results.push({ RowNo: record.rowNo, Status: 'success', Message: 'Saved' });
+            } catch (err) {
+                try { await transaction.rollback(); } catch (e) {}
+                results.push({ RowNo: record.rowNo, Status: 'failed', Message: err.message });
+            }
+        }
+
+        res.status(200).json({ message: 'Bulk attendance import processed', data: results });
+    } catch (error) {
+        console.error("Attendance bulk import failed:", error);
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of attendanceBulkImport
+
 const employeeAttendanceMasterSaveUpdate = async (req,res)=>{
     // const formData = req.body;
     const { attendance, changedBy } = req.body;
@@ -376,4 +447,4 @@ const getAttendanceDetails = async (req, res) => {
  
 
 
-module.exports =  {getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;
+module.exports =  {attendanceBulkImport,getEmployeeProjectWiseReport,getAttendanceReport,employeeAttendanceMasterSaveUpdate,attendanceSaveUpdate,getAttendanceMasterList,getAttendanceList,getAttendanceDetails} ;

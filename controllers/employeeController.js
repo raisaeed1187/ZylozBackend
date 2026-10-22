@@ -152,6 +152,64 @@ const employeeSaveUpdate = async (req,res)=>{
 }
 // end of employeeSaveUpdate
 
+// Bulk import: one call per batch. Employee_Bulk_Import saves each employee in its own
+// transaction and returns a result per row; payroll output is refreshed once per batch.
+const EMPLOYEE_BULK_IMPORT_MAX = 100;
+const employeeBulkImport = async (req, res) => {
+    const { organizationId, isSubmit, employees } = req.body;
+
+    if (!Array.isArray(employees) || employees.length === 0) {
+        return res.status(400).json({ message: 'No employees to import', data: null });
+    }
+    if (employees.length > EMPLOYEE_BULK_IMPORT_MAX) {
+        return res.status(400).json({ message: `Maximum ${EMPLOYEE_BULK_IMPORT_MAX} employees per request`, data: null });
+    }
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+        await setTenantContext(pool, req);
+
+        const result = await pool.request()
+            .input('Employees', sql.NVarChar(sql.MAX), JSON.stringify(employees))
+            .input('organizationId', sql.NVarChar(65), organizationId)
+            .input('IsSubmit', sql.Int, isSubmit == '1' ? 1 : 0)
+            .input('createdBy', sql.NVarChar(100), req.authUser.username || "Admin")
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+            .execute('Employee_Bulk_Import');
+
+        const rows = result.recordset || [];
+
+        // Same refresh the single save runs after salary/benefits, but once for the whole batch.
+        let payrollWarning = null;
+        if (rows.some(r => r.Status === 'success')) {
+            try {
+                await pool.request()
+                    .input('month', sql.NVarChar(20), getStartOfMonth(new Date()))
+                    .input('user', sql.NVarChar(250), req.authUser.username)
+                    .input('org', sql.NVarChar(65), organizationId || null)
+                    .input('tenant', sql.NVarChar(100), req.authUser.tenantId)
+                    .query('EXEC Save_PayrollOutput @month, @user, @org, @tenant');
+            } catch (err) {
+                console.error("Save_PayrollOutput after bulk import failed:", err);
+                payrollWarning = `Employees were saved, but payroll output refresh failed: ${err.message}`;
+            }
+        }
+
+        res.status(200).json({
+            message: 'Bulk import processed',
+            data: rows,
+            payrollWarning
+        });
+    } catch (error) {
+        console.error("Employee bulk import failed:", error);
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of employeeBulkImport
+
 async function employeePersonalInfoSaveUpdate(req,EmployeeId, transaction){
     const formData = req.body; 
     const employeeData = JSON.parse(formData.employeePersonalInfo); 
@@ -1959,4 +2017,4 @@ const getOutsourcedEmployees = async (req, res) => {
 // end of getOutsourcedEmployees
 
 
-module.exports =  {salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {employeeBulkImport,salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;

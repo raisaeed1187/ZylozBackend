@@ -20,6 +20,9 @@ const { OAuth2Client } = require("google-auth-library");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
+const CURRENT_ENV = process.env.CURRENT_ENV;
+const CURRENT_DATABASE = process.env.DB_DATABASE;
+
 
 
  
@@ -40,7 +43,7 @@ const userCreation = async (req,res)=>{
         
              
             console.log(req.authUser.database); 
-            store.dispatch(setCurrentDatabase(req.authUser.database || 'Allbiz')); 
+            store.dispatch(setCurrentDatabase(req.authUser.database || CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -174,7 +177,7 @@ const tenantCreation = async (req,res)=>{
                 return res.status(400).json({ message: 'Enter required fields!' });
             } 
             console.log(formData.client); 
-            store.dispatch(setCurrentDatabase(formData.client || 'VPSZyloz')); 
+            store.dispatch(setCurrentDatabase(formData.client || CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
  
@@ -290,7 +293,7 @@ const signUp = async (req,res)=>{
             }
             console.log('database');
             console.log(client); 
-            store.dispatch(setCurrentDatabase(client || 'Zyloz')); 
+            store.dispatch(setCurrentDatabase(client || CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -348,7 +351,7 @@ const signIn = async (req,res)=>{
             // console.log('database');
             // console.log(client); 
 
-            store.dispatch(setCurrentDatabase( client )); 
+            store.dispatch(setCurrentDatabase( client || CURRENT_DATABASE )); 
             const config =  store.getState().constents.config;  
 
            
@@ -422,14 +425,14 @@ const signIn = async (req,res)=>{
                         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
                         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
                         isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
-                        hasActiveApp: user.HasActiveModules
+                        hasActiveApp: user.HasActiveModules,domainName: user.DomainName
                     };
     
                     const token = jwt.sign(userDetails, SECRET_KEY, {
-                        expiresIn: "5h",
+                        expiresIn: "12h",
                     });
 
-                    const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
+                    const redirectUrl = `https://${user.DomainName}.${CURRENT_ENV}.ae?token=${token}`;
                      
 
                     if (user.HasActiveModules == 0)
@@ -452,7 +455,9 @@ const signIn = async (req,res)=>{
                                     .input("tenantId", sql.NVarChar, user.TenantId)
                                     .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
                     
-                    store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    // store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    store.dispatch(setCurrentDatabase(CURRENT_DATABASE || 'Allbiz')); 
+
                     
                     
 
@@ -564,14 +569,17 @@ const tenantSignIn = async (req,res)=>{
                         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
                         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
                         isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
-                        hasActiveApp: user.HasActiveModules
+                        hasActiveApp: user.HasActiveModules,domainName: user.DomainName
                     };
     
                     const token = jwt.sign(userDetails, SECRET_KEY, {
                         expiresIn: "5h",
                     });
 
-                    const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
+                    const redirectUrl = `https://${user.DomainName}.${CURRENT_ENV}.ae?token=${token}`;
+                     
+
+                    // const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
                    
                     if (user.HasActiveModules == 0)
                     {
@@ -971,14 +979,16 @@ const googleAuth = async (req, res) => {
         email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
         tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
         isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
-        hasActiveApp: user.HasActiveModules
+        hasActiveApp: user.HasActiveModules,domainName: user.DomainName
     };
 
     const token = jwt.sign(userDetails, SECRET_KEY, {
         expiresIn: "5h",
     });
 
-    const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
+    const redirectUrl = `https://${user.DomainName}.${CURRENT_ENV}.ae?token=${token}`;
+                     
+    // const redirectUrl = `https://${user.DomainName}.allbiz.ae?token=${token}`;
         
 
     if (user.HasActiveModules == 0)
