@@ -19,6 +19,7 @@ const FACE_API_TOKEN  = process.env.FACE_API_TOKEN || "";
 const COSINE_MAX_DIST = parseFloat(process.env.COSINE_MAX_DIST || "0.38");
 const COOLDOWN_MINS   = parseInt(process.env.COOLDOWN_MINS || "2", 10);
 const MAX_ENROLL_IMGS = parseInt(process.env.MAX_ENROLL_IMGS || "5", 10);
+const SERVER_LIVENESS = process.env.SERVER_LIVENESS === "true";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -223,20 +224,27 @@ const checkIn = async (req, res) => {
     // console.log('imageBase64');
     // console.log(imageBase64);
 
+    const t0 = Date.now();
+    const timed = (label, p) => p.finally(() => console.log(`[checkIn] ${label}: ${Date.now() - t0}ms`));
+
     // 1-3. Liveness check, embedding extraction and loading stored embeddings
     // are independent, so run them in parallel instead of one after another.
     // allSettled keeps the original error priority (liveness → extract → DB).
+    // Liveness is already verified in the app (blink check), so the server-side
+    // call is skipped unless SERVER_LIVENESS=true.
     const settled = await Promise.allSettled([
-      checkLiveness(imageBase64),
-      extractEmbedding(imageBase64),
-      pool.request()
+      SERVER_LIVENESS
+        ? timed("liveness", checkLiveness(imageBase64))
+        : Promise.resolve({ is_live: true }),
+      timed("extract", extractEmbedding(imageBase64)),
+      timed("embeddings query", pool.request()
         .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
         .query(`
         SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
         FROM   AttendanceEmployees e
         JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
         WHERE  e.IsActive = 1 and e.TenantId = @tenantId
-      `),
+      `)),
     ]);
     for (const s of settled) if (s.status === "rejected") throw s.reason;
     const [liveness, aiRes, rows] = settled.map((s) => s.value);
@@ -348,6 +356,7 @@ const checkIn = async (req, res) => {
       }
     ];
 
+    console.log(`[checkIn] total: ${Date.now() - t0}ms`);
     return res.status(200).json({
       message: `${logType === "IN" ? "Checked in" : "Checked out"} successfully`,
       data: data,
