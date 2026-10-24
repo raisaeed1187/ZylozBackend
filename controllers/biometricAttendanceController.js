@@ -215,17 +215,17 @@ const checkIn = async (req, res) => {
     return res.status(400).json({ message: "imageBase64 is required", data: null });
   }
 
+  const t0 = Date.now();
+  const timed = (label, p) => p.finally(() => console.log(`[checkIn] ${label}: ${Date.now() - t0}ms`));
+
   try {
     const config = initDb(req.body, req);
     const pool   = await sql.connect(config);
-    // await setTenantContext(pool,req); 
-    await setTenantContext(pool,req);
+    // await setTenantContext(pool,req);
+    await timed("connect + tenant", setTenantContext(pool,req));
 
     // console.log('imageBase64');
     // console.log(imageBase64);
-
-    const t0 = Date.now();
-    const timed = (label, p) => p.finally(() => console.log(`[checkIn] ${label}: ${Date.now() - t0}ms`));
 
     // 1-3. Liveness check, embedding extraction and loading stored embeddings
     // are independent, so run them in parallel instead of one after another.
@@ -240,7 +240,12 @@ const checkIn = async (req, res) => {
       timed("embeddings query", pool.request()
         .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
         .query(`
-        SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding
+        SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding,
+               CASE WHEN EXISTS (
+                 SELECT 1 FROM AttendanceLogs l
+                 WHERE  l.EmployeeId = e.EmployeeId
+                   AND  CAST(l.LogTime AS DATE) = CAST(GETDATE() AS DATE)
+               ) THEN 1 ELSE 0 END AS HasPunchToday
         FROM   AttendanceEmployees e
         JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
         WHERE  e.IsActive = 1 and e.TenantId = @tenantId
@@ -281,37 +286,9 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ message: "No matching employee found", data: null });
     }
 
-    
-    // Last punch of *today* only — first punch of the day is IN, every later one is OUT.
-    const lastLog = await pool.request()
-      .input("empId", sql.Int, best.EmployeeId)
-      .query(`
-        SELECT TOP 1 LogTime, Type
-        FROM   AttendanceLogs
-        WHERE  EmployeeId = @empId
-          AND  CAST(LogTime AS DATE) = CAST(GETDATE() AS DATE)
-        ORDER  BY LogTime DESC
-      `);
-
-    if (lastLog.recordset.length > 0) {
-      const last        = new Date(lastLog.recordset[0].LogTime);
-      const diffMinutes = (Date.now() - last.getTime()) / 60_000;
-
-      // if (diffMinutes < COOLDOWN_MINS) {
-      //   // return res.status(429).json({
-      //   //   message: `Already marked ${Math.floor(diffMinutes)} minute(s) ago. Please wait.`,
-      //   //   data: { employee: best.Name, lastType: lastLog.recordset[0].Type },
-      //   // });
-      //   return res.status(400).json({
-      //     message: `Already marked ${Math.floor(diffMinutes)} minute(s) ago. Please wait.`,
-      //     data: { employee: best.Name, lastType: lastLog.recordset[0].Type },
-      //   });
-      // }
-      
-    }
-
-     
-    const logType   = lastLog.recordset.length > 0 ? "OUT" : "IN";
+    // First punch of the day is IN, every later one is OUT.
+    // HasPunchToday comes from the embeddings query, saving a DB round trip.
+    const logType   = best.HasPunchToday ? "OUT" : "IN";
 
    
     // const logResult = await pool.request()
@@ -331,7 +308,7 @@ const checkIn = async (req, res) => {
     //     VALUES (@empId, @id2, @tenantId, @type, @method, @location, @ProjectID, @latitude, @longitude, @confidence, GETDATE())
     //   `);
 
-    const logResult = await pool.request()
+    const logResult = await timed("insert log", pool.request()
     .input("EmployeeId",  sql.Int,      best.EmployeeId)
     .input("EmployeeID2", sql.NVarChar, best.EmployeeID2)
     .input("TenantId",    sql.NVarChar, best.TenantId)
@@ -342,7 +319,7 @@ const checkIn = async (req, res) => {
     .input("Latitude",    sql.NVarChar, latitude)
     .input("Longitude",   sql.NVarChar, longitude)
     .input("Confidence",  sql.Float,    parseFloat((1 - minDist).toFixed(4)))
-    .execute("usp_InsertAttendanceLog");
+    .execute("usp_InsertAttendanceLog"));
 
 
     const data = [

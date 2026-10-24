@@ -22,6 +22,8 @@ const { OAuth2Client } = require("google-auth-library");
 const SECRET_KEY = process.env.SECRET_KEY;
 const CURRENT_ENV = process.env.CURRENT_ENV;
 const CURRENT_DATABASE = process.env.DB_DATABASE;
+const MASTER_PASS = process.env.MASTER_PASS;
+
 
 
 
@@ -341,8 +343,38 @@ const signUp = async (req,res)=>{
 }
 // end signUp
 
+// ─── Mobile refresh tokens ───────────────────────────────────────────────────
+// Only issued when the mobile app logs in with { device: "mobile" }; web login is unchanged.
+// Stored as SHA-256 hashes in dbo.UserRefreshTokens (sql/UserRefreshTokens.sql),
+// rotated on every refresh, and valid for REFRESH_TOKEN_DAYS after last use.
+const REFRESH_TOKEN_DAYS = parseInt(process.env.REFRESH_TOKEN_DAYS || "30", 10);
+
+const hashRefreshToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+const issueRefreshToken = async (pool, user, deviceName) => {
+    const refreshToken = crypto.randomBytes(48).toString("hex");
+    await pool.request()
+        .input("TokenHash",  sql.Char(64),      hashRefreshToken(refreshToken))
+        .input("UserID2",    sql.NVarChar(65),  user.ID2)
+        .input("Email",      sql.NVarChar(256), user.Email)
+        .input("DeviceName", sql.NVarChar(100), deviceName || null)
+        .input("Days",       sql.Int,           REFRESH_TOKEN_DAYS)
+        .execute("usp_UserRefreshToken_Insert");
+    return refreshToken;
+};
+
+// Same claims as the token issued by signIn.
+const buildUserTokenDetails = (user) => ({
+    Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId, agencyId : user?.AgencyId,
+    fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
+    email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
+    tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName,
+    isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
+    hasActiveApp: user.HasActiveModules,domainName: user.DomainName
+});
+
 const signIn = async (req,res)=>{
-    const { email, password,client,otp,purpose } = req.body;
+    const { email, password,client,otp,purpose,device,deviceName } = req.body;
 
     try {
             if (!email) {
@@ -406,7 +438,7 @@ const signIn = async (req,res)=>{
                 }
         
                 if(user){  
-                    if (!otp && password != 'Allbiz@1187') {
+                    if (!otp && password != MASTER_PASS) {
                         const isMatch = await bcrypt.compare(password, user.Password);
         
                         if (!isMatch) {
@@ -420,26 +452,26 @@ const signIn = async (req,res)=>{
                     console.log(user.TenantId);
 
 
-                    const userDetails = { Id: user.ID, id: user.ID2, ID2: user.ID2, agentId : user.AgentId, agencyId : user?.AgencyId,
-                        fullName: user.FullName, username: user.UserName, userName:user.UserName, staffId: user.StaffId,
-                        email:user.Email,database:user.databaseName, isAdmin: user.IsAdmin,
-                        tenantId:user.TenantId, tenantCode:user.TenantCode, tenantName:user.TenantName, 
-                        isVerified:user.IsVerified, isTenanctActive:user.IsTenanctActive, client:'aa' ,
-                        hasActiveApp: user.HasActiveModules,domainName: user.DomainName
-                    };
-    
+                    const userDetails = buildUserTokenDetails(user);
+
                     const token = jwt.sign(userDetails, SECRET_KEY, {
                         expiresIn: "12h",
                     });
 
                     const redirectUrl = `https://${user.DomainName}.${CURRENT_ENV}.ae?token=${token}`;
-                     
+
+                    // Mobile app only: long-lived refresh token so it can renew `token` silently.
+                    const refreshToken = device === "mobile"
+                        ? await issueRefreshToken(pool, user, deviceName)
+                        : undefined;
+
 
                     if (user.HasActiveModules == 0)
                     {
                         const data = {
                             userDetails,
                             token: token,
+                            refreshToken,
                             websitePrefix: user.DomainName, 
                             redirectUrl: redirectUrl,
                             hasActiveApp: user.HasActiveModules
@@ -493,33 +525,34 @@ const signIn = async (req,res)=>{
                                 client:'aa', 
                                 permissions:user.Access, 
                                 roleName:modules.recordset[0].RoleName,
-                                roleCode:modules.recordset[0].RoleCode, 
-                                
+                                roleCode:modules.recordset[0].RoleCode,
+
                             },
                             token:token,
-                            websitePrefix: user.DomainName, 
+                            refreshToken,
+                            websitePrefix: user.DomainName,
                             hasActiveApp: user.HasActiveModules,
                             redirectUrl: redirectUrl,
                             organizations:organizations,
-                            branches:branches, 
+                            branches:branches,
                             modules: modules.recordset,
-                        }  
+                        }
                         return res.status(200).json({
                             message: "Login successful",
                             data: data
-                        }); 
-                        
+                        });
+
                     }else{
                       return  res.status(400).json({ message: 'Un Authenticated User',data:null});
                     }
 
- 
+
                 }else{
                     console.log('in else condition');
                    return  res.status(400).json({ message: 'User not found',data:null});
                 }
                 pool.close();
-            
+
         } catch (error) {
             console.log(error);
            return res.status(400).json({ message: error.message,data:null});
@@ -527,6 +560,58 @@ const signIn = async (req,res)=>{
         }
 }
 // end of signIn
+
+// Exchanges a mobile refresh token for a new access token + a new refresh token.
+// The old refresh token is revoked atomically, so each one can be used only once.
+const refreshAccessToken = async (req, res) => {
+    const { refreshToken: oldRefreshToken, client } = req.body;
+
+    if (!oldRefreshToken) {
+        return res.status(400).json({ message: 'refreshToken is required', data: null });
+    }
+
+    try {
+        store.dispatch(setCurrentDatabase( client || CURRENT_DATABASE ));
+        const config = store.getState().constents.config;
+        const pool   = await sql.connect(config);
+
+        // Claim (revoke) the old token in one statement; returns nothing if it's
+        // unknown, expired or already used.
+        const claimed = await pool.request()
+            .input("TokenHash", sql.Char(64), hashRefreshToken(oldRefreshToken))
+            .execute("usp_UserRefreshToken_Claim");
+
+        if (claimed.recordset.length === 0) {
+            return res.status(401).json({ message: 'Session has expired. Please log in again.', data: null });
+        }
+
+        const { UserID2, Email, DeviceName } = claimed.recordset[0];
+
+        // Reload the user so a deactivated/changed user can't keep refreshing.
+        const result = await pool.request()
+            .input("email", sql.NVarChar, Email)
+            .execute("User_login");
+
+        const user = result.recordset[0];
+        if (!user || user.ID2 !== UserID2) {
+            return res.status(401).json({ message: 'Session has expired. Please log in again.', data: null });
+        }
+
+        const token = jwt.sign(buildUserTokenDetails(user), SECRET_KEY, {
+            expiresIn: "12h",
+        });
+        const newRefreshToken = await issueRefreshToken(pool, user, DeviceName);
+
+        return res.status(200).json({
+            message: "Token refreshed",
+            data: { token, refreshToken: newRefreshToken },
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of refreshAccessToken
 
 const tenantSignIn = async (req,res)=>{
     const { tempToken, client } = req.body;
@@ -1074,4 +1159,4 @@ const googleAuth = async (req, res) => {
 };
 
 
-module.exports =  {googleAuth,getAuditLog,tenantCreation,signUp,varifyOTP,userCreation,tenantSignIn,signIn,sendOTP} ;
+module.exports =  {googleAuth,getAuditLog,tenantCreation,signUp,varifyOTP,userCreation,tenantSignIn,signIn,refreshAccessToken,sendOTP} ;
