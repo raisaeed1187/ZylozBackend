@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
-const { setTenantContext } = require("../helper/db/sqlTenant");
+const { setTenantContext, tenantScopedRequest } = require("../helper/db/sqlTenant");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -20,13 +20,16 @@ const CONTAINER_NAME = "documents";
 const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
 const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
+const CURRENT_DATABASE = process.env.DB_DATABASE;
+
+
   
 const salaryComponentSaveUpdate = async (req,res)=>{
     const formData = req.body;
 
     try {
              
-            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
@@ -121,7 +124,7 @@ const getSalaryComponentList = async (req, res) => {
      
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -158,7 +161,7 @@ const getSalaryComponentDetails = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -189,7 +192,7 @@ const salaryComponentBenefitSaveUpdate = async (req,res)=>{
     const formData = req.body;
 
     try { 
-            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
@@ -232,7 +235,7 @@ const getSalaryComponentBenefitsList = async (req, res) => {
      
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -269,7 +272,7 @@ const getSalaryComponentBenefitDetails = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -300,7 +303,7 @@ const salaryComponentDeductionSaveUpdate = async (req,res)=>{
     const formData = req.body;
 
     try { 
-            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
 
@@ -339,7 +342,7 @@ const getSalaryComponentDeductionsList = async (req, res) => {
      
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -376,7 +379,7 @@ const getSalaryComponentDeductionDetails = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -407,7 +410,7 @@ const getPayrollHistory = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -446,7 +449,7 @@ const payrollSave = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -462,13 +465,13 @@ const payrollSave = async (req, res) => {
         // console.log('query');
         // console.log(query);
 
-        const apiResponse = await pool
-                    .request()
+        // tenant set in the same batch (see tenantScopedRequest)
+        const apiResponse = await tenantScopedRequest(pool, req)
                     .input("payrollMasterId", sql.NVarChar(100), Id)
                     .input("StatusId", sql.Int, status || null)
-                    .input("OrganizationId", sql.NVarChar(100), organizationId || null) 
-                    .input("userName", sql.NVarChar(100), req.authUser.username)  
-                    .execute("PayrollMaster_ChangeStatus");
+                    .input("OrganizationId", sql.NVarChar(100), organizationId || null)
+                    .input("userName", sql.NVarChar(100), req.authUser.username)
+                    .query("exec PayrollMaster_ChangeStatus @payrollMasterId, @StatusId, @OrganizationId, @userName");
         
 
         
@@ -490,7 +493,7 @@ const payrollConfigurationSave = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -652,7 +655,7 @@ const getPayrollConfiguration = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -710,7 +713,7 @@ const getPayrollSummary = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -745,7 +748,7 @@ const getPayrollPreview = async (req, res) => {
      
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database)); 
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE )); 
 
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config; 
@@ -770,20 +773,35 @@ const getPayrollPreview = async (req, res) => {
             // const formattedDate = '2025-04-01';  
             // const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterSummary '${Id}' `); 
             
-            const checkIsApproverResponse = await pool.request().query(`exec Approval_IsUserApprover '${req.authUser.staffId}','${Id}','Payroll' `); 
-            
+            // approver levels store the user's ID2 (same as Quotation / RFQ); staffId does not exist on authUser
+            // tenant set in the same batch (see tenantScopedRequest): a pooled connection may not have it
+            const checkIsApproverResponse = await tenantScopedRequest(pool, req)
+                .input('UserId', sql.NVarChar(100), req.authUser.ID2 || null)
+                .input('TransactionId', sql.NVarChar(65), Id || null)
+                .query(`exec Approval_IsUserApprover @UserId, @TransactionId, 'Payroll'`);
+
             // console.log(checkIsApproverResponse.recordset);
-            if (checkIsApproverResponse.recordset.length > 0) {
+            if (checkIsApproverResponse.recordset && checkIsApproverResponse.recordset.length > 0) {
                 isApprover = checkIsApproverResponse.recordset[0].IsApprover;
             }
+            console.log('tenant',req.authUser.tenantId);
+            const apiHistoryResponse = await tenantScopedRequest(pool, req)
+                .input('Id', sql.NVarChar(65), Id || null)
+                .query(`exec GetPayrollMasterDetails @Id`);
 
-            const apiHistoryResponse = await pool.request().query(`exec GetPayrollMasterDetails '${Id}' `); 
-            
+            if(!apiHistoryResponse.recordset || apiHistoryResponse.recordset.length === 0){
+                return res.status(404).json({ message: 'Payroll not found.', data: null });
+            }
+
             if(apiHistoryResponse.recordset.length > 0){
                 payrollRollStatus = apiHistoryResponse.recordset[0].Status; 
                 let payrollStatusId = apiHistoryResponse.recordset[0].StatusId; 
 
                 const payDate  = apiHistoryResponse.recordset[0].PayrollDate; 
+                
+                console.log('apiHistoryResponse.recordset[0]');
+
+                console.log(apiHistoryResponse.recordset[0]);
 
                 // query = `exec Get_PayrollOutputHistory '${Id}'`;  
                 // query = `exec Get_PayrollOutput '${payDate}'`; 
@@ -818,9 +836,14 @@ const getPayrollPreview = async (req, res) => {
         // console.log('isAccrual',isAccrual);
 
         console.log('query');
-        console.log(query); 
+        console.log(query);
 
-        const apiResponse = await pool.request().query(query);  
+        if(!query){
+            return res.status(400).json({ message: 'Nothing to load: choose payroll, accrual or EOS.', data: null });
+        }
+
+        // tenant set in the same batch as the query (row-level security)
+        const apiResponse = await tenantScopedRequest(pool, req).query(query);
         // console.log('apiResponse.recordset');
         // console.log(apiResponse.recordset);
 
@@ -909,8 +932,9 @@ const getPayrollPreview = async (req, res) => {
         });
          
     } catch (error) {
+        console.error('getPayrollPreview failed:', error);
         return res.status(400).json({ message: error.message,data:null});
-        
+
     }
 };
 // end of getPayrollPreview
@@ -920,7 +944,7 @@ const getPayrollEmployeeDetails = async (req, res) => {
      
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config);  
@@ -956,17 +980,17 @@ const getPayrollEmployeeDetails = async (req, res) => {
         if(apiResponse.recordset.length > 0){
             let earnings, benefits, deductions ,allowances; 
             if (!isEOS) {
-                const earningsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Earnings'` ; 
-                const apiearningsResponse = await pool.request().query(earningsQuery); 
-                
-                const benefitsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Benefits'` ; 
-                const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
-                
-                const deductionsQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','Deductions'` ;  
-                const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
-                
-                const allowanceQuery = `exec Get_DraftPayroll_Components  '${employeeId}', '${Id}','OneTimeAllowance'` ;  
-                const apiAllowanceQueryResponse = await pool.request().query(allowanceQuery); 
+                // parameters instead of values pasted into the SQL text
+                const getComponents = (component) => pool.request()
+                    .input('EmployeeID2', sql.NVarChar(65), employeeId || null)
+                    .input('PayrollID', sql.NVarChar(255), Id || null)
+                    .input('Component', sql.NVarChar(255), component)
+                    .query('exec Get_DraftPayroll_Components @EmployeeID2, @PayrollID, @Component');
+
+                const apiearningsResponse = await getComponents('Earnings');
+                const apiBenefitsResponse = await getComponents('Benefits');
+                const apiDeductionsResponse = await getComponents('Deductions');
+                const apiAllowanceQueryResponse = await getComponents('OneTimeAllowance');
                 
                 earnings = Object.entries(apiearningsResponse.recordset[0])  
                 .filter(([key, value]) => !["TotalEarnings"].includes(key) && value)  
@@ -1045,7 +1069,7 @@ const holdEmployeeSalary = async (req, res) => {
     const formData = req.body; 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -1057,7 +1081,7 @@ const holdEmployeeSalary = async (req, res) => {
         // return formData;
         const newEmployees = JSON.parse(formData.employees);   
         // return [newEmployees,formData.statusId];
-        newEmployees.forEach(async (employee) => {
+        await runForEachEmployee(newEmployees, async (employee) => {
             console.log('employee');
             console.log(employee);
             try {
@@ -1069,7 +1093,7 @@ const holdEmployeeSalary = async (req, res) => {
                     .execute('PayrollMaster_Employee_ChangeStatus');
             
             } catch (error) { 
-                return res.status(400).json({ message: error.message,data:null});
+                throw error;
         
             }
         });
@@ -1092,7 +1116,7 @@ const releaseEmployeeSalary = async (req, res) => {
     const formData = req.body; 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -1120,7 +1144,7 @@ const releaseEmployeeSalary = async (req, res) => {
 
         const salaryReleaseId = result.output.SalaryReleaseId;
 
-        newEmployees.forEach(async (employee) => {
+        await runForEachEmployee(newEmployees, async (employee) => {
             console.log('employee data');
             console.log(employee);
             
@@ -1136,7 +1160,7 @@ const releaseEmployeeSalary = async (req, res) => {
                     .execute('PayrollSalaryReleaseEmployees_SaveOrUpdate');
             
             } catch (error) { 
-                return res.status(400).json({ message: error.message,data:null});
+                throw error;
         
             }
         });
@@ -1159,7 +1183,7 @@ const releaseEmployeeEOS = async (req, res) => {
     const formData = req.body; 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -1187,7 +1211,7 @@ const releaseEmployeeEOS = async (req, res) => {
 
         const eOSReleaseId = result.output.EOSReleaseId;
 
-        newEmployees.forEach(async (employee) => {
+        await runForEachEmployee(newEmployees, async (employee) => {
             console.log('employee data');
             console.log(employee);
             
@@ -1202,7 +1226,7 @@ const releaseEmployeeEOS = async (req, res) => {
                     .execute('PayrollEOSReleaseEmployees_SaveOrUpdate');
             
             } catch (error) { 
-                return res.status(400).json({ message: error.message,data:null});
+                throw error;
         
             }
         });
@@ -1222,6 +1246,27 @@ const releaseEmployeeEOS = async (req, res) => {
 
 
 
+/**
+ * Runs fn for each employee one after the other and waits for all of them
+ * (forEach(async ...) did not wait: the API answered "success" before the
+ * updates ran, and a failing update tried to send a second response).
+ * Throws one error naming every employee that failed.
+ */
+async function runForEachEmployee(employees, fn) {
+    const failed = [];
+    for (const employee of employees || []) {
+        try {
+            await fn(employee);
+        } catch (error) {
+            failed.push(`${employee && (employee['Employee Code'] || employee.name || employee.ID2)}: ${error.message}`);
+        }
+    }
+    if (failed.length > 0) {
+        const done = (employees || []).length - failed.length;
+        throw new Error(`${failed.length} employee(s) failed (${done} done). ${failed.join(' | ')}`);
+    }
+}
+
 function getStartOfMonth(date){
     // return date ? new Date(date).toISOString().slice(0, 10).replace("T", " ") : null;
     const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);  
@@ -1236,7 +1281,7 @@ const getPayrollAccrualPreview = async (req, res) => {
       
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -1292,7 +1337,7 @@ const saveEmployeeEOS = async (req, res) => {
     const formData = req.body; 
     try {
          
-        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE ));
         store.dispatch(setCurrentUser(req.authUser)); 
         const config = store.getState().constents.config;    
         const pool = await sql.connect(config); 
@@ -1303,7 +1348,7 @@ const saveEmployeeEOS = async (req, res) => {
         // return formData;
         const newEmployees = JSON.parse(formData.employees);   
         // return [newEmployees,formData.statusId];
-        newEmployees.forEach(async (employee) => {
+        await runForEachEmployee(newEmployees, async (employee) => {
             console.log('employee');
             console.log(employee);
             try {
@@ -1326,7 +1371,7 @@ const saveEmployeeEOS = async (req, res) => {
                 }
             
             } catch (error) { 
-                return res.status(400).json({ message: error.message,data:null});
+                throw error;
         
             }
         });

@@ -35,6 +35,33 @@ const setTenantContext = async (connOrTran, req) => {
         .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
 };
 
+/**
+ * Request that sets the tenant session context in the SAME batch as the query.
+ * pool.request() may run on any pooled connection, so a context set by an
+ * earlier request (setTenantContext) is not guaranteed to be on the connection
+ * that runs this query; row-level security then sees no rows, or another
+ * tenant's rows.
+ *
+ *   const result = await tenantScopedRequest(pool, req)
+ *       .input('Id', sql.NVarChar(65), Id)
+ *       .query('exec GetPayrollMasterDetails @Id');
+ */
+function tenantScopedRequest(pool, req) {
+  const request = pool.request();
+  request.input("__tenantId", sql.NVarChar(100), req.authUser.tenantId);
+
+  const scoped = {
+    input(...args) {
+      request.input(...args);
+      return scoped;
+    },
+    query(text) {
+      return request.query(`EXEC sp_set_session_context @key=N'TenantId', @value=@__tenantId;\n${text}`);
+    },
+  };
+  return scoped;
+}
+
 async function applyTenantContext(pool, tenantId) {
   await pool.request()
     .input("tenantId", sql.NVarChar, tenantId)
@@ -73,6 +100,7 @@ async function runTenantProcedure(req, procedureName, params = {}) {
 }
 
 module.exports = {
+  tenantScopedRequest,
   tenantRequest,
   runTenantQuery,
   runTenantProcedure,

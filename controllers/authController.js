@@ -45,7 +45,7 @@ const userCreation = async (req,res)=>{
         
              
             console.log(req.authUser.database); 
-            store.dispatch(setCurrentDatabase(req.authUser.database || CURRENT_DATABASE || 'Allbiz')); 
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -56,6 +56,7 @@ const userCreation = async (req,res)=>{
             // console.log('plainPassword');
             // console.log(plainPassword); 
  
+            
 
             const email = formData.email || `${formData.uniqueId}@allbiz.ae`;
             const plainPassword = formData.uniqueId ? formData.password : generateStrongPassword(8);
@@ -179,7 +180,7 @@ const tenantCreation = async (req,res)=>{
                 return res.status(400).json({ message: 'Enter required fields!' });
             } 
             console.log(formData.client); 
-            store.dispatch(setCurrentDatabase(formData.client || CURRENT_DATABASE || 'Allbiz')); 
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
  
@@ -295,7 +296,7 @@ const signUp = async (req,res)=>{
             }
             console.log('database');
             console.log(client); 
-            store.dispatch(setCurrentDatabase(client || CURRENT_DATABASE || 'Allbiz')); 
+            store.dispatch(setCurrentDatabase(CURRENT_DATABASE || 'Allbiz')); 
             const config =  store.getState().constents.config;  
            
             const pool = await sql.connect(config);
@@ -383,7 +384,7 @@ const signIn = async (req,res)=>{
             // console.log('database');
             // console.log(client); 
 
-            store.dispatch(setCurrentDatabase( client || CURRENT_DATABASE )); 
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE )); 
             const config =  store.getState().constents.config;  
 
            
@@ -571,7 +572,7 @@ const refreshAccessToken = async (req, res) => {
     }
 
     try {
-        store.dispatch(setCurrentDatabase( client || CURRENT_DATABASE ));
+        store.dispatch(setCurrentDatabase( CURRENT_DATABASE || 'Allbiz' ));
         const config = store.getState().constents.config;
         const pool   = await sql.connect(config);
 
@@ -623,7 +624,7 @@ const tenantSignIn = async (req,res)=>{
             // console.log('database');
             // console.log(client); 
 
-            store.dispatch(setCurrentDatabase( client )); 
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE || 'Allbiz' )); 
             const config =  store.getState().constents.config;  
              
             const email = decoded.email;
@@ -687,7 +688,9 @@ const tenantSignIn = async (req,res)=>{
                                     .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
                     
                     // constents.methods.setCurrentDatabase(user.databaseName);  
-                    store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    // store.dispatch(setCurrentDatabase(user.databaseName)); 
+                    store.dispatch(setCurrentDatabase(CURRENT_DATABASE || 'Allbiz')); 
+
                     // const organizationsQuery = `exec OrganizationProfile_GetOFUser '${user.ID2}'`; 
                     // const organizationsQueryResponse = await pool.request().query(organizationsQuery);  
                     // const organizations = organizationsQueryResponse.recordset;
@@ -773,7 +776,7 @@ const sendOTP = async (req, res) => {
         }
 
         // Switch database
-        store.dispatch(setCurrentDatabase(formData.from));
+        store.dispatch(setCurrentDatabase(CURRENT_DATABASE));
         const config = store.getState().constents.config;
 
         const pool = await sql.connect(config);
@@ -879,7 +882,7 @@ const varifyOTP = async (req,res)=>{
                 return res.status(400).json({ message: "Email & OTP are required!" });
             }   
 
-            store.dispatch(setCurrentDatabase( from )); 
+            store.dispatch(setCurrentDatabase( CURRENT_DATABASE )); 
             const config =  store.getState().constents.config;  
            
 
@@ -978,7 +981,7 @@ const getAuditLog = async (req,res)=>{
             // store.dispatch(setCurrentDatabase( from )); 
             // console.log(req.authUser);
             
-            store.dispatch(setCurrentDatabase(req.authUser.database));
+            store.dispatch(setCurrentDatabase(CURRENT_DATABASE || 'Allbiz'));
             store.dispatch(setCurrentUser(req.authUser)); 
             const config = store.getState().constents.config;  
             
@@ -1031,7 +1034,7 @@ const googleAuth = async (req, res) => {
     const { idToken,client } = req.body;
     const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-    store.dispatch(setCurrentDatabase( client )); 
+    store.dispatch(setCurrentDatabase( CURRENT_DATABASE || 'Allbiz' )); 
     const config =  store.getState().constents.config;  
            
 
@@ -1096,7 +1099,7 @@ const googleAuth = async (req, res) => {
                     .input("tenantId", sql.NVarChar, user.TenantId)
                     .query(`EXEC sp_set_session_context @key=N'TenantId', @value=@tenantId`);
     
-    store.dispatch(setCurrentDatabase(user.databaseName)); 
+    store.dispatch(setCurrentDatabase(CURRENT_DATABASE || 'Allbiz')); 
     
     
 

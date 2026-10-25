@@ -3,6 +3,7 @@ require("dotenv").config();
 const store = require('./store'); 
 const { setCurrentDatabase,setCurrentUser } = require('./constents').actions;
 const sql = require("mssql");
+const { runWithTenant } = require("./helper/db/dbRuntime");
 
 
 const bcrypt = require("bcrypt");
@@ -36,9 +37,10 @@ const authenticateToken = async (req, res, next) => {
     req.authUser = decoded; // Attach user information to the request object
     
     store.dispatch(setCurrentDatabase(req.authUser.database));
-    store.dispatch(setCurrentUser(req.authUser));  
+    store.dispatch(setCurrentUser(req.authUser));
 
-    next(); // Proceed to the next middleware or route handler
+    // the rest of the request runs with this user's tenant on every query (helper/db/dbRuntime.js)
+    runWithTenant(req.authUser, next); // Proceed to the next middleware or route handler
   } catch (err) {
     // return res.status(403).json({ message: 'Invalid or expired token.',data:null });
     return res.status(403).json({ message: 'Session has expired.',data:null });

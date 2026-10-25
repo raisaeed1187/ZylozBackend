@@ -2,7 +2,9 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const sql = require("mssql");
-const router = express.Router(); 
+// one connection pool per database + tenant on every query (see helper/db/dbRuntime.js)
+require("./helper/db/dbRuntime").install();
+const router = express.Router();
 const cors = require("cors");
 const authenticateToken = require('./middleware');   
 const multer = require("multer"); 

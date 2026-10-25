@@ -1875,15 +1875,15 @@ const getPaySlip = async (req, res) => {
         const pool = await sql.connect(config);  
             await setTenantContext(pool,req);
 
-        let query = ''; 
-        query = `exec Get_PaySlip '${Id2}','${payMonth}'`;   
-        const apiResponse = await pool.request().query(query); 
-        
-        const benefitsQuery = `exec Get_PaySlip_Benefits '${Id2}','${payMonth}'` 
-        const apiBenefitsResponse = await pool.request().query(benefitsQuery); 
-        
-        const deductionsQuery = `exec Get_PaySlip_Deductions '${Id2}','${payMonth}'` 
-        const apiDeductionsResponse = await pool.request().query(deductionsQuery); 
+        // parameters instead of values pasted into the SQL text
+        const getPayslipPart = (procedure) => pool.request()
+            .input('EmployeeID2', sql.NVarChar(65), Id2 || null)
+            .input('PayMonth', sql.NVarChar(50), payMonth || null)
+            .query(`exec ${procedure} @EmployeeID2, @PayMonth`);
+
+        const apiResponse = await getPayslipPart('Get_PaySlip');
+        const apiBenefitsResponse = await getPayslipPart('Get_PaySlip_Benefits');
+        const apiDeductionsResponse = await getPayslipPart('Get_PaySlip_Deductions');
         let paySlipInfo = {};
         if(apiResponse.recordset.length > 0){
             const benefits = Object.entries(apiBenefitsResponse.recordset[0])
