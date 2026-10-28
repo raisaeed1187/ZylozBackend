@@ -424,7 +424,7 @@ const getPayrollHistory = async (req, res) => {
             query = `exec GetPayrollMaster NULL,'${organizationId}'`; 
         }
 
-        console.log('query',query);
+        // console.log('query',query);
         
         const apiResponse = await pool.request().query(query);  
          
@@ -499,8 +499,8 @@ const payrollConfigurationSave = async (req, res) => {
         const pool = await sql.connect(config); 
                 await setTenantContext(pool,req);
 
-        console.log('formData');
-        console.log(formData);
+        // console.log('formData');
+        // console.log(formData);
 
 
         const result = await pool.request()
@@ -578,8 +578,8 @@ async function payrollWorkingDaysSaveUpdate (payrollId, req,pool){
              
              
             const workingDaysData = JSON.parse(workingDays); 
-            console.log('workingDays');
-            console.log(workingDays); 
+            // console.log('workingDays');
+            // console.log(workingDays); 
 
             
 
@@ -620,8 +620,8 @@ async function payrollPublicHolidaySaveUpdate (payrollId, req,pool){
              
              
             const holidaysData = JSON.parse(holidays); 
-            console.log('holidaysData');
-            console.log(holidaysData);
+            // console.log('holidaysData');
+            // console.log(holidaysData);
 
  
             try { 
@@ -722,8 +722,8 @@ const getPayrollSummary = async (req, res) => {
 
         const query = `exec GetPayrollMasterSummary Null,'${organizationId}'`; 
 
-        console.log('query');
-        console.log(query);
+        // console.log('query');
+        // console.log(query);
 
         const apiResponse = await pool.request().query(query);  
          
@@ -784,7 +784,7 @@ const getPayrollPreview = async (req, res) => {
             if (checkIsApproverResponse.recordset && checkIsApproverResponse.recordset.length > 0) {
                 isApprover = checkIsApproverResponse.recordset[0].IsApprover;
             }
-            console.log('tenant',req.authUser.tenantId);
+            // console.log('tenant',req.authUser.tenantId);
             const apiHistoryResponse = await tenantScopedRequest(pool, req)
                 .input('Id', sql.NVarChar(65), Id || null)
                 .query(`exec GetPayrollMasterDetails @Id`);
@@ -799,9 +799,9 @@ const getPayrollPreview = async (req, res) => {
 
                 const payDate  = apiHistoryResponse.recordset[0].PayrollDate; 
                 
-                console.log('apiHistoryResponse.recordset[0]');
+                // console.log('apiHistoryResponse.recordset[0]');
 
-                console.log(apiHistoryResponse.recordset[0]);
+                // console.log(apiHistoryResponse.recordset[0]);
 
                 // query = `exec Get_PayrollOutputHistory '${Id}'`;  
                 // query = `exec Get_PayrollOutput '${payDate}'`; 
@@ -816,7 +816,7 @@ const getPayrollPreview = async (req, res) => {
                     query = `exec GetDraftPayrollOutput '${Id}',Null,'${organizationId}','${req.authUser.tenantId}'`;  
                 }
                  
-                console.log('query payroll draft : ',query); 
+                // console.log('query payroll draft : ',query); 
 
 
             }

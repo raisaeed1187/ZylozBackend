@@ -210,6 +210,87 @@ const employeeBulkImport = async (req, res) => {
 };
 // end of employeeBulkImport
 
+// Moves an employee to another organization of the same tenant (same ID2, new code).
+const employeeTransfer = async (req, res) => {
+    const { employeeId, toOrganizationId, transferDate, remarks } = req.body;
+
+    if (!employeeId || !toOrganizationId || !transferDate) {
+        return res.status(400).json({ message: 'Employee, organization and transfer date are required', data: null });
+    }
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+        await setTenantContext(pool, req);
+
+        const result = await pool.request()
+            .input('EmployeeId', sql.NVarChar(65), employeeId)
+            .input('ToOrganizationId', sql.NVarChar(65), toOrganizationId)
+            .input('TransferDate', sql.Date, transferDate)
+            .input('Remarks', sql.NVarChar(500), remarks || null)
+            .input('createdBy', sql.NVarChar(100), req.authUser.username || "Admin")
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+            .output('NewEmployeeCode', sql.NVarChar(50))
+            .execute('Employee_Transfer');
+
+        const transfer = (result.recordset || [])[0] || null;
+
+        // Current month payroll of both organizations changes (employee left one, joined the other).
+        let payrollWarning = null;
+        for (const org of [transfer?.FromOrganizationId, toOrganizationId]) {
+            if (!org) continue;
+            try {
+                await pool.request()
+                    .input('month', sql.NVarChar(20), getStartOfMonth(new Date()))
+                    .input('user', sql.NVarChar(250), req.authUser.username)
+                    .input('org', sql.NVarChar(65), org)
+                    .input('tenant', sql.NVarChar(100), req.authUser.tenantId)
+                    .query('EXEC Save_PayrollOutput @month, @user, @org, @tenant');
+            } catch (err) {
+                console.error("Save_PayrollOutput after employee transfer failed:", err);
+                payrollWarning = `Employee was transferred, but payroll output refresh failed: ${err.message}`;
+            }
+        }
+
+        res.status(200).json({
+            message: `Employee transferred. New employee code: ${result.output.NewEmployeeCode}`,
+            data: transfer,
+            payrollWarning
+        });
+    } catch (error) {
+        console.error("Employee transfer failed:", error);
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of employeeTransfer
+
+const getEmployeeTransfers = async (req, res) => {
+    const { employeeId } = req.body;
+
+    try {
+        store.dispatch(setCurrentDatabase(req.authUser.database));
+        store.dispatch(setCurrentUser(req.authUser));
+        const config = store.getState().constents.config;
+        const pool = await sql.connect(config);
+        await setTenantContext(pool, req);
+
+        const result = await pool.request()
+            .input('EmployeeId', sql.NVarChar(65), employeeId)
+            .input('TenantId', sql.NVarChar(100), req.authUser.tenantId)
+            .execute('EmployeeTransfer_Get');
+
+        res.status(200).json({
+            message: 'Employee transfers',
+            data: result.recordset || []
+        });
+    } catch (error) {
+        return res.status(400).json({ message: error.message, data: null });
+    }
+};
+// end of getEmployeeTransfers
+
 async function employeePersonalInfoSaveUpdate(req,EmployeeId, transaction){
     const formData = req.body; 
     const employeeData = JSON.parse(formData.employeePersonalInfo); 
@@ -968,7 +1049,7 @@ const getEmployeeList = async (req, res) => {
 
         // Return a response (do not return the whole req/res object)
         res.status(200).json({
-            message: `Customer List loaded successfully!`,
+            message: `Employees List loaded successfully!`,
             data: formatedData
         });
          
@@ -2017,4 +2098,4 @@ const getOutsourcedEmployees = async (req, res) => {
 // end of getOutsourcedEmployees
 
 
-module.exports =  {employeeBulkImport,salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
+module.exports =  {employeeTransfer,getEmployeeTransfers,employeeBulkImport,salaryAdjustmentChangeStatus,getSalaryAdjustmentSchedule,getSalaryAdjustments,employeeSalaryAdjustmentSaveUpdate,getEmployeeReportAbscondingDocuments,getEmployeeReportAbscondingDetails,getEmployeeReportAbscondingList,employeeReportAbscondingSaveUpdate,getOutsourcedEmployees,getOutsourcedEmployees,outsourcedEmployeeSaveUpdate,getEmployeeRevisions,employeeRevisionSaveUpdate,employeeOneTimeAllowances,employeeDeductions,employeePayslips,employeeDeleteDeductionOrAllowance,employeeDeleteDocument,getPaySlip,getEmployeeExitClearanceDetails,getEmployeeExitClearanceList,employeeExitClearanceSaveUpdate,employeeOneTimeAllowanceSaveUpdate,employeeDeductionSaveUpdate,getEmployeeLeaveTypes,getEmployeeLeavesList,getEmployeeLeaveDetails,employeeLeaveSaveUpdate,employeeChangeStatus,getEmployeeStatus,deleteEmployeeItem,employeeSaveUpdate,getEmployeeList,getEmployeeDetails,getEmployeeDocuments} ;
