@@ -207,6 +207,51 @@ const enroll = async (req, res) => {
 
 // ─── Check In ────────────────────────────────────────────────────────────────
 
+// All active employees' embeddings for the tenant, plus whether each has punched today.
+function loadEmbeddings(pool, req) {
+  return pool.request()
+    .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
+    .query(`
+    SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM AttendanceLogs l
+             WHERE  l.EmployeeId = e.EmployeeId
+               AND  CAST(l.LogTime AS DATE) = CAST(GETDATE() AS DATE)
+           ) THEN 1 ELSE 0 END AS HasPunchToday
+    FROM   AttendanceEmployees e
+    JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
+    WHERE  e.IsActive = 1 and e.TenantId = @tenantId
+  `);
+}
+
+// Last successfully matched check-in photo, kept in memory only. Warm-up sends it
+// to the face API so both detection AND recognition models run (a blank image
+// only exercises detection). Falls back to a 64x64 grey JPEG until the first check-in.
+let lastFaceImage = null;
+const BLANK_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAQABAAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMABgYGBgYGCgYGCg4KCgoOEg4ODg4SFxISEhISFxwXFxcXFxccHBwcHBwcHCIiIiIiIicnJycnLCwsLCwsLCwsLP/bAEMBBwcHCwoLEwoKEy4fGh8uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLv/dAAQABP/aAAwDAQACEQMRAD8AKKKKACiiigAooooAKKKKAP/QKKKKACiiigAooooAKKKKAP/RKKKKACiiigAooooAKKKKAP/SKKKKACiiigAooooAKKKKAP/Z";
+
+// ─── Warm-up ─────────────────────────────────────────────────────────────────
+// Called by the kiosk app when the check-in screen opens and every few minutes
+// while it stays open, so the first punch after an idle period isn't slow
+// (cold face-API model / DB cache). Never fails the caller.
+const warmup = async (req, res) => {
+  const t0 = Date.now();
+  try {
+    const config = initDb(req.body, req);
+    const pool   = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const [face, db] = await Promise.allSettled([
+      extractEmbedding(lastFaceImage || BLANK_JPEG_BASE64),
+      loadEmbeddings(pool, req),
+    ]);
+    console.log(`[warmup] ${Date.now() - t0}ms (face: ${face.status}${lastFaceImage ? "" : ", blank"}, db: ${db.status})`);
+  } catch (err) {
+    console.error("[warmup] Error:", err.message);
+  }
+  return res.status(200).json({ message: "ok", data: null });
+};
+
 const checkIn = async (req, res) => {
   const { imageBase64, client,project_id, location = null,latitude,longitude } = req.body;
   // console.log('inside checkIn');
@@ -237,19 +282,7 @@ const checkIn = async (req, res) => {
         ? timed("liveness", checkLiveness(imageBase64))
         : Promise.resolve({ is_live: true }),
       timed("extract", extractEmbedding(imageBase64)),
-      timed("embeddings query", pool.request()
-        .input("tenantId", sql.NVarChar, req.authUser?.tenantId || 'Tenant1')
-        .query(`
-        SELECT e.EmployeeId, e.Name, e.EmployeeCode, e.EmployeeID2, e.TenantId, f.Embedding,
-               CASE WHEN EXISTS (
-                 SELECT 1 FROM AttendanceLogs l
-                 WHERE  l.EmployeeId = e.EmployeeId
-                   AND  CAST(l.LogTime AS DATE) = CAST(GETDATE() AS DATE)
-               ) THEN 1 ELSE 0 END AS HasPunchToday
-        FROM   AttendanceEmployees e
-        JOIN   FaceEmbeddings f ON e.EmployeeId = f.EmployeeId
-        WHERE  e.IsActive = 1 and e.TenantId = @tenantId
-      `)),
+      timed("embeddings query", loadEmbeddings(pool, req)),
     ]);
     for (const s of settled) if (s.status === "rejected") throw s.reason;
     const [liveness, aiRes, rows] = settled.map((s) => s.value);
@@ -321,6 +354,8 @@ const checkIn = async (req, res) => {
     .input("Confidence",  sql.Float,    parseFloat((1 - minDist).toFixed(4)))
     .execute("usp_InsertAttendanceLog"));
 
+
+    lastFaceImage = imageBase64;
 
     const data = [
       {
@@ -1153,7 +1188,7 @@ const regularizeAttendance = async (req, res) => {
  
 
 
-module.exports = { enroll, checkIn, getLogs, getDailyReport, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
+module.exports = { enroll, checkIn, warmup, getLogs, getDailyReport, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
   getAttendanceEmployeeTimeline, saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers,
   logFingerprintPunch, getAllFingerprintTemplates, getPendingFingerprintEnrollments,
   getAttendanceLogSummary,getAttendanceListView,getEmployeeLogs,getProjectMatrix,getEmployeeMatrix,regularizeAttendance

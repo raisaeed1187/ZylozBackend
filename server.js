@@ -130,7 +130,7 @@ const { getDashboard: salonDashboard, reportBarbers: salonReportBarbers, reportS
 const { barberLogin: salonBarberLogin, barberHome: salonBarberHome } = require('./controllers/salon/barberController');
 const { authenticateBarber: salonAuthenticateBarber } = require('./controllers/salon/_shared');
 
-const {enroll,checkIn, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
+const {enroll,checkIn,warmup, getAttendanceSummary, getAttendanceEnrolledEmployees, getAttendancePendingEnrollmentEmployees, getAttendanceStatusWiseDetails, 
 saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, getAttendanceEmployeeTimeline, logFingerprintPunch,getAllFingerprintTemplates,getPendingFingerprintEnrollments,
 getAttendanceLogSummary, getAttendanceListView,  getEmployeeLogs,  getProjectMatrix, getEmployeeMatrix,
 regularizeAttendance,
@@ -1013,6 +1013,7 @@ app.post('/api/mazdoor/portal/profile',authenticateToken,express.json(),getPorta
 
 app.post('/api/attendance/biometric/enroll',authenticateToken,enroll );   
 app.post('/api/attendance/biometric/check-in', authenticateToken, checkIn);
+app.post('/api/attendance/biometric/warmup', authenticateToken, warmup);
 // app.post('/api/biometric/check-in',authenticateToken,express.json(),upload,checkIn ); 
 
 app.post('/api/attendance/dashboard/summary',authenticateToken,express.json(), getAttendanceSummary);
