@@ -17,7 +17,10 @@ const { setCurrentDatabase, setCurrentUser } = require("../constents").actions;
 const FACE_API        = process.env.FACE_API_URL || "http://31.97.70.146";
 const FACE_API_TOKEN  = process.env.FACE_API_TOKEN || "";
 const COSINE_MAX_DIST = parseFloat(process.env.COSINE_MAX_DIST || "0.38");
-const COOLDOWN_MINS   = parseInt(process.env.COOLDOWN_MINS || "2", 10);
+// Best employee must beat the next-best *other* employee by at least this much
+// cosine distance (0.05 = 5% similarity), otherwise the punch is rejected.
+const MATCH_MARGIN    = parseFloat(process.env.FACE_MATCH_MARGIN || "0.05");
+const COOLDOWN_MINS   =parseInt(process.env.COOLDOWN_MINS || "2", 10);
 const MAX_ENROLL_IMGS = parseInt(process.env.MAX_ENROLL_IMGS || "5", 10);
 const SERVER_LIVENESS = process.env.SERVER_LIVENESS === "true";
 
@@ -236,19 +239,19 @@ const BLANK_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAA
 // (cold face-API model / DB cache). Never fails the caller.
 const warmup = async (req, res) => {
   const t0 = Date.now();
-  try {
-    const config = initDb(req.body, req);
-    const pool   = await sql.connect(config);
-    await setTenantContext(pool, req);
+  // try {
+  //   const config = initDb(req.body, req);
+  //   const pool   = await sql.connect(config);
+  //   await setTenantContext(pool, req);
 
-    const [face, db] = await Promise.allSettled([
-      extractEmbedding(lastFaceImage || BLANK_JPEG_BASE64),
-      loadEmbeddings(pool, req),
-    ]);
-    console.log(`[warmup] ${Date.now() - t0}ms (face: ${face.status}${lastFaceImage ? "" : ", blank"}, db: ${db.status})`);
-  } catch (err) {
-    console.error("[warmup] Error:", err.message);
-  }
+  //   const [face, db] = await Promise.allSettled([
+  //     extractEmbedding(lastFaceImage || BLANK_JPEG_BASE64),
+  //     loadEmbeddings(pool, req),
+  //   ]);
+  //   console.log(`[warmup] ${Date.now() - t0}ms (face: ${face.status}${lastFaceImage ? "" : ", blank"}, db: ${db.status})`);
+  // } catch (err) {
+  //   console.error("[warmup] Error:", err.message);
+  // }
   return res.status(200).json({ message: "ok", data: null });
 };
 
@@ -300,24 +303,47 @@ const checkIn = async (req, res) => {
 
     const inputEmb = aiRes.embedding;
 
-    // 4. Find best match
-    let best    = null;
-    let minDist = 999;
-
+    // 4. Find best match — scored per employee, not per photo.
+    const byEmployee = new Map(); // EmployeeId → { row, dists[] }
     for (const r of rows.recordset) {
       let stored;
       try { stored = JSON.parse(r.Embedding); } catch { continue; }
 
       const dist = cosineDistance(inputEmb, stored);
-      if (dist < COSINE_MAX_DIST && dist < minDist) {
-        minDist = dist;
-        best    = r;
-      }
+      const entry = byEmployee.get(r.EmployeeId);
+      if (entry) entry.dists.push(dist);
+      else byEmployee.set(r.EmployeeId, { row: r, dists: [dist] });
     }
 
-    if (!best) {
+    // Rank by the average of each employee's 2 closest photos, so one bad
+    // enrollment photo can't pull in other people's faces.
+    const ranked = [...byEmployee.values()]
+      .map((e) => {
+        const d = e.dists.sort((a, b) => a - b);
+        const score = d.length > 1 ? (d[0] + d[1]) / 2 : d[0];
+        return { row: e.row, bestDist: d[0], score };
+      })
+      .sort((a, b) => a.score - b.score);
+
+    const pct = (dist) => `${((1 - dist) * 100).toFixed(1)}%`;
+    console.log(`[checkIn] top: ${ranked.slice(0, 3)
+      .map((c) => `${c.row.Name} (${c.row.EmployeeCode}) best ${pct(c.bestDist)} avg ${pct(c.score)}`)
+      .join(" | ") || "none"}`);
+
+    const [top, second] = ranked;
+    if (!top || top.bestDist >= COSINE_MAX_DIST) {
       return res.status(400).json({ message: "No matching employee found", data: null });
     }
+
+    // Too close to call: another employee scores almost the same, so a wrong
+    // name is likely. Ask to try again rather than guess.
+    if (second && second.score - top.score < MATCH_MARGIN) {
+      console.log(`[checkIn] rejected: ${top.row.Name} vs ${second.row.Name} within margin ${MATCH_MARGIN}`);
+      return res.status(400).json({ message: "Face match not clear. Please try again.", data: null });
+    }
+
+    const best    = top.row;
+    const minDist = top.bestDist;
 
     // First punch of the day is IN, every later one is OUT.
     // HasPunchToday comes from the embeddings query, saving a DB round trip.
