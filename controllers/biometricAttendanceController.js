@@ -364,7 +364,8 @@ const checkIn = async (req, res) => {
         employeeCode: best.EmployeeCode,
         type:       logType,
         confidence: parseFloat((1 - minDist).toFixed(4)),
-        timestamp:  new Date().toISOString(),
+        timestamp:  new Date().toISOString(), 
+        soundWithName: Number(logResult.recordset[0].SoundWithName ?? 0) === 1 ? 1 : 0,
       }
     ];
 
