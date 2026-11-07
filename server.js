@@ -1054,6 +1054,7 @@ app.post('/api/attendance/regularize', authenticateToken, regularizeAttendance);
 // Hikvision device push. Public: the device cannot send a JWT, so it is protected
 // by the long random token in the URL + device serial check in usp_Hik_IngestEvent.
 app.post('/api/hik/events/:token', hikUpload, hikReceiveEvent);
+app.post('/api/hik/events-new/:token', hikUpload, hikReceiveEvent);
 
 
  
