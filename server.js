@@ -135,7 +135,9 @@ saveFingerprintTemplate, getEmployeeFingers, deleteFinger, deleteAllFingers, get
 getAttendanceLogSummary, getAttendanceListView,  getEmployeeLogs,  getProjectMatrix, getEmployeeMatrix,
 regularizeAttendance,
   
- } = require('./controllers/biometricAttendanceController'); 
+ } = require('./controllers/biometricAttendanceController');
+
+const { receiveEvent: hikReceiveEvent } = require('./controllers/hr/hikEventsController');
 
 
  
@@ -225,6 +227,16 @@ const mazdoorUpload = multer({
     limits: {
         fileSize: 10 * 1024 * 1024,
         fieldSize: 10 * 1024 * 1024
+    }
+}).any();
+
+// Hikvision face events can include picture parts; keep in memory, ignore files.
+const hikUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 2 * 1024 * 1024,
+        files: 5,
+        fields: 20
     }
 }).any();
 
@@ -1037,7 +1049,11 @@ app.post('/api/attendance/list', authenticateToken, getAttendanceListView);
 app.post('/api/attendance/employee-logs', authenticateToken, getEmployeeLogs);
 app.post('/api/attendance/project-matrix', authenticateToken, getProjectMatrix);
 app.post('/api/attendance/employee-matrix', authenticateToken, getEmployeeMatrix);
-app.post('/api/attendance/regularize', authenticateToken, regularizeAttendance); 
+app.post('/api/attendance/regularize', authenticateToken, regularizeAttendance);
+
+// Hikvision device push. Public: the device cannot send a JWT, so it is protected
+// by the long random token in the URL + device serial check in usp_Hik_IngestEvent.
+app.post('/api/hik/events/:token', hikUpload, hikReceiveEvent);
 
 
  
