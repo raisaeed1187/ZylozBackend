@@ -138,6 +138,7 @@ regularizeAttendance,
  } = require('./controllers/biometricAttendanceController');
 
 const { receiveEvent: hikReceiveEvent } = require('./controllers/hr/hikEventsController');
+const { getMachineAttendanceSummary, getMachineAttendanceDaily, getMachineAttendancePunches, getMachineAttendanceDevices, searchMachineLinkEmployees, linkMachineEmployee } = require('./controllers/hr/hikAttendanceReportController');
 
 
  
@@ -1054,6 +1055,14 @@ app.post('/api/attendance/regularize', authenticateToken, regularizeAttendance);
 // Hikvision device push. Public: the device cannot send a JWT, so it is protected
 // by the long random token in the URL + device serial check in usp_Hik_IngestEvent.
 app.post('/api/hik/events/:token', hikUpload, hikReceiveEvent);
+
+// Machine (Hikvision) attendance report
+app.post('/api/attendance/machine/summary', authenticateToken, getMachineAttendanceSummary);
+app.post('/api/attendance/machine/daily', authenticateToken, getMachineAttendanceDaily);
+app.post('/api/attendance/machine/punches', authenticateToken, getMachineAttendancePunches);
+app.post('/api/attendance/machine/devices', authenticateToken, getMachineAttendanceDevices);
+app.post('/api/attendance/machine/employee-search', authenticateToken, searchMachineLinkEmployees);
+app.post('/api/attendance/machine/link-employee', authenticateToken, linkMachineEmployee);
 app.post('/api/hik/events-new/:token', hikUpload, hikReceiveEvent);
 
 

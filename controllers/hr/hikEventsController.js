@@ -1,5 +1,5 @@
 // Receives Hikvision HTTP Listening pushes and stores them via usp_Hik_IngestEvent.
-// SQL: Hikvision_setup/01_hik_attendance.sql, then sql/Hik_Attendance_Patch.sql
+// SQL: sql/Hik_Attendance_1_Rename.sql, then sql/Hik_Attendance_2_Setup.sql
 
 const sql = require("mssql");
 require("dotenv").config();
