@@ -74,7 +74,8 @@ async function checkLiveness(base64Image) {
 function initDb(formData, req= null) {
 
   if (formData.client) {
-    store.dispatch(setCurrentDatabase(formData.client || "allbiz"));
+    // store.dispatch(setCurrentDatabase(formData.client || "allbiz"));
+    store.dispatch(setCurrentDatabase("Allbiz"));
     store.dispatch(setCurrentUser(formData.authUser || "System"));
     return store.getState().constents.config;
     
