@@ -7,6 +7,7 @@ const { setCurrentDatabase, setCurrentUser } = require("../../constents").action
 // const { io } = require("../../socket/socketServer");
 const { getIO } = require("../../socket/socket"); 
 const { setTenantContext } = require("../../helper/db/sqlTenant");
+const { attachMobileMenus } = require("../../helper/mobileMenu");
 
 
 const roleSaveOrUpdate = async (req, res) => {
@@ -393,7 +394,8 @@ const getUserPermissions = async (req, res) => {
                         .request()
                         .input("UserID", sql.NVarChar, req.authUser.ID2)
                         .execute("GetUserModulesMenus");
-      
+    await attachMobileMenus(pool, req.authUser.ID2, result.recordset);
+
     const usersAccess = await pool
         .request()
         .input("UserID", sql.NVarChar, req.authUser.ID2)
@@ -466,6 +468,95 @@ const getRoleDetails = async (req, res) => {
   }
 };
 
+// POST role/user-mobile-menus  { UserID }
+// The menus the user has through their roles (to choose from) + the ones
+// already picked for mobile. Empty `selected` = full menu on mobile.
+const getUserMobileMenus = async (req, res) => {
+  const { UserID } = req.body;
+  if (!UserID) return res.status(400).json({ message: "UserID is required", data: null });
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+    const pool = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const modules = await pool.request()
+      .input("UserID", sql.NVarChar, UserID)
+      .execute("GetUserModulesMenus");
+
+    const selected = await pool.request()
+      .input("UserID", sql.NVarChar(65), UserID)
+      .execute("UserMobileMenu_Get");
+
+    // A menu can come back once per role: keep one row per TransactionId.
+    const seen = new Set();
+    const menus = [];
+    for (const m of modules.recordset) {
+      const key = String(m.TransactionId).toLowerCase();
+      if (!m.TransactionId || seen.has(key)) continue;
+      seen.add(key);
+      menus.push({
+        TransactionId: m.TransactionId,
+        ParentId: m.ParentId,
+        ModuleName: m.ModuleName,
+        ModuleOrder: m.ModuleOrder,
+        SubMenuParent: m.SubMenuParent || null,
+        MenuName: m.MenuName,
+        MenuOrder: m.MenuOrder,
+        MenuUrl: m.MenuUrl,
+      });
+    }
+
+    res.status(200).json({
+      message: "User mobile menus loaded successfully",
+      data: { menus, selected: selected.recordset.map((r) => r.TransactionId) },
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message, data: null });
+  }
+};
+
+// POST role/user-mobile-menus/save  { UserID, TransactionIds: [...] }
+const saveUserMobileMenus = async (req, res) => {
+  const { UserID } = req.body;
+  let { TransactionIds } = req.body;
+  if (!UserID) return res.status(400).json({ message: "UserID is required", data: null });
+  if (typeof TransactionIds === "string") {
+    try { TransactionIds = JSON.parse(TransactionIds); } catch { TransactionIds = null; }
+  }
+  if (!Array.isArray(TransactionIds)) {
+    return res.status(400).json({ message: "TransactionIds must be a list", data: null });
+  }
+
+  try {
+    store.dispatch(setCurrentDatabase(req.authUser.database));
+    store.dispatch(setCurrentUser(req.authUser));
+    const config = store.getState().constents.config;
+    const pool = await sql.connect(config);
+    await setTenantContext(pool, req);
+
+    const result = await pool.request()
+      .input("UserID", sql.NVarChar(65), UserID)
+      .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+      .input("TransactionIds", sql.NVarChar(sql.MAX), JSON.stringify(TransactionIds.map(String)))
+      .input("User", sql.NVarChar(100), req.authUser.username || req.authUser.email || null)
+      .execute("UserMobileMenu_Save");
+
+    // Open sessions reload their menus (PermissionWatcher).
+    const io = getIO();
+    if (io) io.emit("permissionsUpdated", { userId: UserID, message: "Mobile menus updated" });
+
+    res.status(200).json({
+      message: "Mobile menus saved successfully",
+      data: { selected: result.recordset.map((r) => r.TransactionId) },
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message, data: null });
+  }
+};
+
 module.exports = {
   roleSaveOrUpdate,
   assignRoleToUser,
@@ -474,4 +565,6 @@ module.exports = {
   getUsersRolesList,
   getUserPermissions,
   getRoleDetails,
+  getUserMobileMenus,
+  saveUserMobileMenus,
 };

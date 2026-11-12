@@ -11,6 +11,7 @@ const multer = require("multer");
 const { BlobServiceClient } = require("@azure/storage-blob"); 
 const constentsSlice = require("../constents");
 const { setTenantContext } = require("../helper/db/sqlTenant");
+const { attachMobileMenus } = require("../helper/mobileMenu");
 
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -93,6 +94,7 @@ const tenantModuleSubscription = async (req, res) => {
         const modules = await moduleRequest
         .input("UserID", sql.NVarChar, user.ID2)
         .execute("GetUserModulesMenus");
+        await attachMobileMenus(transaction, user.ID2, modules.recordset);
 
         const usersAccessRequest = new sql.Request(transaction); 
 

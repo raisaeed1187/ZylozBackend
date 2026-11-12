@@ -11,6 +11,7 @@ const { sendEmail } = require('../services/mailer');
 const { generateOtp } = require('../utils/generateOTP');
 const { getOtpTemplate } = require('../utils/otpEmailTemplates');
 const { setTenantContext } = require("../helper/db/sqlTenant");
+const { attachMobileMenus } = require("../helper/mobileMenu");
 const { getUserCreationTemplate } = require("../utils/userCreationEmailTempate");
 const {helper} = require('../helper.js');
 
@@ -498,6 +499,7 @@ const signIn = async (req,res)=>{
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
                     .execute("GetUserModulesMenus");
+                    await attachMobileMenus(pool, user.ID2, modules.recordset);
                     // console.log(modules);
                     const usersAccess = await pool
                     .request()
@@ -701,6 +703,7 @@ const tenantSignIn = async (req,res)=>{
                     .request()
                     .input("UserID", sql.NVarChar, user.ID2)
                     .execute("GetUserModulesMenus");
+                    await attachMobileMenus(pool, user.ID2, modules.recordset);
 
                     const usersAccess = await pool
                     .request()
@@ -1107,6 +1110,7 @@ const googleAuth = async (req, res) => {
     .request()
     .input("UserID", sql.NVarChar, user.ID2)
     .execute("GetUserModulesMenus");
+    await attachMobileMenus(pool, user.ID2, modules.recordset);
     // console.log(modules);
     const usersAccess = await pool
     .request()

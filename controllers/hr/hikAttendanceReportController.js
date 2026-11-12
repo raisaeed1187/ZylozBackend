@@ -55,7 +55,7 @@ const getMachineAttendanceDaily = async (req, res) => {
   try {
     const pool = await connectUserDb(req);
     const f = parseFilters(req.body);
-    const status = ["Present", "MissPunch"].includes(req.body.status) ? req.body.status : null;
+    const status = ["Present", "MissPunch", "Absent"].includes(req.body.status) ? req.body.status : null;
 
     const result = await pool.request()
       .input("TenantId",   sql.NVarChar(65),  req.authUser.tenantId)
@@ -92,6 +92,8 @@ const getMachineAttendancePunches = async (req, res) => {
       .input("VerifyMinor", sql.Int,           verifyMinor)
       .input("PageNumber",  sql.Int,           f.pageNumber)
       .input("PageSize",    sql.Int,           f.pageSize)
+      // popup: one person's punches (machine + app); PersonKey from the Daily row
+      .input("PersonKey",   sql.NVarChar(100), String(req.body.personKey || "").trim() || null)
       .execute("usp_HikAtt_GetPunches");
 
     const rows = result.recordset;

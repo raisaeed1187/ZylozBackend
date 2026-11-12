@@ -89,7 +89,7 @@ const {paymentSaveUpdate,getPaymentsList,getPaymentDetails,getCustomerPayment} =
 
 const {transactionAccessSaveOrUpdate,getTransectionAccessDetails,getTransectionAccesssList,getAllTransectionAccessWithPermissions} = require('./controllers/UserRole/transectionAccessSetupController'); 
 
-const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions} = require('./controllers/UserRole/roleController'); 
+const {roleSaveOrUpdate,assignRoleToUser,setUserModuleMenuConfig,getRoleDetails,getRolesList,getUsersRolesList,getUserPermissions,getUserMobileMenus,saveUserMobileMenus} = require('./controllers/UserRole/roleController');
 
 const {getProfitAndLossDashboard,getAgingDashboard, getEmployeesByJoiningDate, getPurchaseContractByMonth, getPurchaseOrderByMonth, getPayrollByMonth} = require('./controllers/dashboardController'); 
 
@@ -868,6 +868,8 @@ app.post('/api/role',authenticateToken,express.json(),getRoleDetails );
 app.post('/api/roles',authenticateToken,express.json(),getRolesList );
 app.post('/api/role/users-roles',authenticateToken,express.json(),getUsersRolesList );
 app.post('/api/role/users-permissions',authenticateToken,express.json(),getUserPermissions );
+app.post('/api/role/user-mobile-menus',authenticateToken,express.json(),getUserMobileMenus );
+app.post('/api/role/user-mobile-menus/save',authenticateToken,express.json(),saveUserMobileMenus );
 
 
 app.post('/api/license/save-update',authenticateToken,express.json(),documentUpload,licenseSaveUpdate );

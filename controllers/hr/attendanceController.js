@@ -352,7 +352,7 @@ const getEmployeeProjectWiseReport = async (req, res) => {
         let query = '';
             await setTenantContext(pool,req);
 
-         if (projectId) {
+         if (projectId) { 
             query = `
             exec GetAttendanceProjectWiseSummary_Details  
                 '${date}', 
