@@ -1194,7 +1194,8 @@ const regularizeAttendance = async (req, res) => {
       .input('OutTime',     sql.VarChar(8),    outTime + ':00')
       .input('Reason',      sql.NVarChar(255), reason)
       .input('Remarks',     sql.NVarChar(500), remarks)
-      .input('RequestedBy', sql.NVarChar(65),  req?.authUser?.userId || null)
+      // usp_Attendance_RegularizeLog now saves into AttendanceRegularization (Attendance Timesheet)
+      .input('RequestedBy', sql.NVarChar(65),  req?.authUser?.username || req?.authUser?.userId || null)
       .execute('usp_Attendance_RegularizeLog');
  
     const row = result.recordset[0];

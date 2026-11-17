@@ -139,6 +139,7 @@ regularizeAttendance,
 
 const { receiveEvent: hikReceiveEvent } = require('./controllers/hr/hikEventsController');
 const { getMachineAttendanceSummary, getMachineAttendanceDaily, getMachineAttendancePunches, getMachineAttendanceDevices, searchMachineLinkEmployees, linkMachineEmployee } = require('./controllers/hr/hikAttendanceReportController');
+const { getTimesheet, saveRegularization, getRegularizationHistory, submitTimesheet, getTimesheetBatches, getTimesheetBatchLines, timesheetBatchAction, timesheetBatchApply } = require('./controllers/hr/attendanceTimesheetController');
 
 
  
@@ -1065,6 +1066,16 @@ app.post('/api/attendance/machine/punches', authenticateToken, getMachineAttenda
 app.post('/api/attendance/machine/devices', authenticateToken, getMachineAttendanceDevices);
 app.post('/api/attendance/machine/employee-search', authenticateToken, searchMachineLinkEmployees);
 app.post('/api/attendance/machine/link-employee', authenticateToken, linkMachineEmployee);
+
+// Attendance Timesheet (manual + app + machine, regularize, apply to payroll with approval)
+app.post('/api/attendance/timesheet', authenticateToken, express.json(), getTimesheet);
+app.post('/api/attendance/timesheet/regularize', authenticateToken, express.json(), saveRegularization);
+app.post('/api/attendance/timesheet/regularization-history', authenticateToken, express.json(), getRegularizationHistory);
+app.post('/api/attendance/timesheet/submit', authenticateToken, express.json({ limit: '5mb' }), submitTimesheet);
+app.post('/api/attendance/timesheet/batches', authenticateToken, express.json(), getTimesheetBatches);
+app.post('/api/attendance/timesheet/batch-lines', authenticateToken, express.json(), getTimesheetBatchLines);
+app.post('/api/attendance/timesheet/batch-action', authenticateToken, express.json(), timesheetBatchAction);
+app.post('/api/attendance/timesheet/batch-apply', authenticateToken, express.json(), timesheetBatchApply);
 app.post('/api/hik/events-new/:token', hikUpload, hikReceiveEvent);
 
 
