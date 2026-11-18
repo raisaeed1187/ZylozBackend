@@ -132,6 +132,17 @@ const saveRegularization = async (req, res) => {
   try {
     const b = req.body;
     if (!b.employeeID2 || !DATE_RE.test(b.date || "")) return res.status(400).json({ message: "Employee and date are required." });
+    // overtime set by hand: hours (2.5) or H:MM (2:30); empty = calculated from In / Out
+    let overtime = null;
+    if (b.overtime !== undefined && b.overtime !== null && String(b.overtime).trim() !== "") {
+      const v = String(b.overtime).trim();
+      const m = v.match(/^(\d{1,2}):(\d{2})$/);
+      overtime = m ? Number(m[1]) + Number(m[2]) / 60 : Number(v);
+      if (!Number.isFinite(overtime) || overtime < 0 || overtime > 24) {
+        return res.status(400).json({ message: "Overtime must be hours between 0 and 24 (e.g. 2, 2.5 or 2:30)." });
+      }
+      overtime = Math.round(overtime * 100) / 100;
+    }
     const pool = await connectUserDb(req);
     const result = await pool.request()
       .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
@@ -147,6 +158,7 @@ const saveRegularization = async (req, res) => {
       .input("Remarks", sql.NVarChar(500), b.remarks || null)
       .input("User", sql.NVarChar(100), req.authUser.username)
       .input("Remove", sql.Bit, b.remove ? 1 : 0)
+      .input("OvertimeHours", sql.Decimal(5, 2), overtime)
       .execute("usp_Timesheet_SaveRegularization");
     const row = result.recordset[0];
     if (!row?.Success) return res.status(400).json({ message: row?.Message || "Regularization failed." });
@@ -165,7 +177,7 @@ const getRegularizationHistory = async (req, res) => {
       .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
       .input("Emp", sql.NVarChar(65), employeeID2)
       .input("Date", sql.Date, date)
-      .query(`SELECT Action, InTime, OutTime, DayStatus, AttendanceStatus, ProjectId, LocationId, Reason, Remarks, ActionBy,
+      .query(`SELECT Action, InTime, OutTime, DayStatus, AttendanceStatus, ProjectId, LocationId, OvertimeHours, Reason, Remarks, ActionBy,
                      ActionAt = CONVERT(VARCHAR(16), ActionAt, 120)
               FROM dbo.AttendanceRegularizationLog
               WHERE TenantId = @TenantId AND EmployeeID2 = @Emp AND AttDate = @Date

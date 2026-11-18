@@ -55,6 +55,19 @@ function hhmm(v) {
 const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const fmtMin = (mins) => `${pad(Math.floor(mins / 60))}:${pad(Math.round(mins % 60))}`;
 
+// Automatic overtime of a day from In / Out: worked = out - in - break;
+// Normal Day: worked - working hours; Holiday / Weekly Off: all worked hours;
+// rounded down to 0.5 h; 0 when the employee is not OT-applicable. null = no valid times.
+function autoOvertime(inT, outT, breakH, baseDay, otApplicable, workingHours) {
+  if (!inT || !outT || toMin(outT) <= toMin(inT)) return null;
+  if (!otApplicable) return 0;
+  const span = toMin(outT) - toMin(inT);
+  const breakMin = Math.round((breakH || 0) * 60);
+  const worked = span > breakMin ? span - breakMin : span;
+  const ot = baseDay === "Normal Day" ? Math.max(0, worked / 60 - workingHours) : worked / 60;
+  return Math.floor(ot * 2) / 2;
+}
+
 function dubaiNow() {
   const d = new Date(Date.now() + 4 * 3600 * 1000);
   return { date: d.toISOString().slice(0, 10), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
@@ -238,6 +251,7 @@ function buildDay(ctx, emp, date, now) {
       inTime: regRow.InTime ? hhmm(regRow.InTime) : "", outTime: regRow.OutTime ? hhmm(regRow.OutTime) : "",
       dayStatus: regRow.DayStatus || "", attendanceStatus: regRow.AttendanceStatus || "",
       projectId: regRow.ProjectId || "", locationId: regRow.LocationId || "",
+      overtime: regRow.OvertimeHours == null ? "" : num(regRow.OvertimeHours),
       reason: regRow.Reason || "", remarks: regRow.Remarks || "", changedBy: regRow.ChangedBy || "", changedAt: regRow.ChangedAt || "",
       isPending: !!reg,
     } : null,
@@ -284,6 +298,9 @@ function buildDay(ctx, emp, date, now) {
     row.normalOT = num(saved.normalOT) || 0;
     row.holidayOT = num(saved.holidayOT) || 0;
     row.weeklyOT = num(saved.weeklyOT) || 0;
+    row.autoOT = autoOvertime(row.punchIn, row.punchOut,
+      num(ctx.masters.get(String(id))?.breakTime) ?? num(saved.breakTime) ?? 0,
+      baseDayOf(saved.dayStatus), truthy(sa?.isOTapplicable), ctx.workingHours);
     row.projectID = str(saved.projectId ?? saved.projectID); row.projectName = str(saved.projectName); row.locationId = str(saved.locationId);
     fillProjectNames();
     if (payrollLocked || dateLocked) {
@@ -352,6 +369,7 @@ function buildDay(ctx, emp, date, now) {
       row.workedMinutes = worked;
       punchIn = inT; punchOut = outT; breakTime = String(span > breakMin ? breakH : 0); total = fmtMin(worked);
       attendanceStatus = "Present";
+      row.autoOT = autoOvertime(inT, outT, breakH, baseDay, truthy(sa?.isOTapplicable), wh);
       if (keepSaved) {
         dayStatus = str(saved.dayStatus) || dayStatus;
         normalOT = num(saved.normalOT) || 0; holidayOT = num(saved.holidayOT) || 0; weeklyOT = num(saved.weeklyOT) || 0;
@@ -359,8 +377,18 @@ function buildDay(ctx, emp, date, now) {
         total = str(saved.totalWorkingHours) || total;
       } else {
         const otApplicable = truthy(sa?.isOTapplicable);
-        let ot = baseDay === "Normal Day" ? Math.max(0, worked / 60 - wh) : worked / 60;
-        ot = otApplicable ? Math.floor(ot * 2) / 2 : 0;
+        // overtime set by hand in the regularization wins over the calculated one
+        const otOverride = reg && reg.OvertimeHours != null ? num(reg.OvertimeHours) : null;
+        const autoOt = row.autoOT ?? 0; // what In / Out give, shown in the regularize popup
+        let ot;
+        if (otOverride !== null) {
+          ot = otOverride;
+          if (ot > 0 && !otApplicable) blockers.push("Overtime is not applicable for this employee - set overtime to 0");
+          if (ot > worked / 60) row.issues.push(`Overtime ${ot} h is more than the ${fmtMin(worked)} worked`);
+        } else {
+          ot = autoOt;
+        }
+        row.otSetByHand = otOverride !== null;
         if (!reg?.DayStatus) dayStatus = ot > 0 && baseDay === "Holiday" ? "Holiday OT" : ot > 0 && baseDay === "Weekly Off" ? "Weekly Off OT" : baseDay;
         if (dayStatus === "Normal Day") normalOT = ot;
         else if (dayStatus === "Holiday OT") holidayOT = ot;
