@@ -415,6 +415,7 @@ const signIn = async (req,res)=>{
                     .input("email", sql.NVarChar, email)
                     .execute("User_login");
 
+            // console.log(result);        
             // return result;
                 if (result.recordset.length === 0) {
                     // return res.status(401).json({ message: "Invalid email" });

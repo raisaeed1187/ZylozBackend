@@ -140,6 +140,7 @@ regularizeAttendance,
 const { receiveEvent: hikReceiveEvent } = require('./controllers/hr/hikEventsController');
 const { getMachineAttendanceSummary, getMachineAttendanceDaily, getMachineAttendancePunches, getMachineAttendanceDevices, searchMachineLinkEmployees, linkMachineEmployee } = require('./controllers/hr/hikAttendanceReportController');
 const { getTimesheet, saveRegularization, getRegularizationHistory, submitTimesheet, getTimesheetBatches, getTimesheetBatchLines, timesheetBatchAction, timesheetBatchApply } = require('./controllers/hr/attendanceTimesheetController');
+const { getPendingApprovals, approvalAction } = require('./controllers/approvalInboxController');
 
 
  
@@ -1076,6 +1077,10 @@ app.post('/api/attendance/timesheet/batches', authenticateToken, express.json(),
 app.post('/api/attendance/timesheet/batch-lines', authenticateToken, express.json(), getTimesheetBatchLines);
 app.post('/api/attendance/timesheet/batch-action', authenticateToken, express.json(), timesheetBatchAction);
 app.post('/api/attendance/timesheet/batch-apply', authenticateToken, express.json(), timesheetBatchApply);
+
+// Dashboard > Pending Approvals (all types, all organizations of the user)
+app.post('/api/approvals/pending', authenticateToken, express.json(), getPendingApprovals);
+app.post('/api/approvals/action', authenticateToken, express.json(), approvalAction);
 app.post('/api/hik/events-new/:token', hikUpload, hikReceiveEvent);
 
 

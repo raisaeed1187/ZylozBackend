@@ -124,6 +124,17 @@ function matchesApplied(row, applied) {
     && t(row.punchOut) === t(applied.PunchOut);
 }
 
+// StaffAttendance_Get.isLocked went by the CALENDAR month (until Frontend/sql/StaffAttendance_Get_CutoffLock.sql
+// is run on the database; after that this check changes nothing). With a payroll cutoff a date can belong
+// to the next payroll month (cutoff 25: 26-31 Oct -> November), and then the lock of its calendar
+// month does not apply to it. The payroll lock of its own payroll month (IsPayrollLocked,
+// cutoff-aware) is always checked as well.
+function attendanceDateLocked(sa, date, payMonth) {
+  if (!sa?.isLocked) return false;
+  const month = ymd(payMonth).slice(0, 7);
+  return !month || month === date.slice(0, 7);
+}
+
 const projectLabel = (p) => (p ? `${str(p["Contract/Project Code"])} - ${str(p["Contract/Project Name"])}` : "");
 
 /**
@@ -280,7 +291,7 @@ function buildDay(ctx, emp, date, now) {
   };
 
   const payrollLocked = truthy(day.IsPayrollLocked) || ctx.empLocks.has(ctx.key(id, day.PayMonth));
-  const dateLocked = !!sa?.isLocked;
+  const dateLocked = attendanceDateLocked(sa, date, day.PayMonth);
 
   /* ---------- confirmed and not being changed: show as saved ---------- */
   if (confirmed && !reg && !pending) {
@@ -341,7 +352,7 @@ function buildDay(ctx, emp, date, now) {
     if (regIn && !regOut && pd.FirstIn > regIn) outT = pd.FirstIn;
     if (regOut && !regIn) inT = pd.FirstIn < regOut ? pd.FirstIn : "";
   }
-
+ 
   const regStatus = reg?.AttendanceStatus || "";
   let status;
   if (regStatus === "Absent" || regStatus === "Half Day") status = regStatus;
@@ -375,7 +386,7 @@ function buildDay(ctx, emp, date, now) {
         normalOT = num(saved.normalOT) || 0; holidayOT = num(saved.holidayOT) || 0; weeklyOT = num(saved.weeklyOT) || 0;
         breakTime = str(saved.breakTime) || breakTime;
         total = str(saved.totalWorkingHours) || total;
-      } else {
+      } else { 
         const otApplicable = truthy(sa?.isOTapplicable);
         // overtime set by hand in the regularization wins over the calculated one
         const otOverride = reg && reg.OvertimeHours != null ? num(reg.OvertimeHours) : null;
@@ -394,7 +405,7 @@ function buildDay(ctx, emp, date, now) {
         else if (dayStatus === "Holiday OT") holidayOT = ot;
         else if (dayStatus === "Weekly Off OT") weeklyOT = ot;
       }
-    }
+    } 
     if (leave) row.issues.push(`Worked on a leave day (leave ${leave.LeaveCode || ""})`);
   } else if (status === "Absent" || status === "Half Day") {
     if (baseDay !== "Normal Day") blockers.push("Absent / Half Day only on a Normal Day - regularize the day status");
@@ -536,4 +547,4 @@ function buildTimesheet(input) {
   return { rows, summary, unlinked: ctx.unlinked };
 }
 
-module.exports = { buildTimesheet, datesBetween, hhmm, norm, truthy, matchesApplied, savedId, savedStamp, savedRowsByKey, EDITABLE_STATUSES };
+module.exports = { buildTimesheet, datesBetween, hhmm, norm, truthy, matchesApplied, attendanceDateLocked, savedId, savedStamp, savedRowsByKey, EDITABLE_STATUSES };

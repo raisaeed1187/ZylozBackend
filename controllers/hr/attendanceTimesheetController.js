@@ -10,7 +10,7 @@
 const sql = require("mssql");
 const store = require("../../store");
 const { setCurrentDatabase, setCurrentUser } = require("../../constents").actions;
-const { buildTimesheet, norm, savedId, savedStamp, savedRowsByKey, EDITABLE_STATUSES } = require("../../helper/attendanceTimesheet");
+const { buildTimesheet, attendanceDateLocked, norm, savedId, savedStamp, savedRowsByKey, EDITABLE_STATUSES } = require("../../helper/attendanceTimesheet");
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_FETCH_CONCURRENCY = 4;
@@ -309,7 +309,7 @@ async function applyBatch(pool, req, batchId) {
     const record = JSON.parse(line.RecordJson);
     let skip = null;
     if (!sa) skip = "Employee is not in the attendance list of this date";
-    else if (sa.isLocked) skip = "Attendance of this date is locked";
+    else if (attendanceDateLocked(sa, date, line.PayMonth)) skip = "Attendance of this date is locked";
     else if (!EDITABLE_STATUSES.includes(norm(sa.employeeStatus))) skip = `Employee status is "${sa.employeeStatus || "-"}"`;
     else if (line.IsPayrollLocked) skip = "Payroll of this month is locked";
     // the saved day must be the one the approver saw (not changed on the manual screen since)
@@ -390,6 +390,27 @@ async function applyBatch(pool, req, batchId) {
   return { ...counts, batch: finish.recordset[0], payrollWarning };
 }
 
+// Approve / Reject one level; at the final approval the days are applied.
+// Shared by the timesheet screen and the dashboard approvals (approvalInboxController).
+async function processTimesheetBatchAction(pool, req, { batchId, action, remarks }) {
+  const result = await pool.request()
+    .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
+    .input("BatchId", sql.NVarChar(65), batchId)
+    .input("Action", sql.NVarChar(20), action)
+    .input("UserName", sql.NVarChar(100), req.authUser.username)
+    .input("Remarks", sql.NVarChar(500), remarks || null)
+    .execute("usp_Timesheet_ProcessBatch");
+  const r = result.recordset[0];
+
+  if (r.StatusId !== 2) return { message: r.Message, data: { statusId: r.StatusId } };
+
+  const applied = await applyBatch(pool, req, batchId);
+  return {
+    message: `Approved. ${applied.applied} applied, ${applied.skipped} skipped, ${applied.failed} failed.`,
+    data: { statusId: applied.batch?.StatusId, ...applied },
+  };
+}
+
 // POST /api/attendance/timesheet/batch-action { batchId, action: 'Approve' | 'Reject', remarks }
 const timesheetBatchAction = async (req, res) => {
   try {
@@ -398,22 +419,7 @@ const timesheetBatchAction = async (req, res) => {
     if (action === "Reject" && !String(remarks || "").trim()) return res.status(400).json({ message: "Enter a reason for rejecting." });
 
     const pool = await connectUserDb(req);
-    const result = await pool.request()
-      .input("TenantId", sql.NVarChar(65), req.authUser.tenantId)
-      .input("BatchId", sql.NVarChar(65), batchId)
-      .input("Action", sql.NVarChar(20), action)
-      .input("UserName", sql.NVarChar(100), req.authUser.username)
-      .input("Remarks", sql.NVarChar(500), remarks || null)
-      .execute("usp_Timesheet_ProcessBatch");
-    const r = result.recordset[0];
-
-    if (r.StatusId !== 2) return res.status(200).json({ message: r.Message, data: { statusId: r.StatusId } });
-
-    const applied = await applyBatch(pool, req, batchId);
-    res.status(200).json({
-      message: `Approved. ${applied.applied} applied, ${applied.skipped} skipped, ${applied.failed} failed.`,
-      data: { statusId: applied.batch?.StatusId, ...applied },
-    });
+    res.status(200).json(await processTimesheetBatchAction(pool, req, { batchId, action, remarks }));
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -442,4 +448,5 @@ module.exports = {
   getTimesheetBatchLines,
   timesheetBatchAction,
   timesheetBatchApply,
+  processTimesheetBatchAction,
 };
